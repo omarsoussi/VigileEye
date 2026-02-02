@@ -1,0 +1,168 @@
+================================================================================
+                    VIGILEYE — PRODUCT BACKLOG SUMMARY
+================================================================================
+
+Project: VigileEye Security Camera Management System
+Architecture: Microservices (Clean Architecture)
+Total Sprints: 4 | Sprint Duration: 2 weeks each
+
+================================================================================
+                           PRODUCT BACKLOG OVERVIEW
+================================================================================
+
+SPRINT 1: CAMERA MANAGEMENT BACKEND
+    Build the core Camera Management microservice for managing camera lifecycle,
+    configuration, status monitoring, health tracking, and basic access control.
+
+SPRINT 2: AUTHENTICATION BACKEND
+    Develop secure user authentication with 2FA, email verification, password
+    reset, Google OAuth integration, and JWT token management.
+
+SPRINT 3: MEMBERS INVITATION BACKEND
+    Build camera sharing system with email-based invitations, approval codes,
+    permission levels (READER/EDITOR), and membership access control.
+
+SPRINT 4: VIDEO STREAMING BACKEND
+    Build real-time video streaming with WebSocket delivery, FFmpeg processing,
+    multi-protocol support (HLS/RTSP/YouTube), and frame broadcasting.
+
+================================================================================
+                    SPRINT 1: CAMERA MANAGEMENT BACKEND
+================================================================================
+
+SPRINT GOAL:
+Implement complete camera CRUD operations with location tracking, health
+monitoring, and access control foundation. Establishes the foundational backend
+for video surveillance using Clean Architecture with domain-driven design.
+
+--------------------------------------------------------------------------------
+                           SPRINT 1 BACKLOG TABLE
+--------------------------------------------------------------------------------
+
+| # | Title                                    | Type    | Description                                                                      | Priority    |
+|---|------------------------------------------|---------|----------------------------------------------------------------------------------|-------------|
+| 1.1 | Project Setup & Database Schema        | Task    | Initialize microservice with Clean Architecture, configure PostgreSQL, setup Alembic migrations. | Highest |
+| 1.2 | Domain: Camera Entity & Value Objects  | Feature | Implement Camera entity with business logic, enums (CameraStatus, CameraType), CameraLocation value object. | Highest |
+| 1.3 | Domain: CameraAccess & CameraHealth    | Feature | Implement access control entity for sharing and health monitoring entity for performance metrics. | High |
+| 1.4 | Domain: Repository Interfaces          | Task    | Define abstract repository interfaces for Camera, CameraAccess, CameraHealth persistence. | Highest |
+| 1.5 | Infrastructure: SQLAlchemy Models      | Task    | Create ORM models for database persistence and mapper classes for entity conversion. | Highest |
+| 1.6 | Infrastructure: Repository Impl        | Task    | Implement concrete repository classes using SQLAlchemy for database operations. | Highest |
+| 1.7 | Application: Use Cases                 | Feature | Implement camera management use cases: Create, List, Get, Update, Delete, Toggle, RecordHealth. | Highest |
+| 1.8 | Application: DTOs                      | Task    | Define Pydantic models for API request validation and response serialization. | High |
+| 1.9 | API: FastAPI Routes                    | Feature | Create RESTful endpoints for camera operations with JWT auth and error handling. | Highest |
+| 1.10| API: JWT Authentication Dependencies   | Task    | Implement JWT validation dependencies to extract and verify access tokens. | Highest |
+| 1.11| Database Migrations                    | Task    | Create Alembic migration scripts for cameras, camera_access, camera_health tables. | Highest |
+| 1.12| Unit Tests: Domain Layer               | Task    | Write comprehensive unit tests for domain entities, value objects, business logic. | High |
+| 1.13| Integration Tests: API Endpoints       | Task    | Write integration tests for all API endpoints using TestClient with test database. | High |
+| 1.14| Frontend: Camera Management Pages      | Feature | Build React components for camera CRUD with TypeScript, responsive design, API integration. | High |
+| 1.15| Documentation & Deployment Prep        | Task    | Write API documentation, README, environment variables, database setup instructions. | Medium |
+
+================================================================================
+                      SPRINT 2: AUTHENTICATION BACKEND
+================================================================================
+
+SPRINT GOAL:
+Build secure user authentication system with 2FA login, email verification,
+password reset flow, Google OAuth integration, and JWT-based session management
+with account lockout mechanisms.
+
+--------------------------------------------------------------------------------
+                           SPRINT 2 BACKLOG TABLE
+--------------------------------------------------------------------------------
+
+| # | Title                                    | Type    | Description                                                                      | Priority    |
+|---|------------------------------------------|---------|----------------------------------------------------------------------------------|-------------|
+| 2.1 | Project Setup & Database Schema        | Task    | Initialize Auth microservice with Clean Architecture, configure database and dependencies. | Highest |
+| 2.2 | Domain: User Entity                    | Feature | Implement User entity with business logic for account management, login attempts, lockout. | Highest |
+| 2.3 | Domain: OTP Entity                     | Feature | Create OTP entity for email verification, 2FA login, password reset with expiry logic. | Highest |
+| 2.4 | Domain: Value Objects                  | Task    | Create immutable Email and Password value objects with validation logic. | High |
+| 2.5 | Domain: Repository Interfaces          | Task    | Define abstract repository interfaces for User and OTP persistence. | Highest |
+| 2.6 | Infrastructure: SQLAlchemy Models      | Task    | Create ORM models for users and otps tables with constraints and relationships. | Highest |
+| 2.7 | Infrastructure: Repository Impl        | Task    | Implement concrete repositories with SQLAlchemy for database operations. | Highest |
+| 2.8 | Infrastructure: Security Utilities     | Feature | Implement password hashing (bcrypt), JWT token handling, OTP generation utilities. | Highest |
+| 2.9 | Infrastructure: Email Service          | Feature | Implement SMTP email sender for OTP delivery with HTML templates. | High |
+| 2.10| Infrastructure: Google OAuth Client    | Feature | Integrate Google OAuth for social login using Authlib library. | Medium |
+| 2.11| Application: Registration & Verify     | Feature | Implement user registration and email verification use cases with OTP. | Highest |
+| 2.12| Application: Login & 2FA               | Feature | Implement two-step login with credential validation and OTP confirmation. | Highest |
+| 2.13| Application: Password Reset            | Feature | Implement forgot password and reset password flows with OTP validation. | High |
+| 2.14| Application: OAuth & Token Refresh     | Feature | Implement Google OAuth authentication and refresh token use cases. | Medium |
+| 2.15| Application: Auth Service & DTOs       | Task    | Create facade service orchestrating use cases and define request/response DTOs. | High |
+| 2.16| API: Authentication Routes             | Feature | Create REST API endpoints for all authentication flows with proper status codes. | Highest |
+| 2.17| API: Protected Route Dependencies      | Task    | Create reusable dependencies for protecting routes with JWT authentication. | High |
+| 2.18| Database Migrations                    | Task    | Create Alembic migrations for users and otps tables with constraints. | Highest |
+| 2.19| Unit Tests: Domain & Security          | Task    | Write unit tests for domain entities, value objects, and security utilities. | High |
+| 2.20| Integration Tests: Auth API            | Task    | Write end-to-end integration tests for all authentication flows. | High |
+| 2.21| Frontend: Authentication Pages         | Feature | Build React auth UI: Register, Login, OTP, Password Reset, OAuth, AuthContext. | High |
+| 2.22| Documentation                          | Task    | Document authentication flows, API endpoints, security considerations. | Medium |
+
+================================================================================
+                   SPRINT 3: MEMBERS INVITATION BACKEND
+================================================================================
+
+SPRINT GOAL:
+Develop camera sharing system enabling owners to share access through secure
+email invitations with approval codes, permission levels (READER/EDITOR),
+and membership tracking after acceptance.
+
+--------------------------------------------------------------------------------
+                           SPRINT 3 BACKLOG TABLE
+--------------------------------------------------------------------------------
+
+| # | Title                                    | Type    | Description                                                                      | Priority    |
+|---|------------------------------------------|---------|----------------------------------------------------------------------------------|-------------|
+| 3.1 | Project Setup & Database Schema        | Task    | Initialize Members Invitation microservice with Clean Architecture and database. | Highest |
+| 3.2 | Domain: Invitation Entity              | Feature | Implement Invitation entity with status tracking, permission levels, expiry logic. | Highest |
+| 3.3 | Domain: Membership Entity              | Feature | Create Membership entity representing granted camera access after invitation acceptance. | Highest |
+| 3.4 | Domain: Repository Interfaces          | Task    | Define abstract repository interfaces for invitations and memberships. | Highest |
+| 3.5 | Infrastructure: SQLAlchemy Models      | Task    | Create ORM models for invitations, memberships, and junction tables. | Highest |
+| 3.6 | Infrastructure: Repository Impl        | Task    | Implement concrete repositories with SQLAlchemy for database operations. | Highest |
+| 3.7 | Infrastructure: Security & Email       | Task    | Implement approval code generation, hashing, and email sending for invitations. | High |
+| 3.8 | Application: Invitation Management     | Feature | Implement use cases for creating, listing, and resending invitations. | Highest |
+| 3.9 | Application: Invitation Actions        | Feature | Implement accept and decline invitation use cases with code validation. | Highest |
+| 3.10| Application: DTOs                      | Task    | Define Pydantic models for invitation requests and responses. | High |
+| 3.11| API: Invitation Routes                 | Feature | Create REST API endpoints for invitation management with JWT auth. | Highest |
+| 3.12| Database Migrations                    | Task    | Create Alembic migrations for invitation and membership tables. | Highest |
+| 3.13| Unit Tests: Domain Layer               | Task    | Write unit tests for invitation and membership entities. | High |
+| 3.14| Integration Tests: Invitation API      | Task    | Write integration tests for complete invitation flows. | High |
+| 3.15| Frontend: Members & Invitation Pages   | Feature | Build React UI for sending invitations, viewing memberships, accept/decline. | High |
+| 3.16| Documentation                          | Task    | Document invitation system, API endpoints, and workflows. | Medium |
+
+================================================================================
+                    SPRINT 4: VIDEO STREAMING BACKEND
+================================================================================
+
+SPRINT GOAL:
+Develop real-time video streaming microservice providing video delivery from
+various camera sources with FFmpeg processing, WebSocket frame broadcasting,
+and multi-protocol support (RTSP, HLS, YouTube, RTMP, HTTP).
+
+--------------------------------------------------------------------------------
+                           SPRINT 4 BACKLOG TABLE
+--------------------------------------------------------------------------------
+
+| # | Title                                    | Type    | Description                                                                      | Priority    |
+|---|------------------------------------------|---------|----------------------------------------------------------------------------------|-------------|
+| 4.1 | Project Setup & Database Schema        | Task    | Initialize Video Streaming microservice with video processing and WebSocket dependencies. | Highest |
+| 4.2 | Domain: Stream Entity                  | Feature | Implement Stream entity with connection state, protocol type, health metrics. | Highest |
+| 4.3 | Domain: Session Entity                 | Feature | Create Session entity for tracking active viewer connections and subscriptions. | Highest |
+| 4.4 | Domain: Repository Interfaces          | Task    | Define abstract repository interfaces for streams and sessions. | Highest |
+| 4.5 | Infrastructure: Stream Readers         | Feature | Implement FFmpeg and OpenCV stream readers for multi-protocol support. | Highest |
+| 4.6 | Infrastructure: Protocol Detection     | Feature | Implement automatic stream type detection (RTSP, HLS, YouTube, RTMP, HTTP). | Highest |
+| 4.7 | Infrastructure: YouTube/Streamlink     | Feature | Integrate yt-dlp and streamlink for YouTube and streaming platform URLs. | High |
+| 4.8 | Infrastructure: Frame Processing       | Feature | Implement frame capture, encoding (JPEG), and buffering with OpenCV/NumPy. | Highest |
+| 4.9 | Application: Stream Manager            | Feature | Implement stream lifecycle management: start, stop, reconnect, health check. | Highest |
+| 4.10| Application: Session Manager           | Feature | Implement viewer session tracking and subscription management. | Highest |
+| 4.11| Application: Broadcasting Service      | Feature | Implement frame broadcasting to all subscribed WebSocket clients. | Highest |
+| 4.12| API: WebSocket Endpoints               | Feature | Create WebSocket endpoints for live video streaming with authentication. | Highest |
+| 4.13| API: REST Stream Control               | Feature | Create REST endpoints for stream start/stop/status control. | High |
+| 4.14| Infrastructure: Reconnection Logic     | Feature | Implement automatic reconnection with exponential backoff on stream failure. | High |
+| 4.15| Infrastructure: Health Monitoring      | Feature | Implement stream health monitoring with latency, frame rate, error tracking. | High |
+| 4.16| Database Migrations                    | Task    | Create Alembic migrations for stream and session tables. | Highest |
+| 4.17| Unit Tests: Domain & Services          | Task    | Write unit tests for stream entities and service logic. | High |
+| 4.18| Integration Tests: Streaming API       | Task    | Write integration tests for WebSocket streaming and REST controls. | High |
+| 4.19| Frontend: Live Video Player            | Feature | Build React video player component with WebSocket connection and controls. | High |
+| 4.20| Documentation                          | Task    | Document streaming protocols, WebSocket API, and player integration. | Medium |
+
+================================================================================
+                              END OF DOCUMENT
+================================================================================
