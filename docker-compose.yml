@@ -1,0 +1,47 @@
+services:
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    env_file:
+      - ./Backend/.env
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  cameramanagement:
+    build:
+      context: ./CameraManagementBackend
+      dockerfile: Dockerfile
+    env_file:
+      - ./CameraManagementBackend/.env
+    ports:
+      - "8002:8002"
+    restart: unless-stopped
+
+  membersinvitation:
+    build:
+      context: ./MembersInvitationBackend
+      dockerfile: Dockerfile
+    env_file:
+      - ./MembersInvitationBackend/.env
+    ports:
+      - "8001:8001"
+    restart: unless-stopped
+
+  videostreaming:
+    build:
+      context: ./VideoStreamingBackend
+      dockerfile: Dockerfile
+    env_file:
+      - ./VideoStreamingBackend/.env
+    ports:
+      - "8003:8003"
+    restart: unless-stopped
+
+  front:
+    build:
+      context: ./Front/SecurityFront
+    ports:
+      - "3000:3000"
+    restart: unless-stopped

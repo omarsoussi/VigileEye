@@ -1,0 +1,12 @@
+node_modules
+dist
+build
+.next
+.cache
+.git
+*.log
+.env
+coverage
+android
+ios
+VigileEye.ipa
