@@ -1,0 +1,755 @@
+/**
+ * API Service for Backend Communication
+ * Handles all authentication API calls to the FastAPI backend
+ */
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
+const MEMBERS_API_BASE_URL = process.env.REACT_APP_MEMBERS_API_URL || 'http://localhost:8001/api/v1';
+const CAMERAS_API_BASE_URL = process.env.REACT_APP_CAMERAS_API_URL || 'http://localhost:8002/api/v1';
+const STREAMING_API_BASE_URL = process.env.REACT_APP_STREAMING_API_URL || 'http://localhost:8003/api/v1';
+const STREAMING_WS_BASE_URL = process.env.REACT_APP_STREAMING_WS_URL || 'ws://localhost:8003/ws';
+
+// Types
+export interface RegisterRequest {
+  email: string;
+  username: string;
+  password: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface VerifyOTPRequest {
+  email: string;
+  otp_code: string;
+}
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  email: string;
+  otp_code: string;
+  new_password: string;
+}
+
+export interface RefreshTokenRequest {
+  refresh_token: string;
+}
+
+export interface MessageResponse {
+  message: string;
+  success: boolean;
+}
+
+export interface TokenResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+}
+
+export interface UserResponse {
+  id: string;
+  email: string;
+  username: string;
+  is_verified: boolean;
+  last_login?: string;
+  created_at?: string;
+}
+
+export interface AuthResponse {
+  user: UserResponse;
+  tokens: TokenResponse;
+  message: string;
+}
+
+export interface GoogleAuthURLResponse {
+  authorization_url: string;
+}
+
+export interface ApiError {
+  message: string;
+  error_code: string;
+}
+
+// Members service types
+export type MemberPermission = 'reader' | 'editor';
+
+export interface CreateMemberInvitationRequest {
+  member_email: string;
+  permission: MemberPermission;
+  camera_ids: string[];
+  unlimited: boolean;
+  expires_at?: string | null;
+}
+
+export interface MemberInvitationResponse {
+  id: string;
+  inviter_email: string;
+  recipient_email: string;
+  permission: MemberPermission;
+  status: string;
+  camera_ids: string[];
+  created_at: string;
+  expires_at?: string | null;
+  unlimited: boolean;
+}
+
+export interface AcceptMemberInvitationRequest {
+  code: string;
+}
+
+// Login History types
+export interface LoginHistoryEntry {
+  id: string;
+  timestamp: string;
+  ip_address: string;
+  user_agent?: string;
+  device_type: 'desktop' | 'mobile' | 'tablet';
+  browser?: string;
+  os?: string;
+  location?: string;
+  success: boolean;
+  is_suspicious: boolean;
+  failure_reason?: string;
+}
+
+export interface LoginHistoryListResponse {
+  items: LoginHistoryEntry[];
+  total: number;
+  has_suspicious: boolean;
+  page: number;
+  limit: number;
+}
+
+export interface LoginHistoryFilters {
+  page?: number;
+  limit?: number;
+  start_date?: string;
+  end_date?: string;
+  device_type?: string;
+  success_only?: boolean;
+  period?: 'today' | 'week' | 'month' | 'all';
+}
+
+export interface MembershipResponse {
+  id: string;
+  owner_user_id: string;
+  member_user_id: string;
+  member_email: string;
+  permission: MemberPermission;
+  camera_ids: string[];
+  created_at: string;
+}
+
+// Cameras service types
+// Must match backend enums (CameraManagementBackend/domain/entities/camera.py)
+export type CameraStatus = 'online' | 'offline' | 'disabled';
+export type CameraType = 'indoor' | 'outdoor' | 'thermal' | 'fisheye' | 'ptz';
+
+export interface CameraLocationRequest {
+  building?: string;
+  floor?: string;
+  zone?: string;
+  room?: string;
+  gps_lat?: number;
+  gps_long?: number;
+}
+
+export interface CreateCameraRequest {
+  name: string;
+  stream_url: string;
+  protocol: string;
+  resolution: string;
+  fps: number;
+  encoding: string;
+  camera_type: CameraType;
+  description?: string;
+  username?: string;
+  password?: string;
+  location?: CameraLocationRequest;
+}
+
+export interface UpdateCameraRequest {
+  name?: string;
+  description?: string;
+  stream_url?: string;
+  resolution?: string;
+  fps?: number;
+  encoding?: string;
+  location?: CameraLocationRequest;
+}
+
+export interface RecordHealthRequest {
+  latency_ms?: number;
+  frame_drop_rate?: number;
+  uptime_percentage?: number;
+}
+
+export interface CameraLocationResponse {
+  building?: string;
+  floor?: string;
+  zone?: string;
+  room?: string;
+  gps_lat?: number;
+  gps_long?: number;
+}
+
+export interface CameraResponse {
+  id: string;
+  owner_user_id: string;
+  name: string;
+  description?: string;
+  stream_url: string;
+  protocol: string;
+  resolution: string;
+  fps: number;
+  encoding: string;
+  status: CameraStatus;
+  camera_type: CameraType;
+  is_active: boolean;
+  location?: CameraLocationResponse;
+  last_heartbeat?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CameraHealthResponse {
+  camera_id: string;
+  last_heartbeat?: string;
+  latency_ms?: number;
+  frame_drop_rate?: number;
+  uptime_percentage?: number;
+  recorded_at: string;
+}
+
+// Streaming service types
+export type StreamStatus = 'pending' | 'connecting' | 'active' | 'reconnecting' | 'stopped' | 'error';
+
+export interface StreamConfigRequest {
+  fps?: number;
+  quality?: number;
+  width?: number;
+  height?: number;
+}
+
+export interface StartStreamRequest {
+  camera_id: string;
+  stream_url: string;
+  config?: StreamConfigRequest;
+}
+
+export interface StopStreamRequest {
+  camera_id: string;
+}
+
+export interface StreamSessionResponse {
+  id: string;
+  camera_id: string;
+  status: StreamStatus;
+  fps: number;
+  started_at?: string;
+  last_frame_at?: string;
+  stopped_at?: string;
+  error_message?: string;
+  reconnect_attempts: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StreamStatusResponse {
+  camera_id: string;
+  is_streaming: boolean;
+  status: string;
+  session?: StreamSessionResponse;
+  websocket_url?: string;
+}
+
+export interface ActiveStreamsResponse {
+  count: number;
+  streams: StreamSessionResponse[];
+}
+
+// Helper function to handle API responses
+async function handleResponse<T>(response: Response): Promise<T> {
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const error: ApiError = errorData.detail || { 
+      message: 'An error occurred', 
+      error_code: 'UNKNOWN_ERROR' 
+    };
+    throw error;
+  }
+  return response.json();
+}
+
+function authHeaders(): Record<string, string> {
+  const token = tokenStorage.getAccessToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+// API Functions
+export const authApi = {
+  /**
+   * Register a new user
+   * Sends verification OTP to email
+   */
+  register: async (data: RegisterRequest): Promise<MessageResponse> => {
+    const response = await fetch(`${API_BASE_URL}/auth/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<MessageResponse>(response);
+  },
+
+  /**
+   * Verify email with OTP code
+   */
+  verifyEmail: async (data: VerifyOTPRequest): Promise<MessageResponse> => {
+    const response = await fetch(`${API_BASE_URL}/auth/verify`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<MessageResponse>(response);
+  },
+
+  /**
+   * Login step 1: Validate credentials
+   * Sends 2FA OTP to email if valid
+   */
+  login: async (data: LoginRequest): Promise<MessageResponse> => {
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<MessageResponse>(response);
+  },
+
+  /**
+   * Login step 2: Confirm with 2FA OTP
+   * Returns JWT tokens on success
+   */
+  confirmLogin: async (data: VerifyOTPRequest): Promise<AuthResponse> => {
+    const response = await fetch(`${API_BASE_URL}/auth/login/confirm`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<AuthResponse>(response);
+  },
+
+  /**
+   * Request password reset
+   * Sends OTP to email
+   */
+  forgotPassword: async (data: ForgotPasswordRequest): Promise<MessageResponse> => {
+    const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<MessageResponse>(response);
+  },
+
+  /**
+   * Reset password with OTP
+   */
+  resetPassword: async (data: ResetPasswordRequest): Promise<MessageResponse> => {
+    const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<MessageResponse>(response);
+  },
+
+  /**
+   * Refresh JWT tokens
+   */
+  refreshTokens: async (data: RefreshTokenRequest): Promise<TokenResponse> => {
+    const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<TokenResponse>(response);
+  },
+
+  /**
+   * Get Google OAuth authorization URL
+   */
+  getGoogleAuthUrl: async (): Promise<GoogleAuthURLResponse> => {
+    const response = await fetch(`${API_BASE_URL}/auth/google`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    return handleResponse<GoogleAuthURLResponse>(response);
+  },
+};
+
+export const membersApi = {
+  createInvitation: async (data: CreateMemberInvitationRequest): Promise<MemberInvitationResponse> => {
+    const response = await fetch(`${MEMBERS_API_BASE_URL}/members/invitations`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<MemberInvitationResponse>(response);
+  },
+
+  listReceivedInvitations: async (): Promise<MemberInvitationResponse[]> => {
+    const response = await fetch(`${MEMBERS_API_BASE_URL}/members/invitations/received`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+    });
+    return handleResponse<MemberInvitationResponse[]>(response);
+  },
+
+  listSentInvitations: async (): Promise<MemberInvitationResponse[]> => {
+    const response = await fetch(`${MEMBERS_API_BASE_URL}/members/invitations/sent`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+    });
+    return handleResponse<MemberInvitationResponse[]>(response);
+  },
+
+  acceptInvitation: async (invitationId: string, data: AcceptMemberInvitationRequest): Promise<MembershipResponse> => {
+    const response = await fetch(`${MEMBERS_API_BASE_URL}/members/invitations/${invitationId}/accept`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<MembershipResponse>(response);
+  },
+
+  declineInvitation: async (invitationId: string, reason?: string): Promise<MessageResponse> => {
+    const response = await fetch(`${MEMBERS_API_BASE_URL}/members/invitations/${invitationId}/decline`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+      body: JSON.stringify({ reason: reason || null }),
+    });
+    return handleResponse<MessageResponse>(response);
+  },
+
+  resendCode: async (invitationId: string): Promise<MessageResponse> => {
+    const response = await fetch(`${MEMBERS_API_BASE_URL}/members/invitations/${invitationId}/resend-code`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+    });
+    return handleResponse<MessageResponse>(response);
+  },
+};
+
+export const camerasApi = {
+  /**
+   * Create a new camera
+   */
+  createCamera: async (data: CreateCameraRequest): Promise<CameraResponse> => {
+    const response = await fetch(`${CAMERAS_API_BASE_URL}/cameras`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<CameraResponse>(response);
+  },
+
+  /**
+   * List all cameras for the current user
+   */
+  listCameras: async (): Promise<CameraResponse[]> => {
+    const response = await fetch(`${CAMERAS_API_BASE_URL}/cameras`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+    });
+    return handleResponse<CameraResponse[]>(response);
+  },
+
+  /**
+   * Get a camera by ID
+   */
+  getCamera: async (cameraId: string): Promise<CameraResponse> => {
+    const response = await fetch(`${CAMERAS_API_BASE_URL}/cameras/${cameraId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+    });
+    return handleResponse<CameraResponse>(response);
+  },
+
+  /**
+   * Update a camera
+   */
+  updateCamera: async (cameraId: string, data: UpdateCameraRequest): Promise<CameraResponse> => {
+    const response = await fetch(`${CAMERAS_API_BASE_URL}/cameras/${cameraId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<CameraResponse>(response);
+  },
+
+  /**
+   * Delete a camera
+   */
+  deleteCamera: async (cameraId: string): Promise<MessageResponse> => {
+    const response = await fetch(`${CAMERAS_API_BASE_URL}/cameras/${cameraId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+    });
+    return handleResponse<MessageResponse>(response);
+  },
+
+  /**
+   * Enable a camera
+   */
+  enableCamera: async (cameraId: string): Promise<CameraResponse> => {
+    const response = await fetch(`${CAMERAS_API_BASE_URL}/cameras/${cameraId}/enable`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+    });
+    return handleResponse<CameraResponse>(response);
+  },
+
+  /**
+   * Disable a camera
+   */
+  disableCamera: async (cameraId: string): Promise<CameraResponse> => {
+    const response = await fetch(`${CAMERAS_API_BASE_URL}/cameras/${cameraId}/disable`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+    });
+    return handleResponse<CameraResponse>(response);
+  },
+
+  /**
+   * Get camera health metrics
+   */
+  getCameraHealth: async (cameraId: string): Promise<CameraHealthResponse> => {
+    const response = await fetch(`${CAMERAS_API_BASE_URL}/cameras/${cameraId}/health`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+    });
+    return handleResponse<CameraHealthResponse>(response);
+  },
+
+  /**
+   * Record camera heartbeat
+   */
+  recordHeartbeat: async (cameraId: string, data: RecordHealthRequest): Promise<CameraHealthResponse> => {
+    const response = await fetch(`${CAMERAS_API_BASE_URL}/cameras/${cameraId}/heartbeat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<CameraHealthResponse>(response);
+  },
+};
+
+// Video Streaming API
+export const streamingApi = {
+  /**
+   * Start streaming from a camera
+   */
+  startStream: async (data: StartStreamRequest): Promise<StreamSessionResponse> => {
+    const response = await fetch(`${STREAMING_API_BASE_URL}/streams/start`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<StreamSessionResponse>(response);
+  },
+
+  /**
+   * Stop streaming from a camera
+   */
+  stopStream: async (cameraId: string): Promise<StreamSessionResponse> => {
+    const response = await fetch(`${STREAMING_API_BASE_URL}/streams/stop`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+      body: JSON.stringify({ camera_id: cameraId }),
+    });
+    return handleResponse<StreamSessionResponse>(response);
+  },
+
+  /**
+   * Get stream status for a camera
+   */
+  getStreamStatus: async (cameraId: string): Promise<StreamStatusResponse> => {
+    const response = await fetch(`${STREAMING_API_BASE_URL}/streams/status/${cameraId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+    });
+    return handleResponse<StreamStatusResponse>(response);
+  },
+
+  /**
+   * List all active streams
+   */
+  listActiveStreams: async (): Promise<ActiveStreamsResponse> => {
+    const response = await fetch(`${STREAMING_API_BASE_URL}/streams/active`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+    });
+    return handleResponse<ActiveStreamsResponse>(response);
+  },
+
+  /**
+   * Get WebSocket URL for a camera stream
+   */
+  getStreamWebSocketUrl: (cameraId: string): string => {
+    const token = tokenStorage.getAccessToken();
+    return `${STREAMING_WS_BASE_URL}/stream/${cameraId}?token=${token}`;
+  },
+
+  /**
+   * Get WebSocket URL for AI frames
+   */
+  getFramesWebSocketUrl: (cameraId: string): string => {
+    const token = tokenStorage.getAccessToken();
+    return `${STREAMING_WS_BASE_URL}/frames/${cameraId}?token=${token}`;
+  },
+};
+
+// Login History API
+export const loginHistoryApi = {
+  /**
+   * Get login history for current user
+   */
+  getLoginHistory: async (filters?: LoginHistoryFilters): Promise<LoginHistoryListResponse> => {
+    const params = new URLSearchParams();
+    if (filters?.page) params.append('page', filters.page.toString());
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+    if (filters?.start_date) params.append('start_date', filters.start_date);
+    if (filters?.end_date) params.append('end_date', filters.end_date);
+    if (filters?.device_type) params.append('device_type', filters.device_type);
+    if (filters?.success_only !== undefined) params.append('success_only', filters.success_only.toString());
+    if (filters?.period) params.append('period', filters.period);
+
+    const queryString = params.toString();
+    const url = `${API_BASE_URL}/login-history${queryString ? `?${queryString}` : ''}`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+    });
+    return handleResponse<LoginHistoryListResponse>(response);
+  },
+
+  /**
+   * Get suspicious login attempts
+   */
+  getSuspiciousLogins: async (limit: number = 10): Promise<LoginHistoryListResponse> => {
+    const response = await fetch(`${API_BASE_URL}/login-history/suspicious?limit=${limit}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+    });
+    return handleResponse<LoginHistoryListResponse>(response);
+  },
+};
+
+// Token storage utilities
+export const tokenStorage = {
+  getAccessToken: (): string | null => {
+    return localStorage.getItem('vigileye-access-token');
+  },
+
+  getRefreshToken: (): string | null => {
+    return localStorage.getItem('vigileye-refresh-token');
+  },
+
+  setTokens: (accessToken: string, refreshToken: string): void => {
+    localStorage.setItem('vigileye-access-token', accessToken);
+    localStorage.setItem('vigileye-refresh-token', refreshToken);
+  },
+
+  clearTokens: (): void => {
+    localStorage.removeItem('vigileye-access-token');
+    localStorage.removeItem('vigileye-refresh-token');
+  },
+};
+
+export default authApi;

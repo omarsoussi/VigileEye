@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SecurityFront</string>
+    <string name="title_activity_main">SecurityFront</string>
+    <string name="package_name">com.securityfront.app</string>
+    <string name="custom_url_scheme">com.securityfront.app</string>
+</resources>
