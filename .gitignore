@@ -1,0 +1,41 @@
+# Root .gitignore for PFE repository
+
+# Node
+node_modules/
+**/node_modules/
+
+# Node/JS artifacts
+dist/
+build/
+.next/
+.expo/
+npm-debug.log
+yarn-error.log
+package-lock.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+env/
+ENV/
+.env
+
+# Docker
+*.tar
+docker-compose.override.yml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.idea/
+.vscode/
+
+# Misc
+.pytest_cache/
+coverage/
+logs/
