@@ -39,3 +39,6 @@ Thumbs.db
 .pytest_cache/
 coverage/
 logs/
+
+# Backups of nested .git from previous nested repos
+.nested_git_backups/
