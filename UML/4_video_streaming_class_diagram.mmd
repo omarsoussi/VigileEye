@@ -1,0 +1,494 @@
+%% =====================================================
+%% VigileEye — Video Streaming Service
+%% (VideoStreamingBackend/, Port 8003)
+%% UML Class Diagram — Mermaid Syntax
+%% =====================================================
+
+classDiagram
+    direction TB
+
+    %% ===== DOMAIN LAYER — Entities & Enums =====
+
+    namespace Domain_Entities {
+
+        class StreamSession {
+            <<entity>>
+            +id : UUID
+            +camera_id : UUID
+            +stream_url : str
+            +status : StreamStatus
+            +fps : int
+            +started_at : Optional~datetime~
+            +last_frame_at : Optional~datetime~
+            +stopped_at : Optional~datetime~
+            +error_message : Optional~str~
+            +reconnect_attempts : int
+            +created_at : datetime
+            +updated_at : datetime
+            +create(camera_id, stream_url, fps)$ StreamSession
+            +start() void
+            +activate() void
+            +stop() void
+            +mark_error(message : str) void
+            +mark_reconnecting() void
+            +update_last_frame() void
+            +is_alive(timeout_seconds : int) bool
+        }
+
+        class StreamConfig {
+            <<value_object>>
+            +fps : int = 15
+            +quality : int = 85
+            +width : Optional~int~
+            +height : Optional~int~
+            +max_reconnects : int = 5
+        }
+
+        class VideoFrame {
+            <<entity>>
+            +camera_id : UUID
+            +timestamp : datetime
+            +frame_bytes : bytes
+            +width : int
+            +height : int
+            +encoding : FrameEncoding
+            +sequence : int
+            +session_id : Optional~UUID~
+            +create(camera_id, frame_bytes, width, height, encoding, sequence, session_id)$ VideoFrame
+            +size_bytes() int
+            +to_base64() str
+            +to_data_url() str
+        }
+
+        class StreamStatus {
+            <<enum>>
+            PENDING
+            CONNECTING
+            ACTIVE
+            RECONNECTING
+            STOPPED
+            ERROR
+        }
+
+        class FrameEncoding {
+            <<enum>>
+            JPEG
+            PNG
+            RAW
+        }
+
+        class StreamType {
+            <<enum>>
+            RTSP
+            RTMP
+            HLS
+            MJPEG
+            HTTP_VIDEO
+            YOUTUBE
+            FILE
+            WEBCAM
+            UNKNOWN
+        }
+
+    }
+
+    StreamSession --> StreamStatus : has status
+    StreamSession o-- StreamConfig : configured by
+    VideoFrame --> FrameEncoding : has encoding
+
+    %% ===== DOMAIN LAYER — Exceptions =====
+
+    namespace Domain_Exceptions {
+
+        class DomainException {
+            <<exception>>
+            +message : str
+        }
+
+        class StreamNotFoundException {
+            <<exception>>
+        }
+
+        class StreamAlreadyActiveException {
+            <<exception>>
+        }
+
+        class StreamConnectionException {
+            <<exception>>
+        }
+
+        class StreamDecodingException {
+            <<exception>>
+        }
+
+        class UnauthorizedException {
+            <<exception>>
+        }
+
+        class InvalidStreamUrlException {
+            <<exception>>
+        }
+
+    }
+
+    StreamNotFoundException --|> DomainException
+    StreamAlreadyActiveException --|> DomainException
+    StreamConnectionException --|> DomainException
+    StreamDecodingException --|> DomainException
+    UnauthorizedException --|> DomainException
+    InvalidStreamUrlException --|> DomainException
+
+    %% ===== DOMAIN LAYER — Repository Interface =====
+
+    namespace Domain_Repositories {
+
+        class StreamSessionRepositoryInterface {
+            <<interface>>
+            +save(session : StreamSession)* StreamSession
+            +get_by_id(session_id : UUID)* Optional~StreamSession~
+            +get_by_camera_id(camera_id : UUID)* Optional~StreamSession~
+            +get_active_sessions()* List~StreamSession~
+            +get_by_status(status : StreamStatus)* List~StreamSession~
+            +update(session : StreamSession)* StreamSession
+            +delete(session_id : UUID)* void
+        }
+
+    }
+
+    %% ===== INFRASTRUCTURE — SQLAlchemy Model =====
+
+    namespace Infrastructure_Models {
+
+        class StreamSessionModel {
+            <<model>>
+            +__tablename__ = "stream_sessions"
+            +id : PG_UUID [PK]
+            +camera_id : PG_UUID [index]
+            +stream_url : String(500)
+            +status : ENUM~StreamStatus~
+            +fps : Integer
+            +started_at : DateTime
+            +last_frame_at : DateTime
+            +stopped_at : DateTime
+            +error_message : String(1000)
+            +reconnect_attempts : Integer
+            +created_at : DateTime
+            +updated_at : DateTime
+        }
+
+    }
+
+    %% ===== INFRASTRUCTURE — Concrete Repository =====
+
+    namespace Infrastructure_Repositories {
+
+        class SQLAlchemyStreamSessionRepository {
+            <<repository>>
+            +db : Session
+            +save(session : StreamSession) StreamSession
+            +get_by_id(session_id : UUID) Optional~StreamSession~
+            +get_by_camera_id(camera_id : UUID) Optional~StreamSession~
+            +get_active_sessions() List~StreamSession~
+            +get_by_status(status : StreamStatus) List~StreamSession~
+            +update(session : StreamSession) StreamSession
+            +delete(session_id : UUID) void
+            -_to_entity(model : StreamSessionModel) StreamSession
+            -_to_model(entity : StreamSession) StreamSessionModel
+        }
+
+    }
+
+    SQLAlchemyStreamSessionRepository ..|> StreamSessionRepositoryInterface
+    SQLAlchemyStreamSessionRepository --> StreamSessionModel : queries
+
+    %% ===== INFRASTRUCTURE — Streaming (unique layer) =====
+
+    namespace Infrastructure_Streaming {
+
+        class StreamManager {
+            <<service>>
+            +session_repository : StreamSessionRepositoryInterface
+            +broadcaster : StreamBroadcaster
+            +default_fps : int
+            +encoder : FrameEncoder
+            -_readers : Dict~UUID, CameraStreamReader | FFmpegStreamReader~
+            -_tasks : Dict~UUID, asyncio.Task~
+            -_running : bool
+            +start_stream(session, config) void
+            -_stream_loop(session, reader, config, use_ffmpeg) void
+            +stop_stream(camera_id : UUID) void
+            +stop_all() void
+            +is_streaming(camera_id : UUID) bool
+            +get_active_camera_ids() list
+        }
+
+        class CameraStreamReader {
+            <<infrastructure>>
+            +camera_id : UUID
+            +stream_url : str
+            +config : StreamConfig
+            -_capture : Optional~cv2.VideoCapture~
+            -_is_open : bool
+            -_frame_count : int
+            -_consecutive_failures : int
+            -_max_failures : int = 30
+            -_is_file : bool
+            -_total_frames : int
+            -_last_frame : Optional~ndarray~
+            -_lock : threading.Lock
+            +is_open() bool
+            +open() bool
+            +read_frame() Optional~Tuple~
+            +read_frame_async() Optional~Tuple~
+            +close() void
+            +get_info() dict
+            -_detect_stream_type(url) str
+            -_configure_rtsp_environment() void
+            -_try_open_stream(url, backend) bool
+            -_build_gstreamer_pipeline(rtsp_url) Optional~str~
+        }
+
+        class FFmpegStreamReader {
+            <<infrastructure>>
+            +camera_id : UUID
+            +original_url : str
+            +resolved_url : str
+            +config : StreamConfig
+            -_process : Optional~subprocess.Popen~
+            -_is_open : bool
+            -_frame_queue : Queue
+            -_reader_thread : Optional~threading.Thread~
+            -_stop_event : threading.Event
+            -_width : int
+            -_height : int
+            -_frame_count : int
+            -_last_frame : Optional~ndarray~
+            -_stream_type : StreamType
+            +is_open() bool
+            +open_async() bool
+            +open() bool
+            +read_frame() Optional~Tuple~
+            +read_frame_async() Optional~Tuple~
+            +close() void
+            +get_info() dict
+            -_build_ffmpeg_command(width, height) list
+            -_read_frames_loop() void
+        }
+
+        class FrameEncoder {
+            <<infrastructure>>
+            +quality : int
+            +encode_jpeg(frame : ndarray) bytes
+            +encode_png(frame : ndarray) bytes
+            +encode(frame, encoding : FrameEncoding) bytes
+            +resize(frame, width, height) ndarray
+        }
+
+        class StreamBroadcaster {
+            <<infrastructure>>
+            -_subscribers : Dict~UUID, Set~WebSocket~~
+            -_lock : asyncio.Lock
+            +subscribe(camera_id, websocket) void
+            +unsubscribe(camera_id, websocket) void
+            +broadcast_frame(frame : VideoFrame) int
+            +broadcast_json(camera_id, data : dict) int
+            +get_subscriber_count(camera_id : UUID) int
+            +get_all_camera_ids() Set~UUID~
+            +close_all(camera_id : UUID) void
+        }
+
+        class StreamResolver {
+            <<infrastructure>>
+            +YOUTUBE_PATTERNS : List~str~
+            +detect_stream_type(url : str)$ StreamType
+            +resolve(url : str)$ Tuple
+            -_resolve_youtube(url : str)$ Tuple
+            -_resolve_hls(url : str)$ Tuple
+            -_resolve_with_ytdlp(url : str)$ Tuple
+            -_run_ytdlp(url, extra_args)$ Optional~str~
+            +get_stream_info(url : str)$ dict
+        }
+
+    }
+
+    %% StreamManager orchestrates all streaming components
+    StreamManager --> StreamSessionRepositoryInterface : manages sessions
+    StreamManager *-- FrameEncoder : encoder
+    StreamManager --> StreamBroadcaster : broadcasts frames
+    StreamManager --> CameraStreamReader : creates for RTSP/file
+    StreamManager --> FFmpegStreamReader : creates for HLS/YouTube
+
+    CameraStreamReader --> StreamConfig : configured by
+    FFmpegStreamReader --> StreamConfig : configured by
+    FFmpegStreamReader --> StreamType : detects type
+    FFmpegStreamReader --> StreamResolver : resolves URLs
+
+    StreamBroadcaster --> VideoFrame : broadcasts
+    FrameEncoder --> FrameEncoding : uses encoding
+
+    StreamResolver --> StreamType : detects
+
+    %% ===== INFRASTRUCTURE — Security =====
+
+    namespace Infrastructure_Security {
+
+        class JWTHandler_Streaming {
+            <<security>>
+            +secret_key : str
+            +algorithm : str
+            +verify_token(token : str) Dict
+            +get_user_id(token : str) UUID
+            +get_user_email(token : str) str
+        }
+
+    }
+
+    %% ===== INFRASTRUCTURE — Config =====
+
+    namespace Infrastructure_Config {
+
+        class Settings {
+            <<config>>
+            +database_url : str
+            +jwt_secret : str
+            +jwt_algorithm : str
+            +default_fps : int
+            +frame_quality : int
+            +max_reconnect_attempts : int
+            +reconnect_delay_seconds : int
+            +host : str
+            +port : int
+        }
+
+    }
+
+    %% ===== APPLICATION — Use Cases =====
+
+    namespace Application_UseCases {
+
+        class StartStreamUseCase {
+            <<use_case>>
+            +session_repository : StreamSessionRepositoryInterface
+            +execute(camera_id, stream_url, config, force_restart) tuple~StreamSession, bool~
+        }
+
+        class StopStreamUseCase {
+            <<use_case>>
+            +session_repository : StreamSessionRepositoryInterface
+            +execute(camera_id : UUID) StreamSession
+        }
+
+        class GetStreamStatusUseCase {
+            <<use_case>>
+            +session_repository : StreamSessionRepositoryInterface
+            +execute(camera_id : UUID) tuple~bool, Optional~StreamSession~~
+        }
+
+        class ListActiveStreamsUseCase {
+            <<use_case>>
+            +session_repository : StreamSessionRepositoryInterface
+            +execute() List~StreamSession~
+        }
+
+        class PublishFrameUseCase {
+            <<use_case>>
+            +broadcaster : StreamBroadcaster
+            +execute(frame : VideoFrame) int
+        }
+
+        class MonitorHealthUseCase {
+            <<use_case>>
+            +session_repository : StreamSessionRepositoryInterface
+            +timeout_seconds : int
+            +execute() List~Tuple~StreamSession, str~~
+        }
+
+    }
+
+    %% Use case dependencies
+    StartStreamUseCase --> StreamSessionRepositoryInterface : depends on
+    StopStreamUseCase --> StreamSessionRepositoryInterface : depends on
+    GetStreamStatusUseCase --> StreamSessionRepositoryInterface : depends on
+    ListActiveStreamsUseCase --> StreamSessionRepositoryInterface : depends on
+    PublishFrameUseCase --> StreamBroadcaster : depends on
+    MonitorHealthUseCase --> StreamSessionRepositoryInterface : depends on
+
+    %% ===== APPLICATION — DTOs =====
+
+    namespace Application_DTOs_Request {
+
+        class StreamConfigRequest {
+            <<dto>>
+            +fps : int
+            +quality : int
+            +width : Optional~int~
+            +height : Optional~int~
+        }
+
+        class StartStreamRequest {
+            <<dto>>
+            +camera_id : str
+            +stream_url : str
+            +config : Optional~StreamConfigRequest~
+            +force_restart : bool
+        }
+
+        class StopStreamRequest {
+            <<dto>>
+            +camera_id : str
+        }
+
+    }
+
+    namespace Application_DTOs_Response {
+
+        class StreamSessionResponse {
+            <<dto>>
+            +id : str
+            +camera_id : str
+            +status : str
+            +fps : int
+            +started_at : Optional~datetime~
+            +last_frame_at : Optional~datetime~
+            +error_message : Optional~str~
+            +reconnect_attempts : int
+            +created_at : datetime
+            +updated_at : datetime
+        }
+
+        class StreamStatusResponse {
+            <<dto>>
+            +camera_id : str
+            +is_streaming : bool
+            +status : str
+            +session : Optional~StreamSessionResponse~
+            +websocket_url : Optional~str~
+        }
+
+        class ActiveStreamsResponse {
+            <<dto>>
+            +count : int
+            +streams : List~StreamSessionResponse~
+        }
+
+        class MessageResponse {
+            <<dto>>
+            +message : str
+            +success : bool
+        }
+
+        class FrameMetadata {
+            <<dto>>
+            +camera_id : str
+            +timestamp : str
+            +sequence : int
+            +width : int
+            +height : int
+            +encoding : str
+        }
+
+    }
+
+    StartStreamRequest *-- StreamConfigRequest : config
+    StreamStatusResponse *-- StreamSessionResponse : session
+    ActiveStreamsResponse *-- StreamSessionResponse : streams

@@ -1,0 +1,433 @@
+%% =====================================================
+%% VigileEye — Members Invitation Service
+%% (MembersInvitationBackend/, Port 8001)
+%% UML Class Diagram — Mermaid Syntax
+%% =====================================================
+
+classDiagram
+    direction TB
+
+    %% ===== DOMAIN LAYER — Entities & Enums =====
+
+    namespace Domain_Entities {
+
+        class Invitation {
+            <<entity>>
+            +inviter_user_id : UUID
+            +inviter_email : str
+            +recipient_email : str
+            +permission : PermissionLevel
+            +camera_ids : List~str~
+            +id : UUID
+            +created_at : datetime
+            +expires_at : Optional~datetime~
+            +unlimited : bool
+            +status : InvitationStatus
+            +code_hash : str
+            +code_expires_at : Optional~datetime~
+            +handled_at : Optional~datetime~
+            +is_expired(now : Optional~datetime~) bool
+            +can_accept(now : Optional~datetime~) bool
+        }
+
+        class Membership {
+            <<entity>>
+            +owner_user_id : UUID
+            +member_user_id : UUID
+            +member_email : str
+            +permission : PermissionLevel
+            +camera_ids : List~str~
+            +id : UUID
+            +created_at : datetime
+            +revoked_at : Optional~datetime~
+            +is_active() bool
+        }
+
+        class PermissionLevel {
+            <<enum>>
+            READER
+            EDITOR
+        }
+
+        class InvitationStatus {
+            <<enum>>
+            PENDING
+            ACCEPTED
+            DECLINED
+            CANCELED
+            EXPIRED
+        }
+
+    }
+
+    Invitation --> PermissionLevel : permission
+    Invitation --> InvitationStatus : status
+    Membership --> PermissionLevel : permission
+
+    %% ===== DOMAIN LAYER — Exceptions =====
+
+    namespace Domain_Exceptions {
+
+        class DomainException {
+            <<exception>>
+            +message : str
+        }
+
+        class UnauthorizedException {
+            <<exception>>
+        }
+
+        class InvitationNotFoundException {
+            <<exception>>
+        }
+
+        class InvitationExpiredException {
+            <<exception>>
+        }
+
+        class InvitationAlreadyHandledException {
+            <<exception>>
+        }
+
+        class InvalidInvitationCodeException {
+            <<exception>>
+        }
+
+    }
+
+    UnauthorizedException --|> DomainException
+    InvitationNotFoundException --|> DomainException
+    InvitationExpiredException --|> DomainException
+    InvitationAlreadyHandledException --|> DomainException
+    InvalidInvitationCodeException --|> DomainException
+
+    %% ===== DOMAIN LAYER — Repository Interfaces =====
+
+    namespace Domain_Repositories {
+
+        class InvitationRepositoryInterface {
+            <<interface>>
+            +add(invitation : Invitation)* Invitation
+            +get_by_id(invitation_id : UUID)* Optional~Invitation~
+            +list_sent(inviter_user_id : UUID)* List~Invitation~
+            +list_received(recipient_email : str)* List~Invitation~
+            +update(invitation : Invitation)* Invitation
+        }
+
+        class MembershipRepositoryInterface {
+            <<interface>>
+            +add(membership : Membership)* Membership
+            +get_by_owner_and_member(owner_user_id, member_user_id)* Optional~Membership~
+        }
+
+    }
+
+    %% ===== INFRASTRUCTURE — SQLAlchemy Models =====
+
+    namespace Infrastructure_Models {
+
+        class InvitationModel {
+            <<model>>
+            +__tablename__ = "invitations"
+            +id : PG_UUID [PK, index]
+            +inviter_user_id : PG_UUID [index]
+            +inviter_email : String(320) [index]
+            +recipient_email : String(320) [index]
+            +permission : Enum~PermissionLevel~
+            +status : Enum~InvitationStatus~
+            +unlimited : Boolean
+            +expires_at : DateTime
+            +code_hash : String(200)
+            +code_expires_at : DateTime
+            +created_at : DateTime
+            +handled_at : DateTime
+        }
+
+        class InvitationCameraModel {
+            <<model>>
+            +__tablename__ = "invitation_cameras"
+            +id : PG_UUID [PK]
+            +invitation_id : PG_UUID [FK → invitations.id, index]
+            +camera_id : String(64)
+            +__table_args__ = UniqueConstraint(invitation_id, camera_id)
+        }
+
+        class MembershipModel {
+            <<model>>
+            +__tablename__ = "memberships"
+            +id : PG_UUID [PK, index]
+            +owner_user_id : PG_UUID [index]
+            +member_user_id : PG_UUID [index]
+            +member_email : String(320) [index]
+            +permission : Enum~PermissionLevel~
+            +created_at : DateTime
+            +revoked_at : DateTime
+        }
+
+        class MembershipCameraModel {
+            <<model>>
+            +__tablename__ = "membership_cameras"
+            +id : PG_UUID [PK]
+            +membership_id : PG_UUID [FK → memberships.id, index]
+            +camera_id : String(64)
+            +__table_args__ = UniqueConstraint(membership_id, camera_id)
+        }
+
+    }
+
+    InvitationModel "1" *-- "0..*" InvitationCameraModel : cameras (cascade delete)
+    MembershipModel "1" *-- "0..*" MembershipCameraModel : cameras (cascade delete)
+
+    %% ===== INFRASTRUCTURE — Concrete Repositories =====
+
+    namespace Infrastructure_Repositories {
+
+        class SQLAlchemyInvitationRepository {
+            <<repository>>
+            +db : Session
+            +add(invitation : Invitation) Invitation
+            +get_by_id(invitation_id : UUID) Optional~Invitation~
+            +list_sent(inviter_user_id : UUID) List~Invitation~
+            +list_received(recipient_email : str) List~Invitation~
+            +update(invitation : Invitation) Invitation
+            -_to_entity(model : InvitationModel) Invitation
+        }
+
+        class SQLAlchemyMembershipRepository {
+            <<repository>>
+            +db : Session
+            +add(membership : Membership) Membership
+            +get_by_owner_and_member(owner_user_id, member_user_id) Optional~Membership~
+            -_to_entity(model : MembershipModel) Membership
+        }
+
+    }
+
+    SQLAlchemyInvitationRepository ..|> InvitationRepositoryInterface
+    SQLAlchemyMembershipRepository ..|> MembershipRepositoryInterface
+
+    SQLAlchemyInvitationRepository --> InvitationModel : queries
+    SQLAlchemyInvitationRepository --> InvitationCameraModel : queries
+    SQLAlchemyMembershipRepository --> MembershipModel : queries
+    SQLAlchemyMembershipRepository --> MembershipCameraModel : queries
+
+    %% ===== INFRASTRUCTURE — Security =====
+
+    namespace Infrastructure_Security {
+
+        class JWTHandler_Members {
+            <<security>>
+            +secret_key : str
+            +algorithm : str
+            +verify_access_token(token : str) Dict
+            +get_user(token : str) tuple~UUID, str~
+        }
+
+        class OTPGenerator {
+            <<security>>
+            +DEFAULT_LENGTH : int = 6
+            +generate(length : int)$ str
+        }
+
+        class PasswordHasher {
+            <<security>>
+            +ROUNDS : int = 12
+            +hash(value : str)$ str
+            +verify(plain_value, hashed_value)$ bool
+        }
+
+        class CurrentUser {
+            <<value_object>>
+            +id : UUID
+            +email : str
+        }
+
+    }
+
+    JWTHandler_Members --> CurrentUser : extracts
+
+    %% ===== INFRASTRUCTURE — External =====
+
+    namespace Infrastructure_External {
+
+        class EmailSenderInterface {
+            <<interface>>
+            +send_invitation_code(to_email, code, inviter_email, permission, expires_minutes)* bool
+        }
+
+        class SMTPEmailSender {
+            <<external>>
+            +host : str
+            +port : int
+            +username : str
+            +password : str
+            +from_email : str
+            +from_name : str
+            -_send_email(to_email, subject, html, text) bool
+            +send_invitation_code(to_email, code, inviter_email, permission, expires_minutes) bool
+        }
+
+        class MockEmailSender {
+            <<external>>
+            +send_invitation_code(to_email, code, inviter_email, permission, expires_minutes) bool
+        }
+
+    }
+
+    SMTPEmailSender ..|> EmailSenderInterface
+    MockEmailSender ..|> EmailSenderInterface
+
+    %% ===== INFRASTRUCTURE — Config =====
+
+    namespace Infrastructure_Config {
+
+        class Settings {
+            <<config>>
+            +database_url : str
+            +jwt_secret_key : str
+            +jwt_algorithm : str
+            +smtp_host : str
+            +smtp_port : int
+            +smtp_username : str
+            +smtp_password : str
+            +smtp_from_email : str
+            +smtp_from_name : str
+            +invitation_code_expire_minutes : int
+            +app_name : str
+            +debug : bool
+            +port : int
+            +frontend_url : str
+        }
+
+    }
+
+    %% ===== APPLICATION — Use Cases =====
+
+    namespace Application_UseCases {
+
+        class CreateInvitationUseCase {
+            <<use_case>>
+            +invitation_repo : InvitationRepositoryInterface
+            +email_sender : EmailSenderInterface
+            +settings : Settings
+            +execute(inviter_user_id, inviter_email, recipient_email, permission, camera_ids, unlimited, expires_at) Invitation
+        }
+
+        class AcceptInvitationUseCase {
+            <<use_case>>
+            +invitation_repo : InvitationRepositoryInterface
+            +membership_repo : MembershipRepositoryInterface
+            +execute(invitation_id, current_user_id, current_user_email, code) Membership
+        }
+
+        class DeclineInvitationUseCase {
+            <<use_case>>
+            +invitation_repo : InvitationRepositoryInterface
+            +execute(invitation_id, current_user_email) void
+        }
+
+        class ListSentInvitationsUseCase {
+            <<use_case>>
+            +invitation_repo : InvitationRepositoryInterface
+            +execute(inviter_user_id) List~Invitation~
+        }
+
+        class ListReceivedInvitationsUseCase {
+            <<use_case>>
+            +invitation_repo : InvitationRepositoryInterface
+            +execute(recipient_email : str) List~Invitation~
+        }
+
+        class ResendInvitationCodeUseCase {
+            <<use_case>>
+            +invitation_repo : InvitationRepositoryInterface
+            +email_sender : EmailSenderInterface
+            +settings : Settings
+            +execute(invitation_id : UUID) void
+        }
+
+    }
+
+    %% Use case dependencies
+    CreateInvitationUseCase --> InvitationRepositoryInterface : depends on
+    CreateInvitationUseCase --> EmailSenderInterface : depends on
+    CreateInvitationUseCase --> Settings : depends on
+    CreateInvitationUseCase --> OTPGenerator : generates code
+    CreateInvitationUseCase --> PasswordHasher : hashes code
+
+    AcceptInvitationUseCase --> InvitationRepositoryInterface : depends on
+    AcceptInvitationUseCase --> MembershipRepositoryInterface : depends on
+    AcceptInvitationUseCase --> PasswordHasher : verifies code
+
+    DeclineInvitationUseCase --> InvitationRepositoryInterface : depends on
+
+    ListSentInvitationsUseCase --> InvitationRepositoryInterface : depends on
+    ListReceivedInvitationsUseCase --> InvitationRepositoryInterface : depends on
+
+    ResendInvitationCodeUseCase --> InvitationRepositoryInterface : depends on
+    ResendInvitationCodeUseCase --> EmailSenderInterface : depends on
+    ResendInvitationCodeUseCase --> Settings : depends on
+    ResendInvitationCodeUseCase --> OTPGenerator : generates code
+    ResendInvitationCodeUseCase --> PasswordHasher : hashes code
+
+    %% ===== APPLICATION — DTOs =====
+
+    namespace Application_DTOs_Request {
+
+        class CreateInvitationRequest {
+            <<dto>>
+            +member_email : EmailStr
+            +permission : str
+            +camera_ids : List~str~
+            +unlimited : bool
+            +expires_at : Optional~datetime~
+        }
+
+        class AcceptInvitationRequest {
+            <<dto>>
+            +code : str
+        }
+
+        class DeclineInvitationRequest {
+            <<dto>>
+            +reason : Optional~str~
+        }
+
+    }
+
+    namespace Application_DTOs_Response {
+
+        class InvitationResponse {
+            <<dto>>
+            +id : str
+            +inviter_email : str
+            +recipient_email : str
+            +permission : str
+            +status : str
+            +camera_ids : List~str~
+            +created_at : datetime
+            +expires_at : Optional~datetime~
+            +unlimited : bool
+        }
+
+        class MembershipResponse {
+            <<dto>>
+            +id : str
+            +owner_user_id : str
+            +member_user_id : str
+            +member_email : str
+            +permission : str
+            +camera_ids : List~str~
+            +created_at : datetime
+        }
+
+        class MessageResponse {
+            <<dto>>
+            +success : bool
+            +message : str
+        }
+
+    }
+
+    %% ===== Cross-cutting: Invitation → Membership flow =====
+    Invitation "1" -- "0..1" Membership : acceptance creates

@@ -1,0 +1,245 @@
+%% =====================================================
+%% VigileEye — Frontend (React/Ionic/TypeScript)
+%% (Front/SecurityFront/, Port 3000)
+%% UML Class Diagram — Mermaid Syntax
+%% =====================================================
+%% NOTE: The frontend is a React/Ionic SPA, not class-based OOP.
+%% This diagram represents the major modules, services,
+%% pages, components, hooks, and API clients as "classes"
+%% to fit the UML class diagram format.
+%% =====================================================
+
+classDiagram
+    direction TB
+
+    %% ===== API CLIENT LAYER =====
+
+    namespace API_Clients {
+
+        class AuthAPI {
+            <<api_client>>
+            +baseURL : string = REACT_APP_API_URL
+            +register(email, username, password) Promise~MessageResponse~
+            +verifyOTP(email, otp_code) Promise~MessageResponse~
+            +login(email, password) Promise~MessageResponse~
+            +confirmLogin(email, otp_code) Promise~AuthResponse~
+            +forgotPassword(email) Promise~MessageResponse~
+            +resetPassword(email, otp_code, new_password) Promise~MessageResponse~
+            +refreshToken(refresh_token) Promise~TokenResponse~
+            +googleAuth() Promise~GoogleAuthURLResponse~
+            +googleCallback(code, state) Promise~AuthResponse~
+        }
+
+        class MembersAPI {
+            <<api_client>>
+            +baseURL : string = REACT_APP_MEMBERS_API_URL
+            +createInvitation(payload) Promise~InvitationResponse~
+            +listSentInvitations() Promise~InvitationResponse[]~
+            +listReceivedInvitations() Promise~InvitationResponse[]~
+            +acceptInvitation(id, code) Promise~MembershipResponse~
+            +declineInvitation(id) Promise~MessageResponse~
+            +resendCode(id) Promise~MessageResponse~
+        }
+
+        class CamerasAPI {
+            <<api_client>>
+            +baseURL : string = REACT_APP_CAMERAS_API_URL
+            +createCamera(payload) Promise~CameraResponse~
+            +listCameras() Promise~CameraResponse[]~
+            +getCamera(id) Promise~CameraResponse~
+            +updateCamera(id, payload) Promise~CameraResponse~
+            +deleteCamera(id) Promise~MessageResponse~
+            +enableCamera(id) Promise~CameraResponse~
+            +disableCamera(id) Promise~CameraResponse~
+            +recordHeartbeat(id, payload) Promise~CameraHealthResponse~
+            +getCameraHealth(id) Promise~CameraHealthResponse~
+        }
+
+        class StreamingAPI {
+            <<api_client>>
+            +baseURL : string = REACT_APP_STREAMING_API_URL
+            +startStream(camera_id, stream_url, config) Promise~StreamSessionResponse~
+            +stopStream(camera_id) Promise~StreamSessionResponse~
+            +getStreamStatus(camera_id) Promise~StreamStatusResponse~
+            +listActiveStreams() Promise~ActiveStreamsResponse~
+        }
+
+        class WebSocketClient {
+            <<api_client>>
+            +wsURL : string
+            +token : string
+            +connect(camera_id) WebSocket
+            +disconnect() void
+            +onFrame(callback) void
+            +onError(callback) void
+        }
+
+    }
+
+    %% ===== CONTEXT / STATE MANAGEMENT =====
+
+    namespace State_Management {
+
+        class AuthContext {
+            <<context>>
+            +user : User | null
+            +tokens : Tokens | null
+            +isAuthenticated : boolean
+            +isLoading : boolean
+            +login(email, password) void
+            +confirmLogin(email, otp) void
+            +logout() void
+            +refreshToken() void
+        }
+
+        class CameraContext {
+            <<context>>
+            +cameras : Camera[]
+            +selectedCamera : Camera | null
+            +loading : boolean
+            +fetchCameras() void
+            +selectCamera(id) void
+            +addCamera(payload) void
+            +removeCamera(id) void
+        }
+
+    }
+
+    AuthContext --> AuthAPI : uses
+    CameraContext --> CamerasAPI : uses
+
+    %% ===== TYPESCRIPT INTERFACES (Shared Types) =====
+
+    namespace TypeScript_Interfaces {
+
+        class User {
+            <<interface>>
+            +id : string
+            +email : string
+            +username : string
+            +is_verified : boolean
+            +last_login : string | null
+            +created_at : string
+        }
+
+        class Tokens {
+            <<interface>>
+            +access_token : string
+            +refresh_token : string
+            +token_type : string
+            +expires_in : number
+        }
+
+        class Camera {
+            <<interface>>
+            +id : string
+            +owner_user_id : string
+            +name : string
+            +description : string | null
+            +stream_url : string
+            +protocol : string
+            +status : string
+            +camera_type : string
+            +is_active : boolean
+            +location : CameraLocation | null
+            +last_heartbeat : string | null
+        }
+
+        class CameraLocation {
+            <<interface>>
+            +building : string | null
+            +floor : string | null
+            +zone : string | null
+            +room : string | null
+            +gps_lat : number | null
+            +gps_long : number | null
+        }
+
+        class InvitationData {
+            <<interface>>
+            +id : string
+            +inviter_email : string
+            +recipient_email : string
+            +permission : string
+            +status : string
+            +camera_ids : string[]
+            +created_at : string
+            +expires_at : string | null
+            +unlimited : boolean
+        }
+
+        class StreamSession {
+            <<interface>>
+            +id : string
+            +camera_id : string
+            +status : string
+            +fps : number
+            +started_at : string | null
+            +last_frame_at : string | null
+        }
+
+    }
+
+    Camera *-- CameraLocation : location
+
+    %% ===== PAGES =====
+
+    namespace Pages {
+
+        class LoginPage {
+            <<page>>
+            +render() JSX
+        }
+
+        class RegisterPage {
+            <<page>>
+            +render() JSX
+        }
+
+        class DashboardPage {
+            <<page>>
+            +render() JSX
+        }
+
+        class CameraListPage {
+            <<page>>
+            +render() JSX
+        }
+
+        class CameraDetailPage {
+            <<page>>
+            +render() JSX
+        }
+
+        class LiveStreamPage {
+            <<page>>
+            +render() JSX
+        }
+
+        class InvitationsPage {
+            <<page>>
+            +render() JSX
+        }
+
+        class SettingsPage {
+            <<page>>
+            +render() JSX
+        }
+
+    }
+
+    LoginPage --> AuthContext : uses
+    RegisterPage --> AuthContext : uses
+    DashboardPage --> CameraContext : uses
+    CameraListPage --> CamerasAPI : uses
+    CameraDetailPage --> CamerasAPI : uses
+    LiveStreamPage --> StreamingAPI : uses
+    LiveStreamPage --> WebSocketClient : uses
+    InvitationsPage --> MembersAPI : uses
+
+    %% ===== Connections to backend services =====
+    AuthAPI ..> User : returns
+    AuthAPI ..> Tokens : returns
+    CamerasAPI ..> Camera : returns
+    MembersAPI ..> InvitationData : returns
+    StreamingAPI ..> StreamSession : returns

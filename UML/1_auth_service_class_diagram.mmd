@@ -1,0 +1,779 @@
+%% =====================================================
+%% VigileEye — Auth Service (Backend/, Port 8000)
+%% UML Class Diagram — Mermaid Syntax
+%% =====================================================
+%% Legend:
+%%   <<entity>>        Domain entity (dataclass)
+%%   <<value_object>>  Immutable domain value
+%%   <<enum>>          Enumeration
+%%   <<interface>>     Abstract base class (ABC)
+%%   <<repository>>    Concrete repository implementation
+%%   <<use_case>>      Application use case
+%%   <<service>>       Application service / facade
+%%   <<dto>>           Pydantic request/response model
+%%   <<mapper>>        Entity <-> Model mapper
+%%   <<model>>         SQLAlchemy ORM model
+%%   <<security>>      Security infrastructure
+%%   <<external>>      External service integration
+%%   Relationship arrows:
+%%     --|>   Inheritance
+%%     ..|>   Realization (implements interface)
+%%     *--    Composition
+%%     o--    Aggregation
+%%     -->    Dependency
+%%     --     Association
+%% =====================================================
+
+classDiagram
+    direction TB
+
+    %% ===== DOMAIN LAYER — Entities =====
+
+    namespace Domain_Entities {
+
+        class User {
+            <<entity>>
+            +id : UUID
+            +email : str
+            +username : str
+            +password_hash : str
+            +is_verified : bool
+            +last_login : Optional~datetime~
+            +failed_login_attempts : int
+            +lockout_until : Optional~datetime~
+            +created_at : datetime
+            +updated_at : datetime
+            +google_id : Optional~str~
+            +is_locked() bool
+            +increment_failed_attempts() void
+            +reset_failed_attempts() void
+            +lock_account(until : datetime) void
+            +unlock_account() void
+            +verify_email() void
+            +update_last_login() void
+            +update_password(password_hash : str) void
+            +link_google_account(google_id : str) void
+        }
+
+        class OTP {
+            <<entity>>
+            +id : UUID
+            +user_id : UUID
+            +code : str
+            +purpose : OTPPurpose
+            +expires_at : datetime
+            +is_used : bool
+            +created_at : datetime
+            +is_expired() bool
+            +is_valid() bool
+            +mark_as_used() void
+            +create(user_id, code, purpose, expire_minutes)$ OTP
+        }
+
+        class OTPPurpose {
+            <<enum>>
+            EMAIL_VERIFICATION
+            LOGIN_2FA
+            PASSWORD_RESET
+        }
+
+        class LoginHistory {
+            <<entity>>
+            +id : UUID
+            +user_id : UUID
+            +timestamp : datetime
+            +ip_address : str
+            +user_agent : Optional~str~
+            +device_type : str
+            +browser : Optional~str~
+            +os : Optional~str~
+            +location : Optional~str~
+            +success : bool
+            +is_suspicious : bool
+            +failure_reason : Optional~str~
+            +mark_as_suspicious() void
+            +to_dict() dict
+        }
+
+    }
+
+    %% ===== DOMAIN LAYER — Value Objects =====
+
+    namespace Domain_ValueObjects {
+
+        class Email {
+            <<value_object>>
+            +value : str
+            -_is_valid_email(email : str)$ bool
+        }
+
+        class Password {
+            <<value_object>>
+            +value : str
+            +MIN_LENGTH : int = 12
+            +is_valid(password : str)$ bool
+            +get_validation_errors(password : str)$ list~str~
+        }
+
+    }
+
+    %% ===== DOMAIN LAYER — Exceptions =====
+
+    namespace Domain_Exceptions {
+
+        class DomainException {
+            <<exception>>
+            +message : str
+        }
+
+        class InvalidPasswordException {
+            <<exception>>
+        }
+        class InvalidEmailException {
+            <<exception>>
+        }
+        class UserAlreadyExistsException {
+            <<exception>>
+        }
+        class UserNotFoundException {
+            <<exception>>
+        }
+        class InvalidCredentialsException {
+            <<exception>>
+        }
+        class AccountLockedException {
+            <<exception>>
+        }
+        class AccountNotVerifiedException {
+            <<exception>>
+        }
+        class InvalidOTPException {
+            <<exception>>
+        }
+        class OTPExpiredException {
+            <<exception>>
+        }
+        class TokenExpiredException {
+            <<exception>>
+        }
+        class InvalidTokenException {
+            <<exception>>
+        }
+
+    }
+
+    %% Exception inheritance
+    InvalidPasswordException --|> DomainException
+    InvalidEmailException --|> DomainException
+    UserAlreadyExistsException --|> DomainException
+    UserNotFoundException --|> DomainException
+    InvalidCredentialsException --|> DomainException
+    AccountLockedException --|> DomainException
+    AccountNotVerifiedException --|> DomainException
+    InvalidOTPException --|> DomainException
+    OTPExpiredException --|> DomainException
+    TokenExpiredException --|> DomainException
+    InvalidTokenException --|> DomainException
+
+    %% ===== DOMAIN LAYER — Repository Interfaces =====
+
+    namespace Domain_Repositories {
+
+        class UserRepositoryInterface {
+            <<interface>>
+            +create(user : User)* User
+            +get_by_id(user_id : UUID)* Optional~User~
+            +get_by_email(email : str)* Optional~User~
+            +get_by_username(username : str)* Optional~User~
+            +get_by_google_id(google_id : str)* Optional~User~
+            +update(user : User)* User
+            +delete(user_id : UUID)* bool
+            +email_exists(email : str)* bool
+            +username_exists(username : str)* bool
+        }
+
+        class OTPRepositoryInterface {
+            <<interface>>
+            +create(otp : OTP)* OTP
+            +get_by_id(otp_id : UUID)* Optional~OTP~
+            +get_valid_otp(user_id, code, purpose)* Optional~OTP~
+            +get_latest_otp(user_id, purpose)* Optional~OTP~
+            +mark_as_used(otp_id : UUID)* bool
+            +invalidate_all_for_user(user_id, purpose)* int
+            +cleanup_expired()* int
+        }
+
+        class LoginHistoryRepositoryInterface {
+            <<interface>>
+            +create(login_history : LoginHistory)* LoginHistory
+            +get_by_user_id(user_id, limit, offset, start_date, end_date, device_type, success_only)* List~LoginHistory~
+            +get_suspicious_logins(user_id, limit)* List~LoginHistory~
+            +count_by_user_id(user_id : UUID)* int
+            +get_recent_failed_attempts(user_id, since)* List~LoginHistory~
+            +delete_old_records(before_date : datetime)* int
+        }
+
+    }
+
+    %% ===== INFRASTRUCTURE — Persistence Models =====
+
+    namespace Infrastructure_Models {
+
+        class UserModel {
+            <<model>>
+            +__tablename__ = "users"
+            +id : PG_UUID [PK]
+            +email : String(255) [unique, index]
+            +username : String(100) [unique, index]
+            +password_hash : String(255)
+            +is_verified : Boolean
+            +last_login : DateTime
+            +failed_login_attempts : Integer
+            +lockout_until : DateTime
+            +google_id : String(255) [unique, index]
+            +created_at : DateTime
+            +updated_at : DateTime
+        }
+
+        class OTPModel {
+            <<model>>
+            +__tablename__ = "otps"
+            +id : PG_UUID [PK]
+            +user_id : PG_UUID [FK → users.id]
+            +code : String(6)
+            +purpose : Enum~OTPPurpose~
+            +expires_at : DateTime
+            +is_used : Boolean
+            +created_at : DateTime
+        }
+
+        class LoginHistoryModel {
+            <<model>>
+            +__tablename__ = "login_history"
+            +id : PG_UUID [PK]
+            +user_id : PG_UUID [FK → users.id]
+            +timestamp : DateTime [index]
+            +ip_address : String(45)
+            +user_agent : Text
+            +device_type : String(20)
+            +browser : String(100)
+            +os : String(100)
+            +location : String(255)
+            +success : Boolean
+            +is_suspicious : Boolean
+            +failure_reason : String(255)
+        }
+
+    }
+
+    %% Model relationships
+    UserModel "1" *-- "0..*" OTPModel : user_id FK
+    UserModel "1" *-- "0..*" LoginHistoryModel : user_id FK
+
+    %% ===== INFRASTRUCTURE — Mappers =====
+
+    namespace Infrastructure_Mappers {
+
+        class UserMapper {
+            <<mapper>>
+            +to_entity(model : UserModel)$ User
+            +to_model(entity : User)$ UserModel
+            +update_model(model, entity)$ UserModel
+        }
+
+        class OTPMapper {
+            <<mapper>>
+            +to_entity(model : OTPModel)$ OTP
+            +to_model(entity : OTP)$ OTPModel
+        }
+
+        class LoginHistoryMapper {
+            <<mapper>>
+            +to_entity(model : LoginHistoryModel)$ LoginHistory
+            +to_model(entity : LoginHistory)$ LoginHistoryModel
+        }
+
+    }
+
+    %% Mapper dependencies
+    UserMapper --> UserModel
+    UserMapper --> User
+    OTPMapper --> OTPModel
+    OTPMapper --> OTP
+    LoginHistoryMapper --> LoginHistoryModel
+    LoginHistoryMapper --> LoginHistory
+
+    %% ===== INFRASTRUCTURE — Concrete Repositories =====
+
+    namespace Infrastructure_Repositories {
+
+        class SQLAlchemyUserRepository {
+            <<repository>>
+            -_session : Session
+            +create(user : User) User
+            +get_by_id(user_id : UUID) Optional~User~
+            +get_by_email(email : str) Optional~User~
+            +get_by_username(username : str) Optional~User~
+            +get_by_google_id(google_id : str) Optional~User~
+            +update(user : User) User
+            +delete(user_id : UUID) bool
+            +email_exists(email : str) bool
+            +username_exists(username : str) bool
+        }
+
+        class SQLAlchemyOTPRepository {
+            <<repository>>
+            -_session : Session
+            +create(otp : OTP) OTP
+            +get_by_id(otp_id : UUID) Optional~OTP~
+            +get_valid_otp(user_id, code, purpose) Optional~OTP~
+            +get_latest_otp(user_id, purpose) Optional~OTP~
+            +mark_as_used(otp_id : UUID) bool
+            +invalidate_all_for_user(user_id, purpose) int
+            +cleanup_expired() int
+        }
+
+        class SQLAlchemyLoginHistoryRepository {
+            <<repository>>
+            -_session : Session
+            +create(login_history : LoginHistory) LoginHistory
+            +get_by_user_id(user_id, limit, offset, start_date, end_date, device_type, success_only) List~LoginHistory~
+            +get_suspicious_logins(user_id, limit) List~LoginHistory~
+            +count_by_user_id(user_id : UUID) int
+            +get_recent_failed_attempts(user_id, since) List~LoginHistory~
+            +delete_old_records(before_date : datetime) int
+        }
+
+    }
+
+    %% Realization (implements interface)
+    SQLAlchemyUserRepository ..|> UserRepositoryInterface
+    SQLAlchemyOTPRepository ..|> OTPRepositoryInterface
+    SQLAlchemyLoginHistoryRepository ..|> LoginHistoryRepositoryInterface
+
+    %% Repos use Mappers and Models
+    SQLAlchemyUserRepository --> UserMapper : uses
+    SQLAlchemyUserRepository --> UserModel : queries
+    SQLAlchemyOTPRepository --> OTPMapper : uses
+    SQLAlchemyOTPRepository --> OTPModel : queries
+    SQLAlchemyLoginHistoryRepository --> LoginHistoryMapper : uses
+    SQLAlchemyLoginHistoryRepository --> LoginHistoryModel : queries
+
+    %% ===== INFRASTRUCTURE — Security =====
+
+    namespace Infrastructure_Security {
+
+        class TokenType {
+            <<enum>>
+            ACCESS
+            REFRESH
+        }
+
+        class JWTHandler {
+            <<security>>
+            +secret_key : str
+            +algorithm : str
+            +access_expire_minutes : int
+            +refresh_expire_days : int
+            +create_access_token(user_id, email, additional_claims) str
+            +create_refresh_token(user_id : UUID) str
+            +create_token_pair(user_id, email, additional_claims) dict
+            +verify_token(token, token_type) dict
+            +get_user_id_from_token(token, token_type) UUID
+            +refresh_access_token(refresh_token, email) dict
+        }
+
+        class PasswordHasher {
+            <<security>>
+            +ROUNDS : int = 12
+            +hash(password : str)$ str
+            +verify(plain_password, hashed_password)$ bool
+            +needs_rehash(hashed_password : str)$ bool
+        }
+
+        class OTPGenerator {
+            <<security>>
+            +DEFAULT_LENGTH : int = 6
+            +generate(length : int)$ str
+            +generate_alphanumeric(length : int)$ str
+        }
+
+    }
+
+    JWTHandler --> TokenType : uses
+
+    %% ===== INFRASTRUCTURE — External =====
+
+    namespace Infrastructure_External {
+
+        class EmailSenderInterface {
+            <<interface>>
+            +send_otp(to_email, otp_code, purpose)* bool
+            +send_welcome(to_email, username)* bool
+        }
+
+        class SMTPEmailSender {
+            <<external>>
+            +host : str
+            +port : int
+            +username : str
+            +password : str
+            +from_email : str
+            +from_name : str
+            -_send_email(to_email, subject, html_content, text_content) bool
+            +send_otp(to_email, otp_code, purpose) bool
+            +send_welcome(to_email, username) bool
+        }
+
+        class MockEmailSender {
+            <<external>>
+            +sent_emails : list
+            +send_otp(to_email, otp_code, purpose) bool
+            +send_welcome(to_email, username) bool
+            +get_last_otp(email : str) Optional~str~
+        }
+
+        class GoogleUser {
+            <<entity>>
+            +id : str
+            +email : str
+            +name : str
+            +picture : Optional~str~
+            +verified_email : bool
+        }
+
+        class GoogleOAuthClient {
+            <<external>>
+            +AUTHORIZATION_URL : str
+            +TOKEN_URL : str
+            +USERINFO_URL : str
+            +client_id : str
+            +client_secret : str
+            +redirect_uri : str
+            +get_authorization_url(state) str
+            +exchange_code(code : str) dict
+            +exchange_code_sync(code : str) dict
+            +get_user_info(access_token : str) GoogleUser
+            +get_user_info_sync(access_token : str) GoogleUser
+            +authenticate(code : str) GoogleUser
+            +authenticate_sync(code : str) GoogleUser
+        }
+
+    }
+
+    SMTPEmailSender ..|> EmailSenderInterface
+    MockEmailSender ..|> EmailSenderInterface
+    GoogleOAuthClient --> GoogleUser : returns
+
+    %% ===== INFRASTRUCTURE — Config =====
+
+    namespace Infrastructure_Config {
+
+        class Settings {
+            <<config>>
+            +database_url : str
+            +jwt_secret_key : str
+            +jwt_algorithm : str
+            +access_token_expire_minutes : int
+            +refresh_token_expire_days : int
+            +otp_expire_minutes : int
+            +max_failed_login_attempts : int
+            +lockout_duration_minutes : int
+            +smtp_host : str
+            +smtp_port : int
+            +smtp_username : str
+            +smtp_password : str
+            +smtp_from_email : str
+            +smtp_from_name : str
+            +google_client_id : str
+            +google_client_secret : str
+            +google_redirect_uri : str
+            +app_name : str
+            +debug : bool
+            +port : int
+            +frontend_url : str
+        }
+
+    }
+
+    %% ===== APPLICATION — Use Cases =====
+
+    namespace Application_UseCases {
+
+        class RegisterUserUseCase {
+            <<use_case>>
+            -_user_repository : UserRepositoryInterface
+            -_otp_repository : OTPRepositoryInterface
+            -_email_sender : EmailSenderInterface
+            +execute(input : RegisterUserInput) RegisterUserOutput
+        }
+
+        class VerifyEmailUseCase {
+            <<use_case>>
+            -_user_repository : UserRepositoryInterface
+            -_otp_repository : OTPRepositoryInterface
+            -_email_sender : EmailSenderInterface
+            +execute(input : VerifyEmailInput) VerifyEmailOutput
+        }
+
+        class LoginUserUseCase {
+            <<use_case>>
+            -_user_repository : UserRepositoryInterface
+            -_otp_repository : OTPRepositoryInterface
+            -_email_sender : EmailSenderInterface
+            +execute(input : LoginUserInput) LoginUserOutput
+        }
+
+        class ConfirmLoginUseCase {
+            <<use_case>>
+            -_user_repository : UserRepositoryInterface
+            -_otp_repository : OTPRepositoryInterface
+            -_jwt_handler : JWTHandler
+            +execute(input : ConfirmLoginInput) ConfirmLoginOutput
+        }
+
+        class ForgotPasswordUseCase {
+            <<use_case>>
+            -_user_repository : UserRepositoryInterface
+            -_otp_repository : OTPRepositoryInterface
+            -_email_sender : EmailSenderInterface
+            +execute(input : ForgotPasswordInput) ForgotPasswordOutput
+        }
+
+        class ResetPasswordUseCase {
+            <<use_case>>
+            -_user_repository : UserRepositoryInterface
+            -_otp_repository : OTPRepositoryInterface
+            +execute(input : ResetPasswordInput) ResetPasswordOutput
+        }
+
+        class GoogleOAuthUseCase {
+            <<use_case>>
+            -_user_repository : UserRepositoryInterface
+            -_google_client : GoogleOAuthClient
+            -_jwt_handler : JWTHandler
+            +get_authorization_url(state) str
+            +execute(input : GoogleAuthInput) GoogleAuthOutput
+            -_generate_username(google_user) str
+        }
+
+        class RefreshTokenUseCase {
+            <<use_case>>
+            -_user_repository : UserRepositoryInterface
+            -_jwt_handler : JWTHandler
+            +execute(input : RefreshTokenInput) RefreshTokenOutput
+        }
+
+    }
+
+    %% Use case dependencies
+    RegisterUserUseCase --> UserRepositoryInterface : depends on
+    RegisterUserUseCase --> OTPRepositoryInterface : depends on
+    RegisterUserUseCase --> EmailSenderInterface : depends on
+
+    VerifyEmailUseCase --> UserRepositoryInterface : depends on
+    VerifyEmailUseCase --> OTPRepositoryInterface : depends on
+    VerifyEmailUseCase --> EmailSenderInterface : depends on
+
+    LoginUserUseCase --> UserRepositoryInterface : depends on
+    LoginUserUseCase --> OTPRepositoryInterface : depends on
+    LoginUserUseCase --> EmailSenderInterface : depends on
+
+    ConfirmLoginUseCase --> UserRepositoryInterface : depends on
+    ConfirmLoginUseCase --> OTPRepositoryInterface : depends on
+    ConfirmLoginUseCase --> JWTHandler : depends on
+
+    ForgotPasswordUseCase --> UserRepositoryInterface : depends on
+    ForgotPasswordUseCase --> OTPRepositoryInterface : depends on
+    ForgotPasswordUseCase --> EmailSenderInterface : depends on
+
+    ResetPasswordUseCase --> UserRepositoryInterface : depends on
+    ResetPasswordUseCase --> OTPRepositoryInterface : depends on
+
+    GoogleOAuthUseCase --> UserRepositoryInterface : depends on
+    GoogleOAuthUseCase --> GoogleOAuthClient : depends on
+    GoogleOAuthUseCase --> JWTHandler : depends on
+
+    RefreshTokenUseCase --> UserRepositoryInterface : depends on
+    RefreshTokenUseCase --> JWTHandler : depends on
+
+    %% ===== APPLICATION — Service (Facade) =====
+
+    namespace Application_Services {
+
+        class AuthService {
+            <<service>>
+            -_session : Session
+            -_user_repo : SQLAlchemyUserRepository
+            -_otp_repo : SQLAlchemyOTPRepository
+            -_email_sender : EmailSenderInterface
+            -_google_client : GoogleOAuthClient
+            -_jwt_handler : JWTHandler
+            +register(email, username, password) dict
+            +verify_email(email, otp_code) dict
+            +login(email, password) dict
+            +confirm_login(email, otp_code) dict
+            +forgot_password(email) dict
+            +reset_password(email, otp_code, new_password) dict
+            +get_google_auth_url(state) str
+            +google_callback(code, state) dict
+            +refresh_tokens(refresh_token) dict
+        }
+
+    }
+
+    AuthService --> RegisterUserUseCase : delegates to
+    AuthService --> VerifyEmailUseCase : delegates to
+    AuthService --> LoginUserUseCase : delegates to
+    AuthService --> ConfirmLoginUseCase : delegates to
+    AuthService --> ForgotPasswordUseCase : delegates to
+    AuthService --> ResetPasswordUseCase : delegates to
+    AuthService --> GoogleOAuthUseCase : delegates to
+    AuthService --> RefreshTokenUseCase : delegates to
+
+    %% ===== APPLICATION — DTOs =====
+
+    namespace Application_DTOs_Request {
+
+        class RegisterRequest {
+            <<dto>>
+            +email : EmailStr
+            +username : str
+            +password : str
+        }
+
+        class VerifyOTPRequest {
+            <<dto>>
+            +email : EmailStr
+            +otp_code : str
+        }
+
+        class LoginRequest {
+            <<dto>>
+            +email : EmailStr
+            +password : str
+        }
+
+        class LoginConfirmRequest {
+            <<dto>>
+            +email : EmailStr
+            +otp_code : str
+        }
+
+        class ForgotPasswordRequest {
+            <<dto>>
+            +email : EmailStr
+        }
+
+        class ResetPasswordRequest {
+            <<dto>>
+            +email : EmailStr
+            +otp_code : str
+            +new_password : str
+        }
+
+        class RefreshTokenRequest {
+            <<dto>>
+            +refresh_token : str
+        }
+
+        class GoogleCallbackRequest {
+            <<dto>>
+            +code : str
+            +state : Optional~str~
+        }
+
+    }
+
+    namespace Application_DTOs_Response {
+
+        class MessageResponse {
+            <<dto>>
+            +message : str
+            +success : bool
+        }
+
+        class TokenResponse {
+            <<dto>>
+            +access_token : str
+            +refresh_token : str
+            +token_type : str
+            +expires_in : int
+        }
+
+        class UserResponse {
+            <<dto>>
+            +id : UUID
+            +email : str
+            +username : str
+            +is_verified : bool
+            +last_login : Optional~datetime~
+            +created_at : Optional~datetime~
+        }
+
+        class AuthResponse {
+            <<dto>>
+            +user : UserResponse
+            +tokens : TokenResponse
+            +message : str
+        }
+
+        class GoogleAuthURLResponse {
+            <<dto>>
+            +authorization_url : str
+            +message : str
+        }
+
+        class ErrorResponse {
+            <<dto>>
+            +detail : str
+            +error_code : Optional~str~
+        }
+
+        class LoginHistoryResponse {
+            <<dto>>
+            +id : UUID
+            +timestamp : datetime
+            +ip_address : str
+            +user_agent : Optional~str~
+            +device_type : str
+            +browser : Optional~str~
+            +os : Optional~str~
+            +location : Optional~str~
+            +success : bool
+            +is_suspicious : bool
+            +failure_reason : Optional~str~
+        }
+
+        class LoginHistoryListResponse {
+            <<dto>>
+            +items : List~LoginHistoryResponse~
+            +total : int
+            +has_suspicious : bool
+            +page : int
+            +limit : int
+        }
+
+    }
+
+    AuthResponse *-- UserResponse : user
+    AuthResponse *-- TokenResponse : tokens
+    LoginHistoryListResponse *-- LoginHistoryResponse : items
+
+    %% ===== API LAYER — Dependencies =====
+
+    namespace API_Dependencies {
+
+        class OptionalAuth {
+            <<dependency>>
+            +__call__(credentials, db) Optional~User~
+        }
+
+    }
+
+    %% ===== Entity Relationships =====
+    User "1" *-- "0..*" OTP : owns
+    User "1" *-- "0..*" LoginHistory : tracks
+    OTP --> OTPPurpose : has
+    Email --> User : validates for
+    Password --> User : validates for

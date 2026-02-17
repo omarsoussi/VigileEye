@@ -1,0 +1,308 @@
+%% =====================================================
+%% VigileEye — Cross-Service Overview Diagram
+%% Shows inter-service relationships, shared JWT auth,
+%% cross-service data references, and frontend connections.
+%% =====================================================
+%% Legend:
+%%   <<service>>      Microservice package
+%%   <<entity>>       Key domain entity
+%%   <<shared>>       Shared infrastructure
+%%   <<frontend>>     Frontend application
+%%   Arrows:
+%%     --|>   Inheritance
+%%     ..|>   Realization
+%%     -->    Dependency / API call
+%%     ..>    Async / WebSocket
+%%     --     Data reference
+%% =====================================================
+
+classDiagram
+    direction TB
+
+    %% ===== AUTH SERVICE (Port 8000) =====
+
+    namespace AuthService_8000 {
+
+        class AuthService {
+            <<service>>
+            +Port : 8000
+            +Path : /api/v1/auth/*
+            ---
+            +register()
+            +verifyEmail()
+            +login()
+            +confirmLogin()
+            +forgotPassword()
+            +resetPassword()
+            +googleAuth()
+            +refreshToken()
+        }
+
+        class User_Auth {
+            <<entity>>
+            +id : UUID
+            +email : str
+            +username : str
+            +is_verified : bool
+            +google_id : Optional~str~
+        }
+
+        class OTP_Auth {
+            <<entity>>
+            +id : UUID
+            +user_id : UUID
+            +code : str
+            +purpose : OTPPurpose
+        }
+
+        class LoginHistory_Auth {
+            <<entity>>
+            +id : UUID
+            +user_id : UUID
+            +ip_address : str
+            +success : bool
+        }
+
+        class JWTHandler_Issuer {
+            <<shared>>
+            +secret_key : str
+            +algorithm : HS256
+            +create_access_token()
+            +create_refresh_token()
+            +create_token_pair()
+            +verify_token()
+        }
+
+    }
+
+    AuthService *-- User_Auth : manages
+    AuthService *-- OTP_Auth : manages
+    AuthService *-- LoginHistory_Auth : tracks
+    AuthService --> JWTHandler_Issuer : issues tokens
+
+    %% ===== CAMERA MANAGEMENT SERVICE (Port 8002) =====
+
+    namespace CameraService_8002 {
+
+        class CameraManagementService {
+            <<service>>
+            +Port : 8002
+            +Path : /api/v1/cameras/*
+            ---
+            +createCamera()
+            +listCameras()
+            +getCamera()
+            +updateCamera()
+            +deleteCamera()
+            +enableCamera()
+            +disableCamera()
+            +recordHeartbeat()
+            +getCameraHealth()
+        }
+
+        class Camera_Mgmt {
+            <<entity>>
+            +id : UUID
+            +owner_user_id : UUID
+            +name : str
+            +stream_url : str
+            +status : CameraStatus
+            +camera_type : CameraType
+        }
+
+        class CameraHealth_Mgmt {
+            <<entity>>
+            +camera_id : UUID
+            +latency_ms : int
+            +uptime_percentage : float
+        }
+
+        class JWTHandler_CamValidator {
+            <<shared>>
+            +validate_access_token()
+            +extract_user_id()
+            +extract_email()
+        }
+
+    }
+
+    CameraManagementService *-- Camera_Mgmt : manages
+    CameraManagementService *-- CameraHealth_Mgmt : monitors
+    CameraManagementService --> JWTHandler_CamValidator : validates tokens
+
+    %% ===== MEMBERS INVITATION SERVICE (Port 8001) =====
+
+    namespace MembersService_8001 {
+
+        class MembersInvitationService {
+            <<service>>
+            +Port : 8001
+            +Path : /api/v1/members/*
+            ---
+            +createInvitation()
+            +acceptInvitation()
+            +declineInvitation()
+            +listSent()
+            +listReceived()
+            +resendCode()
+        }
+
+        class Invitation_Members {
+            <<entity>>
+            +id : UUID
+            +inviter_user_id : UUID
+            +recipient_email : str
+            +permission : PermissionLevel
+            +camera_ids : List~str~
+            +status : InvitationStatus
+        }
+
+        class Membership_Members {
+            <<entity>>
+            +owner_user_id : UUID
+            +member_user_id : UUID
+            +camera_ids : List~str~
+            +permission : PermissionLevel
+        }
+
+        class JWTHandler_MemValidator {
+            <<shared>>
+            +verify_access_token()
+            +get_user()
+        }
+
+    }
+
+    MembersInvitationService *-- Invitation_Members : manages
+    MembersInvitationService *-- Membership_Members : manages
+    MembersInvitationService --> JWTHandler_MemValidator : validates tokens
+
+    %% ===== VIDEO STREAMING SERVICE (Port 8003) =====
+
+    namespace StreamingService_8003 {
+
+        class VideoStreamingService {
+            <<service>>
+            +Port : 8003
+            +Path : /api/v1/streams/*
+            +WebSocket : /ws/stream/{camera_id}
+            +WebSocket : /ws/frames/{camera_id}
+            ---
+            +startStream()
+            +stopStream()
+            +getStreamStatus()
+            +listActiveStreams()
+        }
+
+        class StreamSession_Stream {
+            <<entity>>
+            +id : UUID
+            +camera_id : UUID
+            +stream_url : str
+            +status : StreamStatus
+        }
+
+        class StreamManager_Stream {
+            <<service>>
+            +start_stream()
+            +stop_stream()
+            +_stream_loop()
+        }
+
+        class StreamBroadcaster_Stream {
+            <<infrastructure>>
+            +subscribe()
+            +unsubscribe()
+            +broadcast_frame()
+        }
+
+        class JWTHandler_StreamValidator {
+            <<shared>>
+            +verify_token()
+            +get_user_id()
+        }
+
+    }
+
+    VideoStreamingService *-- StreamSession_Stream : manages
+    VideoStreamingService --> StreamManager_Stream : orchestrates
+    StreamManager_Stream --> StreamBroadcaster_Stream : broadcasts via
+    VideoStreamingService --> JWTHandler_StreamValidator : validates tokens
+
+    %% ===== FRONTEND (Port 3000) =====
+
+    namespace Frontend_3000 {
+
+        class ReactIonicApp {
+            <<frontend>>
+            +Port : 3000
+            +Framework : React 18 + Ionic
+            +Language : TypeScript
+            ---
+            +AuthModule
+            +CameraModule
+            +InvitationModule
+            +StreamingModule
+        }
+
+        class AuthAPIClient {
+            <<api_client>>
+            +baseURL : REACT_APP_API_URL
+        }
+
+        class CamerasAPIClient {
+            <<api_client>>
+            +baseURL : REACT_APP_CAMERAS_API_URL
+        }
+
+        class MembersAPIClient {
+            <<api_client>>
+            +baseURL : REACT_APP_MEMBERS_API_URL
+        }
+
+        class StreamingAPIClient {
+            <<api_client>>
+            +baseURL : REACT_APP_STREAMING_API_URL
+        }
+
+        class WebSocketClient_FE {
+            <<api_client>>
+            +wsURL : ws://localhost:8003/ws
+        }
+
+    }
+
+    ReactIonicApp *-- AuthAPIClient
+    ReactIonicApp *-- CamerasAPIClient
+    ReactIonicApp *-- MembersAPIClient
+    ReactIonicApp *-- StreamingAPIClient
+    ReactIonicApp *-- WebSocketClient_FE
+
+    %% ===== CROSS-SERVICE RELATIONSHIPS =====
+
+    %% JWT Authentication Flow (shared secret)
+    JWTHandler_Issuer ..> JWTHandler_CamValidator : same JWT secret
+    JWTHandler_Issuer ..> JWTHandler_MemValidator : same JWT secret
+    JWTHandler_Issuer ..> JWTHandler_StreamValidator : same JWT secret
+
+    %% Frontend → Backend API connections (HTTP REST)
+    AuthAPIClient --> AuthService : HTTP REST
+    CamerasAPIClient --> CameraManagementService : HTTP REST
+    MembersAPIClient --> MembersInvitationService : HTTP REST
+    StreamingAPIClient --> VideoStreamingService : HTTP REST
+
+    %% Frontend → Streaming WebSocket
+    WebSocketClient_FE ..> StreamBroadcaster_Stream : WebSocket (binary frames)
+
+    %% Cross-service data references
+    Invitation_Members -- Camera_Mgmt : camera_ids references Camera.id
+    Membership_Members -- Camera_Mgmt : camera_ids references Camera.id
+    Camera_Mgmt -- User_Auth : owner_user_id references User.id
+    StreamSession_Stream -- Camera_Mgmt : camera_id references Camera.id
+    Invitation_Members -- User_Auth : inviter_user_id references User.id
+    Membership_Members -- User_Auth : owner/member_user_id references User.id
+
+    %% ===== SHARED DATABASE PATTERN =====
+    %% Each service has its OWN PostgreSQL database
+    %% Connected via pg8000 (pure Python driver)
+    %% No shared database — cross-references are by UUID only

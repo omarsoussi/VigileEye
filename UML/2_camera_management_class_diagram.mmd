@@ -1,0 +1,496 @@
+%% =====================================================
+%% VigileEye — Camera Management Service
+%% (CameraManagementBackend/, Port 8002)
+%% UML Class Diagram — Mermaid Syntax
+%% =====================================================
+
+classDiagram
+    direction TB
+
+    %% ===== DOMAIN LAYER — Entities & Enums =====
+
+    namespace Domain_Entities {
+
+        class Camera {
+            <<entity>>
+            +id : UUID
+            +owner_user_id : UUID
+            +name : str
+            +description : Optional~str~
+            +stream_url : str
+            +protocol : str
+            +username : Optional~str~
+            +password : Optional~str~
+            +resolution : str
+            +fps : int
+            +encoding : str
+            +status : CameraStatus
+            +camera_type : CameraType
+            +is_active : bool
+            +location : Optional~CameraLocation~
+            +last_heartbeat : Optional~datetime~
+            +created_at : datetime
+            +updated_at : datetime
+            +create(owner_user_id, name, stream_url, protocol, resolution, fps, encoding, camera_type, description, username, password, location)$ Camera
+            +disable() void
+            +enable() void
+            +mark_online() void
+            +mark_offline() void
+            +update_config(name, description, stream_url, resolution, fps, encoding, location) void
+        }
+
+        class CameraLocation {
+            <<value_object>>
+            +building : Optional~str~
+            +floor : Optional~str~
+            +zone : Optional~str~
+            +room : Optional~str~
+            +gps_lat : Optional~float~
+            +gps_long : Optional~float~
+        }
+
+        class CameraAccess {
+            <<entity>>
+            +id : UUID
+            +camera_id : UUID
+            +user_id : UUID
+            +permission : CameraPermission
+            +granted_at : datetime
+            +create(camera_id, user_id, permission)$ CameraAccess
+        }
+
+        class CameraHealth {
+            <<entity>>
+            +id : UUID
+            +camera_id : UUID
+            +last_heartbeat : datetime
+            +latency_ms : int
+            +frame_drop_rate : float
+            +uptime_percentage : float
+            +recorded_at : datetime
+            +create(camera_id, latency_ms, frame_drop_rate, uptime_percentage)$ CameraHealth
+        }
+
+        class CameraStatus {
+            <<enum>>
+            ONLINE
+            OFFLINE
+            DISABLED
+        }
+
+        class CameraType {
+            <<enum>>
+            INDOOR
+            OUTDOOR
+            THERMAL
+            FISHEYE
+            PTZ
+        }
+
+        class CameraPermission {
+            <<enum>>
+            VIEW
+            MANAGE
+        }
+
+    }
+
+    %% Entity composition relationships
+    Camera "1" *-- "0..1" CameraLocation : location
+    Camera --> CameraStatus : has status
+    Camera --> CameraType : has type
+    Camera "1" *-- "0..*" CameraAccess : access records
+    Camera "1" *-- "0..*" CameraHealth : health records
+    CameraAccess --> CameraPermission : permission level
+
+    %% ===== DOMAIN LAYER — Exceptions =====
+
+    namespace Domain_Exceptions {
+
+        class DomainException {
+            <<exception>>
+            +message : str
+        }
+
+        class CameraNotFoundException {
+            <<exception>>
+        }
+
+        class UnauthorizedException {
+            <<exception>>
+        }
+
+        class CameraAlreadyExistsException {
+            <<exception>>
+        }
+
+        class InvalidCameraConfigException {
+            <<exception>>
+        }
+
+    }
+
+    CameraNotFoundException --|> DomainException
+    UnauthorizedException --|> DomainException
+    CameraAlreadyExistsException --|> DomainException
+    InvalidCameraConfigException --|> DomainException
+
+    %% ===== DOMAIN LAYER — Repository Interfaces =====
+
+    namespace Domain_Repositories {
+
+        class CameraRepositoryInterface {
+            <<interface>>
+            +create(camera : Camera)* Camera
+            +get_by_id(camera_id : UUID)* Optional~Camera~
+            +get_by_owner(owner_user_id : UUID)* List~Camera~
+            +update(camera : Camera)* Camera
+            +delete(camera_id : UUID)* void
+            +list_all()* List~Camera~
+        }
+
+        class CameraAccessRepositoryInterface {
+            <<interface>>
+            +grant_access(access : CameraAccess)* CameraAccess
+            +revoke_access(camera_id, user_id)* void
+            +get_access(camera_id, user_id)* Optional~CameraAccess~
+            +list_user_cameras(user_id : UUID)* List~UUID~
+            +list_camera_users(camera_id : UUID)* List~CameraAccess~
+        }
+
+        class CameraHealthRepositoryInterface {
+            <<interface>>
+            +record_health(health : CameraHealth)* CameraHealth
+            +get_latest_health(camera_id : UUID)* Optional~CameraHealth~
+            +get_health_history(camera_id, limit)* List~CameraHealth~
+        }
+
+    }
+
+    %% ===== INFRASTRUCTURE — SQLAlchemy Models =====
+
+    namespace Infrastructure_Models {
+
+        class CameraModel {
+            <<model>>
+            +__tablename__ = "cameras"
+            +id : PG_UUID [PK]
+            +owner_user_id : PG_UUID [index]
+            +name : String(255)
+            +description : String(1024)
+            +stream_url : String(1024)
+            +protocol : String(50)
+            +username : String(255)
+            +password : String(255)
+            +resolution : String(50)
+            +fps : Integer
+            +encoding : String(50)
+            +status : Enum~CameraStatus~
+            +camera_type : Enum~CameraType~
+            +is_active : Boolean
+            +building : String(255)
+            +floor : String(50)
+            +zone : String(255)
+            +room : String(255)
+            +gps_lat : Float
+            +gps_long : Float
+            +last_heartbeat : DateTime
+            +created_at : DateTime
+            +updated_at : DateTime
+        }
+
+        class CameraAccessModel {
+            <<model>>
+            +__tablename__ = "camera_access"
+            +id : PG_UUID [PK]
+            +camera_id : PG_UUID [FK → cameras.id, index]
+            +user_id : PG_UUID [index]
+            +permission : Enum~CameraPermission~
+            +granted_at : DateTime
+        }
+
+        class CameraHealthModel {
+            <<model>>
+            +__tablename__ = "camera_health"
+            +id : PG_UUID [PK]
+            +camera_id : PG_UUID [FK → cameras.id, index]
+            +last_heartbeat : DateTime
+            +latency_ms : Integer
+            +frame_drop_rate : Float
+            +uptime_percentage : Float
+            +recorded_at : DateTime
+        }
+
+    }
+
+    CameraModel "1" *-- "0..*" CameraAccessModel : access_records
+    CameraModel "1" *-- "0..*" CameraHealthModel : health_records
+
+    %% ===== INFRASTRUCTURE — Concrete Repositories =====
+
+    namespace Infrastructure_Repositories {
+
+        class SQLAlchemyCameraRepository {
+            <<repository>>
+            +db : Session
+            +create(camera : Camera) Camera
+            +get_by_id(camera_id : UUID) Optional~Camera~
+            +get_by_owner(owner_user_id : UUID) List~Camera~
+            +update(camera : Camera) Camera
+            +delete(camera_id : UUID) void
+            +list_all() List~Camera~
+            -_model_to_entity(model : CameraModel)$ Camera
+        }
+
+        class SQLAlchemyCameraAccessRepository {
+            <<repository>>
+            +db : Session
+            +grant_access(access : CameraAccess) CameraAccess
+            +revoke_access(camera_id, user_id) void
+            +get_access(camera_id, user_id) Optional~CameraAccess~
+            +list_user_cameras(user_id : UUID) List~UUID~
+            +list_camera_users(camera_id : UUID) List~CameraAccess~
+            -_model_to_entity(model)$ CameraAccess
+        }
+
+        class SQLAlchemyCameraHealthRepository {
+            <<repository>>
+            +db : Session
+            +record_health(health : CameraHealth) CameraHealth
+            +get_latest_health(camera_id : UUID) Optional~CameraHealth~
+            +get_health_history(camera_id, limit) List~CameraHealth~
+            -_model_to_entity(model)$ CameraHealth
+        }
+
+    }
+
+    %% Realization
+    SQLAlchemyCameraRepository ..|> CameraRepositoryInterface
+    SQLAlchemyCameraAccessRepository ..|> CameraAccessRepositoryInterface
+    SQLAlchemyCameraHealthRepository ..|> CameraHealthRepositoryInterface
+
+    %% Repo → Model dependencies
+    SQLAlchemyCameraRepository --> CameraModel : queries
+    SQLAlchemyCameraAccessRepository --> CameraAccessModel : queries
+    SQLAlchemyCameraHealthRepository --> CameraHealthModel : queries
+
+    %% ===== INFRASTRUCTURE — Security =====
+
+    namespace Infrastructure_Security {
+
+        class JWTHandler_Camera {
+            <<security>>
+            +validate_access_token(token : str)$ Dict
+            +extract_user_id(payload : Dict)$ UUID
+            +extract_email(payload : Dict)$ str
+        }
+
+        class CurrentUser {
+            <<value_object>>
+            +id : UUID
+            +email : str
+        }
+
+    }
+
+    JWTHandler_Camera --> CurrentUser : extracts
+
+    %% ===== INFRASTRUCTURE — Config =====
+
+    namespace Infrastructure_Config {
+
+        class Settings {
+            <<config>>
+            +database_url : str
+            +jwt_secret_key : str
+            +jwt_algorithm : str
+            +app_name : str
+            +debug : bool
+            +port : int
+            +frontend_url : str
+        }
+
+    }
+
+    %% ===== APPLICATION — Use Cases =====
+
+    namespace Application_UseCases {
+
+        class CreateCameraUseCase {
+            <<use_case>>
+            +camera_repo : CameraRepositoryInterface
+            +execute(owner_user_id, name, stream_url, protocol, resolution, fps, encoding, camera_type, description, username, password, location) Camera
+        }
+
+        class GetCameraUseCase {
+            <<use_case>>
+            +camera_repo : CameraRepositoryInterface
+            +execute(camera_id, user_id) Camera
+        }
+
+        class ListUserCamerasUseCase {
+            <<use_case>>
+            +camera_repo : CameraRepositoryInterface
+            +execute(user_id : UUID) List~Camera~
+        }
+
+        class UpdateCameraUseCase {
+            <<use_case>>
+            +camera_repo : CameraRepositoryInterface
+            +execute(camera_id, user_id, name, description, stream_url, resolution, fps, encoding, location) Camera
+        }
+
+        class DeleteCameraUseCase {
+            <<use_case>>
+            +camera_repo : CameraRepositoryInterface
+            +execute(camera_id, user_id) void
+        }
+
+        class EnableCameraUseCase {
+            <<use_case>>
+            +camera_repo : CameraRepositoryInterface
+            +execute(camera_id, user_id) Camera
+        }
+
+        class DisableCameraUseCase {
+            <<use_case>>
+            +camera_repo : CameraRepositoryInterface
+            +execute(camera_id, user_id) Camera
+        }
+
+        class RecordHealthUseCase {
+            <<use_case>>
+            +camera_repo : CameraRepositoryInterface
+            +health_repo : CameraHealthRepositoryInterface
+            +execute(camera_id, latency_ms, frame_drop_rate, uptime_percentage) CameraHealth
+        }
+
+    }
+
+    %% Use case dependencies
+    CreateCameraUseCase --> CameraRepositoryInterface : depends on
+    GetCameraUseCase --> CameraRepositoryInterface : depends on
+    ListUserCamerasUseCase --> CameraRepositoryInterface : depends on
+    UpdateCameraUseCase --> CameraRepositoryInterface : depends on
+    DeleteCameraUseCase --> CameraRepositoryInterface : depends on
+    EnableCameraUseCase --> CameraRepositoryInterface : depends on
+    DisableCameraUseCase --> CameraRepositoryInterface : depends on
+    RecordHealthUseCase --> CameraRepositoryInterface : depends on
+    RecordHealthUseCase --> CameraHealthRepositoryInterface : depends on
+
+    %% ===== APPLICATION — DTOs =====
+
+    namespace Application_DTOs_Request {
+
+        class CameraLocationRequest {
+            <<dto>>
+            +building : Optional~str~
+            +floor : Optional~str~
+            +zone : Optional~str~
+            +room : Optional~str~
+            +gps_lat : Optional~float~
+            +gps_long : Optional~float~
+        }
+
+        class CreateCameraRequest {
+            <<dto>>
+            +name : str
+            +description : Optional~str~
+            +stream_url : str
+            +protocol : str
+            +username : Optional~str~
+            +password : Optional~str~
+            +resolution : str
+            +fps : int
+            +encoding : str
+            +camera_type : CameraType
+            +location : Optional~CameraLocationRequest~
+        }
+
+        class UpdateCameraRequest {
+            <<dto>>
+            +name : Optional~str~
+            +description : Optional~str~
+            +stream_url : Optional~str~
+            +resolution : Optional~str~
+            +fps : Optional~int~
+            +encoding : Optional~str~
+            +location : Optional~CameraLocationRequest~
+        }
+
+        class GrantAccessRequest {
+            <<dto>>
+            +user_id : str
+            +permission : str
+        }
+
+        class RecordHealthRequest {
+            <<dto>>
+            +latency_ms : int
+            +frame_drop_rate : float
+            +uptime_percentage : float
+        }
+
+    }
+
+    namespace Application_DTOs_Response {
+
+        class CameraLocationResponse {
+            <<dto>>
+            +building : Optional~str~
+            +floor : Optional~str~
+            +zone : Optional~str~
+            +room : Optional~str~
+            +gps_lat : Optional~float~
+            +gps_long : Optional~float~
+        }
+
+        class CameraResponse {
+            <<dto>>
+            +id : str
+            +owner_user_id : str
+            +name : str
+            +description : Optional~str~
+            +stream_url : str
+            +protocol : str
+            +resolution : str
+            +fps : int
+            +encoding : str
+            +status : str
+            +camera_type : str
+            +is_active : bool
+            +location : Optional~CameraLocationResponse~
+            +last_heartbeat : Optional~datetime~
+            +created_at : datetime
+            +updated_at : datetime
+        }
+
+        class CameraHealthResponse {
+            <<dto>>
+            +camera_id : str
+            +last_heartbeat : datetime
+            +latency_ms : int
+            +frame_drop_rate : float
+            +uptime_percentage : float
+            +recorded_at : datetime
+        }
+
+        class CameraAccessResponse {
+            <<dto>>
+            +camera_id : str
+            +user_id : str
+            +permission : str
+            +granted_at : datetime
+        }
+
+        class MessageResponse {
+            <<dto>>
+            +message : str
+            +success : bool
+        }
+
+    }
+
+    CreateCameraRequest *-- CameraLocationRequest : location
+    UpdateCameraRequest *-- CameraLocationRequest : location
+    CameraResponse *-- CameraLocationResponse : location
