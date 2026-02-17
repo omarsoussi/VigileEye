@@ -185,8 +185,6 @@ classDiagram
             <<service>>
             +Port : 8003
             +Path : /api/v1/streams/*
-            +WebSocket : /ws/stream/{camera_id}
-            +WebSocket : /ws/frames/{camera_id}
             ---
             +startStream()
             +stopStream()
@@ -292,7 +290,7 @@ classDiagram
     StreamingAPIClient --> VideoStreamingService : HTTP REST
 
     %% Frontend → Streaming WebSocket
-    WebSocketClient_FE ..> StreamBroadcaster_Stream : WebSocket (binary frames)
+    WebSocketClient_FE ..> StreamBroadcaster_Stream : WebSocket binary frames
 
     %% Cross-service data references
     Invitation_Members -- Camera_Mgmt : camera_ids references Camera.id
@@ -301,8 +299,3 @@ classDiagram
     StreamSession_Stream -- Camera_Mgmt : camera_id references Camera.id
     Invitation_Members -- User_Auth : inviter_user_id references User.id
     Membership_Members -- User_Auth : owner/member_user_id references User.id
-
-    %% ===== SHARED DATABASE PATTERN =====
-    %% Each service has its OWN PostgreSQL database
-    %% Connected via pg8000 (pure Python driver)
-    %% No shared database — cross-references are by UUID only
