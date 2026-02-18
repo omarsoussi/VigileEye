@@ -1,0 +1,75 @@
+---
+title: "Sequence Diagram: Authentication Service"
+---
+sequenceDiagram
+    actor User
+    participant FE  as Frontend<br/>(React/Ionic)
+    participant AS  as AuthService<br/>(port 8000)
+    participant DB  as PostgreSQL
+
+    Note over User,DB: ── STEP 1: Submit Credentials ──────────────────────────
+
+    User ->> FE  : Enter email & password
+    activate FE
+    FE   ->> AS  : POST /api/v1/auth/login {email, password}
+    activate AS
+    AS   ->> DB  : SELECT * FROM users WHERE email = ?
+    activate DB
+    DB  -->> AS  : User record | None
+    deactivate DB
+
+    AS   ->> AS  : PasswordHasher.verify(raw, hash)<br/>User.is_locked() → check lockout_until
+
+    alt User not found OR not verified
+        AS  -->> FE  : 401 { detail: "Invalid credentials" }
+        FE  -->> User : Show error message
+    else Account locked (failed_login_attempts ≥ 3)
+        AS  -->> FE  : 423 { detail: "Account locked for 1 hour" }
+        FE  -->> User : Show lockout timer
+    else Wrong password (attempts < 3)
+        AS   ->> DB  : UPDATE users SET failed_login_attempts = N
+        activate DB
+        DB  -->> AS  : OK
+        deactivate DB
+        AS  -->> FE  : 401 { detail: "Invalid credentials. Attempt N/3" }
+        FE  -->> User : "Wrong password (N/3 attempts)"
+    else Correct password
+        AS   ->> DB  : UPDATE users SET failed_login_attempts = 0
+        activate DB
+        DB  -->> AS  : OK
+        deactivate DB
+        AS   ->> DB  : INSERT INTO otps<br/>(purpose=LOGIN_2FA, expires=NOW()+10min)
+        activate DB
+        DB  -->> AS  : OTP record
+        deactivate DB
+        AS   ->> AS  : EmailSender.send_2fa_email(email, otp_code)
+        AS  -->> FE  : 200 { message: "OTP sent", pending_2fa: true }
+        deactivate AS
+        FE  -->> User : "Enter the OTP sent to your email"
+    end
+
+    Note over User,DB: ── STEP 2: Confirm 2FA OTP ─────────────────────────────
+
+    User ->> FE  : Enter 6-digit OTP
+    FE   ->> AS  : POST /api/v1/auth/login/confirm {email, otp_code}
+    activate AS
+    AS   ->> DB  : SELECT * FROM otps<br/>WHERE code=? AND purpose=LOGIN_2FA<br/>AND expires_at > NOW() AND is_used=False
+    activate DB
+    DB  -->> AS  : OTP | None
+    deactivate DB
+
+    alt OTP invalid or expired
+        AS  -->> FE  : 401 { detail: "Invalid or expired OTP" }
+        FE  -->> User : Show error
+    else OTP valid
+        AS   ->> DB  : UPDATE otps SET is_used = TRUE<br/>UPDATE users SET last_login = NOW()
+        activate DB
+        DB  -->> AS  : OK
+        deactivate DB
+        AS   ->> AS  : JWTHandler.create_token_pair(user_id, email)<br/>→ access_token (15 min) + refresh_token (7 days)
+        AS  -->> FE  : 200 { access_token, refresh_token }
+        deactivate AS
+        FE  -->> User : Store tokens → Redirect to Dashboard
+    end
+
+    deactivate FE

@@ -1,0 +1,100 @@
+---
+title: "Sequence Diagram: Camera Management Service"
+---
+sequenceDiagram
+    actor User
+    actor CamDevice as Camera Device
+    participant FE  as Frontend<br/>(React/Ionic)
+    participant CS  as CameraService<br/>(port 8002)
+    participant JWT as JWTHandler<br/>(Infra/Security)
+    participant DB  as PostgreSQL
+
+    Note over User,DB: ── CREATE CAMERA ──────────────────────────────────────
+
+    User ->> FE  : Fill camera form<br/>{name, stream_url, protocol, type, location}
+    activate FE
+    FE   ->> CS  : POST /api/v1/cameras<br/>Authorization: Bearer <token>
+    activate CS
+    CS   ->> JWT : verify_token(token, "access")
+    activate JWT
+
+    alt Token invalid or expired
+        JWT -->> CS  : raise JWTDecodeError
+        deactivate JWT
+        CS  -->> FE  : 401 Unauthorized
+        FE  -->> User : Redirect to login
+    else Token valid
+        JWT -->> CS  : { user_id, email }
+        deactivate JWT
+        CS   ->> DB  : INSERT INTO cameras<br/>(owner_user_id, name, stream_url,<br/>protocol, status=OFFLINE, is_active=True)
+        activate DB
+        DB  -->> CS  : { id, created_at }
+        deactivate DB
+        CS  -->> FE  : 201 Created { camera_id, name, status }
+        FE  -->> User : Camera added to dashboard
+    end
+
+    Note over User,DB: ── LIST CAMERAS ───────────────────────────────────────
+
+    User ->> FE  : Open cameras dashboard
+    FE   ->> CS  : GET /api/v1/cameras<br/>Authorization: Bearer <token>
+    CS   ->> JWT : verify_token(token, "access")
+    activate JWT
+    JWT -->> CS  : { user_id }
+    deactivate JWT
+    CS   ->> DB  : SELECT * FROM cameras<br/>WHERE owner_user_id = ? ORDER BY created_at DESC
+    activate DB
+    DB  -->> CS  : [ Camera records ]
+    deactivate DB
+    CS  -->> FE  : 200 [{ id, name, status, last_heartbeat, location }]
+    deactivate CS
+    FE  -->> User : Render camera grid with status badges
+    deactivate FE
+
+    Note over CamDevice,DB: ── HEARTBEAT (periodic, every N seconds) ─────────────
+
+    CamDevice ->> CS  : POST /api/v1/cameras/{id}/heartbeat<br/>{ latency_ms, frame_drop_rate, uptime_percentage }
+    activate CS
+    CS   ->> DB  : SELECT * FROM cameras WHERE id = ?
+    activate DB
+    DB  -->> CS  : Camera record
+    deactivate DB
+    CS   ->> DB  : UPDATE cameras<br/>SET status='ONLINE', last_heartbeat=NOW()
+    activate DB
+    DB  -->> CS  : OK
+    deactivate DB
+    CS   ->> DB  : INSERT INTO camera_health<br/>(camera_id, latency_ms,<br/>frame_drop_rate, uptime_percentage)
+    activate DB
+    DB  -->> CS  : { id, recorded_at }
+    deactivate DB
+    CS  -->> CamDevice : 200 { status: "ONLINE", recorded_at }
+    deactivate CS
+
+    Note over User,DB: ── DELETE CAMERA ──────────────────────────────────────
+
+    User ->> FE  : Click "Delete Camera" → Confirm dialog
+    activate FE
+    FE   ->> CS  : DELETE /api/v1/cameras/{id}<br/>Authorization: Bearer <token>
+    activate CS
+    CS   ->> JWT : verify_token(token, "access")
+    activate JWT
+    JWT -->> CS  : { user_id }
+    deactivate JWT
+    CS   ->> DB  : SELECT * FROM cameras WHERE id = ?
+    activate DB
+    DB  -->> CS  : Camera record
+    deactivate DB
+
+    alt user_id ≠ owner_user_id
+        CS  -->> FE  : 403 Forbidden
+        FE  -->> User : Show error
+    else Authorized
+        CS   ->> DB  : DELETE FROM cameras WHERE id = ?
+        activate DB
+        DB  -->> CS  : OK
+        deactivate DB
+        CS  -->> FE  : 204 No Content
+        FE  -->> User : Remove camera from list
+    end
+    deactivate CS
+    deactivate FE

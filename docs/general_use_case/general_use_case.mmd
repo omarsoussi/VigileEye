@@ -1,0 +1,77 @@
+---
+title: "General Use Case Diagram: Video Surveillance and Streaming System"
+---
+flowchart LR
+    classDef actor  fill:#ffffff,stroke:#000000,color:#000000,font-weight:bold
+    classDef uc     fill:#ffffff,stroke:#000000,color:#000000
+    classDef extSys fill:#ffffff,stroke:#000000,color:#000000
+
+    %% ─── ACTORS ─────────────────────────────────────────────────
+    User(["👤\nUser"]):::actor
+    Admin(["👤\nAdmin"]):::actor
+    Member(["👤\nMember"]):::actor
+    CamDevice(["📷\nCamera Device"]):::actor
+
+    %% ─── SYSTEM BOUNDARY ─────────────────────────────────────────
+    subgraph SYS["  Video Surveillance and Streaming System  "]
+        direction LR
+
+        subgraph col1[" "]
+            direction TB
+            AUTH(["Authenticate\nUser"]):::uc
+            CAMS(["Manage\nCameras"]):::uc
+            STREAM(["Stream\nVideo"]):::uc
+            INVITE(["Invite\nMembers"]):::uc
+        end
+
+        subgraph col2[" "]
+            direction TB
+            REG(["Register\nAccount"]):::uc
+            LOGIN(["Login &\n2FA OTP"]):::uc
+            RESET(["Reset\nPassword"]):::uc
+            ADDCAM(["Add\nCamera"]):::uc
+            CFGCAM(["Configure\nCamera"]):::uc
+            MONHL(["Monitor\nCamera Health"]):::uc
+            START(["Start\nStream"]):::uc
+            WATCH(["Watch\nLive Feed"]):::uc
+            STOP(["Stop\nStream"]):::uc
+            SENDINV(["Send\nInvitation"]):::uc
+            ACCEPT(["Accept\nInvitation"]):::uc
+            REVOKE(["Revoke\nAccess"]):::uc
+        end
+    end
+
+    %% ─── EXTERNAL SYSTEM ────────────────────────────────────────
+    EXT_FEED[["📡 Camera Feed\nRTSP / HTTP"]]
+
+    %% ─── ACTOR → USE CASE ASSOCIATIONS (solid lines) ────────────
+    User      --> AUTH
+    User      --> STREAM
+    Admin     --> AUTH
+    Admin     --> CAMS
+    Admin     --> STREAM
+    Admin     --> INVITE
+    Member    --> AUTH
+    Member    --> STREAM
+    CamDevice --> CAMS
+
+    %% ─── AUTH RELATIONSHIPS (dashed) ─────────────────────────────
+    AUTH  -. "<<include>>" .-> REG
+    AUTH  -. "<<include>>" .-> LOGIN
+    RESET -. "<<extend>>"  .-> AUTH
+
+    %% ─── CAMERA RELATIONSHIPS (dashed) ───────────────────────────
+    CAMS   -. "<<include>>" .-> ADDCAM
+    CFGCAM -. "<<extend>>"  .-> CAMS
+    MONHL  -. "<<extend>>"  .-> CAMS
+
+    %% ─── STREAM RELATIONSHIPS (dashed) ───────────────────────────
+    STREAM -. "<<include>>" .-> START
+    STREAM -. "<<include>>" .-> WATCH
+    STOP   -. "<<extend>>"  .-> STREAM
+    START  ---               EXT_FEED
+
+    %% ─── INVITE RELATIONSHIPS (dashed) ───────────────────────────
+    INVITE -. "<<include>>" .-> SENDINV
+    INVITE -. "<<include>>" .-> ACCEPT
+    REVOKE -. "<<extend>>"  .-> INVITE

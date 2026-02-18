@@ -1,0 +1,110 @@
+---
+title: "Sequence Diagram: Video Streaming Service"
+---
+sequenceDiagram
+    actor User
+    participant FE   as Frontend<br/>(React/Ionic)
+    participant SS   as StreamService<br/>(port 8003)
+    participant JWT  as JWTHandler<br/>(Infra/Security)
+    participant OCV  as OpenCV Capture<br/>(Infra)
+    participant WSM  as WebSocket Manager<br/>(Infra)
+    participant FEED as Camera Feed<br/>(RTSP/HTTP)
+    participant DB   as PostgreSQL
+
+    Note over User,DB: ── START STREAM ────────────────────────────────────────
+
+    User ->> FE  : Click "Watch Live Stream" for camera
+    activate FE
+    FE   ->> SS  : POST /api/v1/streams/start<br/>Authorization: Bearer <token><br/>{ camera_id, stream_url, config }
+    activate SS
+    SS   ->> JWT : verify_token(token, "access")
+    activate JWT
+    JWT -->> SS  : { user_id }
+    deactivate JWT
+
+    SS   ->> DB  : SELECT session WHERE camera_id=?<br/>AND status IN ('active','connecting')
+    activate DB
+    DB  -->> SS  : Session | None
+    deactivate DB
+
+    alt Session already ACTIVE
+        SS  -->> FE  : 200 { ws_url, is_new: false }
+    else No active session → start new
+        SS   ->> DB  : INSERT INTO stream_sessions<br/>(camera_id, status='pending', fps)
+        activate DB
+        DB  -->> SS  : session_id
+        deactivate DB
+
+        SS   ->> OCV : VideoCapture(stream_url)
+        activate OCV
+        OCV  ->> FEED : Connect (RTSP handshake / HTTP GET)
+        activate FEED
+        FEED -->> OCV : Stream established
+        deactivate FEED
+        OCV -->> SS  : capture_handle
+        deactivate OCV
+
+        SS   ->> DB  : UPDATE status='active', started_at=NOW()
+        activate DB
+        DB  -->> SS  : OK
+        deactivate DB
+        SS   ->> WSM : register_stream(camera_id, capture_handle)
+        activate WSM
+        WSM -->> SS  : OK
+        deactivate WSM
+        SS  -->> FE  : 200 { ws_url: "/ws/stream/{camera_id}", is_new: true }
+    end
+    deactivate SS
+
+    Note over User,DB: ── WEBSOCKET FRAME DELIVERY ─────────────────────────────
+
+    FE   ->> SS  : WS CONNECT /ws/stream/{camera_id}?token=<access_token>
+    activate SS
+    SS   ->> JWT : verify_token(token, "access")
+    activate JWT
+    JWT -->> SS  : { user_id }
+    deactivate JWT
+    SS   ->> WSM : add_client(camera_id, ws_connection)
+    activate WSM
+    WSM -->> SS  : OK
+    deactivate WSM
+    SS  -->> FE  : WS OPEN (101 Switching Protocols)
+    FE  -->> User : Show live video player
+
+    loop Every frame at configured FPS (~15fps)
+        SS   ->> OCV : cap.read()
+        activate OCV
+        OCV -->> SS  : BGR numpy frame
+        deactivate OCV
+        SS   ->> SS  : cv2.imencode('.jpg', frame, quality=80)<br/>→ JPEG bytes
+        SS   ->> DB  : UPDATE last_frame_at = NOW()
+        SS  -->> FE  : WS BINARY <JPEG frame bytes>
+        FE  -->> User : Render frame on canvas element
+    end
+
+    Note over User,DB: ── STOP STREAM ─────────────────────────────────────────
+
+    User ->> FE  : Close stream view
+    FE   ->> SS  : WS CLOSE (1000 Normal)
+    SS   ->> WSM : remove_client(camera_id, ws_connection)
+    activate WSM
+    WSM -->> SS  : clients_remaining = 0
+    deactivate WSM
+    SS  -->> FE  : WS CLOSED
+    deactivate SS
+
+    FE   ->> SS  : POST /api/v1/streams/stop { camera_id }
+    activate SS
+    SS   ->> OCV : cap.release()
+    SS   ->> WSM : close_all_clients(camera_id)
+    activate WSM
+    WSM -->> SS  : OK
+    deactivate WSM
+    SS   ->> DB  : UPDATE stream_sessions<br/>SET status='stopped', stopped_at=NOW()
+    activate DB
+    DB  -->> SS  : OK
+    deactivate DB
+    SS  -->> FE  : 200 { status: "stopped", stopped_at }
+    deactivate SS
+    FE  -->> User : "Stream ended"
+    deactivate FE
