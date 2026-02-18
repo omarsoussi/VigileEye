@@ -1,0 +1,69 @@
+---
+title: Video Streaming Service (port 8003) — Use Case Diagram
+---
+flowchart LR
+    classDef actor      fill:#FFF8E1,stroke:#E65100,color:#000,font-weight:bold,rx:6
+    classDef usecase    fill:#E3F2FD,stroke:#1976D2,color:#000
+    classDef include_uc fill:#EDE7F6,stroke:#7E57C2,color:#000
+    classDef extend_uc  fill:#E8F5E9,stroke:#388E3C,color:#000
+    classDef ext_actor  fill:#E8F5E9,stroke:#388E3C,color:#000,font-weight:bold,rx:6
+
+    %% ── Actors ─────────────────────────────────────────────
+    AuthUser(["👤 Authenticated\nUser"]):::actor
+    Admin(["🛡️ Admin /\nDashboard"]):::actor
+    CameraFeed(["📡 RTSP / HTTP /\nHLS Source"]):::ext_actor
+
+    %% ── System Boundary ─────────────────────────────────────
+    subgraph STREAM["  Video Streaming Service — port 8003  "]
+        direction TB
+
+        subgraph CTRL["Stream Control (REST)"]
+            direction TB
+            StartStream(["Start Stream"]):::usecase
+            StopStream(["Stop Stream"]):::usecase
+            GetStatus(["Get Stream\nStatus"]):::usecase
+            ListActive(["List Active\nStreams"]):::usecase
+        end
+
+        subgraph INTERNAL["Internal Pipeline (included)"]
+            direction TB
+            ResolveURL(["Resolve\nStream URL"]):::include_uc
+            InitOpenCV(["Initialise\nOpenCV Capture"]):::include_uc
+            RegisterWS(["Register in\nWebSocket Manager"]):::include_uc
+            ReleaseCapture(["Release\nOpenCV Capture"]):::include_uc
+            CloseWS(["Close All\nWebSocket Clients"]):::include_uc
+        end
+
+        subgraph LIVE["Live Viewing (WebSocket)"]
+            direction TB
+            WatchStream(["Watch Live\nStream (WS)"]):::usecase
+            AuthWS(["Authenticate\nWS Token"]):::include_uc
+            ReceiveFrames(["Receive\nJPEG Frames"]):::include_uc
+            HandleReconnect(["Handle Stream\nReconnection"]):::extend_uc
+        end
+    end
+
+    %% ── User associations ────────────────────────────────────
+    AuthUser -->|"initiates"| StartStream
+    AuthUser -->|"initiates"| StopStream
+    AuthUser -->|"initiates"| GetStatus
+    AuthUser -->|"initiates"| WatchStream
+
+    %% ── Admin associations ───────────────────────────────────
+    Admin -->|"initiates"| ListActive
+    Admin -->|"initiates"| StopStream
+
+    %% ── Camera Source ────────────────────────────────────────
+    CameraFeed -->|"provides frames to"| InitOpenCV
+
+    %% ── Include relationships ────────────────────────────────
+    StartStream -. "<<include>>" .-> ResolveURL
+    StartStream -. "<<include>>" .-> InitOpenCV
+    StartStream -. "<<include>>" .-> RegisterWS
+    StopStream  -. "<<include>>" .-> ReleaseCapture
+    StopStream  -. "<<include>>" .-> CloseWS
+    WatchStream -. "<<include>>" .-> AuthWS
+    WatchStream -. "<<include>>" .-> ReceiveFrames
+
+    %% ── Extend relationships ─────────────────────────────────
+    ReceiveFrames -. "<<extend>>\n[frame read fails]" .-> HandleReconnect

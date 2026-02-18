@@ -1,0 +1,83 @@
+---
+title: Auth Service (port 8000) — Use Case Diagram
+---
+flowchart LR
+    classDef actor      fill:#FFF8E1,stroke:#E65100,color:#000,font-weight:bold,rx:6
+    classDef usecase    fill:#E3F2FD,stroke:#1976D2,color:#000
+    classDef include_uc fill:#EDE7F6,stroke:#7E57C2,color:#000
+    classDef ext_actor  fill:#FBE9E7,stroke:#E64A19,color:#000,font-weight:bold,rx:6
+
+    %% ── Actors ─────────────────────────────────────────────
+    Visitor(["👤 Visitor\n(Unauthenticated)"]):::actor
+    LoggedUser(["🔐 Authenticated\nUser"]):::actor
+    EmailSvc(["📧 Email\nService"]):::ext_actor
+    GoogleSvc(["🌐 Google\nOAuth"]):::ext_actor
+
+    %% ── System Boundary ─────────────────────────────────────
+    subgraph AUTH["  Auth Service — port 8000  "]
+        direction TB
+
+        subgraph REG["Registration"]
+            direction LR
+            Register(["Register Account"]):::usecase
+            VerifyEmail(["Verify Email\n(OTP)"]):::usecase
+        end
+
+        subgraph LOGIN["Login & 2FA"]
+            direction LR
+            Login(["Login\n(Step 1)"]):::usecase
+            ConfirmLogin(["Confirm Login\n(2FA OTP)"]):::usecase
+            LockCheck(["Check Account\nLockout"]):::include_uc
+            SendOTP(["Send 2FA OTP\nvia Email"]):::include_uc
+        end
+
+        subgraph PWD["Password Recovery"]
+            direction LR
+            ForgotPwd(["Forgot Password"]):::usecase
+            ResetPwd(["Reset Password"]):::usecase
+            SendResetCode(["Send Reset Code\nvia Email"]):::include_uc
+            ValidateResetOTP(["Validate Reset\nOTP"]):::include_uc
+            UnlockAccount(["Unlock Account"]):::include_uc
+        end
+
+        subgraph TOKEN["Token Management"]
+            direction LR
+            RefreshToken(["Refresh\nAccess Token"]):::usecase
+            OAuthLogin(["Google OAuth\nLogin"]):::usecase
+            LinkGoogle(["Link Google\nAccount"]):::include_uc
+        end
+
+        subgraph HIST["Audit"]
+            direction LR
+            ViewHistory(["View Login\nHistory"]):::usecase
+            ViewSuspicious(["View Suspicious\nLogin Attempts"]):::usecase
+        end
+    end
+
+    %% ── Visitor associations ────────────────────────────────
+    Visitor -->|"initiates"| Register
+    Visitor -->|"initiates"| VerifyEmail
+    Visitor -->|"initiates"| Login
+    Visitor -->|"initiates"| ForgotPwd
+    Visitor -->|"initiates"| OAuthLogin
+
+    %% ── Authenticated User associations ─────────────────────
+    LoggedUser -->|"initiates"| ConfirmLogin
+    LoggedUser -->|"initiates"| RefreshToken
+    LoggedUser -->|"initiates"| ResetPwd
+    LoggedUser -->|"initiates"| ViewHistory
+    LoggedUser -->|"initiates"| ViewSuspicious
+
+    %% ── Include relationships ────────────────────────────────
+    Login       -. "<<include>>" .-> LockCheck
+    Login       -. "<<include>>" .-> SendOTP
+    ForgotPwd   -. "<<include>>" .-> SendResetCode
+    ResetPwd    -. "<<include>>" .-> ValidateResetOTP
+    ResetPwd    -. "<<include>>" .-> UnlockAccount
+    OAuthLogin  -. "<<extend>>"  .-> LinkGoogle
+
+    %% ── External service interactions ───────────────────────
+    SendOTP       -->|"sends via"| EmailSvc
+    SendResetCode -->|"sends via"| EmailSvc
+    Register      -. "<<include>>" .-> EmailSvc
+    OAuthLogin    -->|"delegates to"| GoogleSvc

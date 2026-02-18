@@ -1,0 +1,64 @@
+---
+title: Members Invitation Service (port 8001) — Use Case Diagram
+---
+flowchart LR
+    classDef actor      fill:#FFF8E1,stroke:#E65100,color:#000,font-weight:bold,rx:6
+    classDef usecase    fill:#E3F2FD,stroke:#1976D2,color:#000
+    classDef include_uc fill:#EDE7F6,stroke:#7E57C2,color:#000
+    classDef extend_uc  fill:#E8F5E9,stroke:#388E3C,color:#000
+    classDef ext_actor  fill:#FBE9E7,stroke:#E64A19,color:#000,font-weight:bold,rx:6
+
+    %% ── Actors ─────────────────────────────────────────────
+    Owner(["👤 Camera Owner\n(Inviter)"]):::actor
+    Recipient(["👥 Invited User\n(Recipient)"]):::actor
+    EmailSvc(["📧 Email\nService"]):::ext_actor
+
+    %% ── System Boundary ─────────────────────────────────────
+    subgraph MEMB["  Members Invitation Service — port 8001  "]
+        direction TB
+
+        subgraph SEND["Invitation Management — Owner side"]
+            direction TB
+            SendInvitation(["Send Invitation\n(READER | EDITOR)"]):::usecase
+            ViewSent(["View Sent\nInvitations"]):::usecase
+            ResendCode(["Resend Invitation\nCode"]):::usecase
+            GenCode(["Generate Invitation\nCode"]):::include_uc
+            CheckDuplicate(["Check Duplicate\nPending Invitation"]):::include_uc
+        end
+
+        subgraph RESP["Invitation Response — Recipient side"]
+            direction TB
+            ViewReceived(["View Received\nInvitations"]):::usecase
+            AcceptInvitation(["Accept\nInvitation"]):::usecase
+            DeclineInvitation(["Decline\nInvitation"]):::usecase
+            ValidateCode(["Validate\nInvitation Code"]):::include_uc
+            CreateMembership(["Create\nMembership"]):::include_uc
+            NotifyInviter(["Notify Inviter\nof Response"]):::extend_uc
+        end
+    end
+
+    %% ── Owner associations ───────────────────────────────────
+    Owner -->|"initiates"| SendInvitation
+    Owner -->|"initiates"| ViewSent
+    Owner -->|"initiates"| ResendCode
+
+    %% ── Recipient associations ───────────────────────────────
+    Recipient -->|"initiates"| ViewReceived
+    Recipient -->|"initiates"| AcceptInvitation
+    Recipient -->|"initiates"| DeclineInvitation
+
+    %% ── Include relationships ────────────────────────────────
+    SendInvitation   -. "<<include>>" .-> CheckDuplicate
+    SendInvitation   -. "<<include>>" .-> GenCode
+    ResendCode       -. "<<include>>" .-> GenCode
+    AcceptInvitation -. "<<include>>" .-> ValidateCode
+    AcceptInvitation -. "<<include>>" .-> CreateMembership
+
+    %% ── Extend relationships ─────────────────────────────────
+    AcceptInvitation  -. "<<extend>>" .-> NotifyInviter
+    DeclineInvitation -. "<<extend>>" .-> NotifyInviter
+
+    %% ── External service interactions ───────────────────────
+    SendInvitation    -->|"sends email via"| EmailSvc
+    ResendCode        -->|"sends email via"| EmailSvc
+    NotifyInviter     -->|"sends email via"| EmailSvc

@@ -1,0 +1,163 @@
+@startuml Streaming_WebSocket_Frames
+skinparam backgroundColor #FAFAFA
+skinparam sequenceArrowThickness 1.5
+skinparam sequence {
+    ArrowColor #37474F
+    LifeLineBorderColor #B0BEC5
+    LifeLineBackgroundColor #ECEFF1
+    BoxBorderColor #78909C
+    GroupBorderColor #7E57C2
+    GroupBackgroundColor #EDE7F6
+    GroupHeaderFontColor #311B92
+    DividerBackgroundColor #E3F2FD
+    DividerBorderColor #1565C0
+    DividerFontColor #0D47A1
+}
+skinparam participant {
+    BackgroundColor #E3F2FD
+    BorderColor #1976D2
+    FontColor #0D47A1
+}
+skinparam actor {
+    BackgroundColor #FFF8E1
+    BorderColor #F57F17
+}
+skinparam note {
+    BackgroundColor #FFFDE7
+    BorderColor #F9A825
+}
+
+title **Video Streaming Service (port 8003) — WebSocket Real-Time Frame Delivery**
+
+actor "User" as U
+participant "**Frontend**\n<<React / Ionic>>" as FE #FFF8E1
+participant "**WS Endpoint**\n/ws/stream/{camera_id}\n<<API Layer>>" as WSE #DBEAFE
+participant "**JWTHandler**\n<<Infra/Security>>" as JWT #E0F2F1
+participant "**WebSocketManager**\n<<Infra/WS>>" as WSM #E8F5E9
+participant "**OpenCVCapture**\n<<Infra/OpenCV>>" as OCV #E8F5E9
+participant "**IStreamRepository**\n<<Domain>>" as STMR #F3E5F5
+participant "**DBStreamRepository**\n<<Infrastructure>>" as DBST #E0F2F1
+participant "**PostgreSQL**\n<<Database>>" as DB #F5F5F5
+
+note over WSE : WebSocket endpoint registered\nat /ws/stream/{camera_id}\nand /ws/frames/{camera_id}
+
+== ① WebSocket Handshake & Auth ==
+
+note over FE : Called after POST /streams/start\nreturns ws_url
+U -> FE : Open live stream view
+activate FE
+FE -> WSE : WS CONNECT /ws/stream/{camera_id}\n?token=<access_token>
+activate WSE
+
+note over WSE : Token passed as query param\n(WS protocol has no header support)
+
+WSE -> JWT : verify_token(token, token_type="access")
+activate JWT
+alt [Token invalid or expired]
+    JWT --> WSE : raise JWTDecodeError
+    deactivate JWT
+    WSE --> FE : WS CLOSE 4001\n"Unauthorized"
+    deactivate WSE
+    FE --> U : Show "Session expired" error
+else [Token valid]
+    JWT --> WSE : payload {user_id, email}
+    deactivate JWT
+    WSE -> STMR : get_active_session(camera_id)
+    activate STMR
+    STMR -> DBST : get_active_session(camera_id)
+    activate DBST
+    DBST -> DB : SELECT * FROM stream_sessions\nWHERE camera_id=:id\nAND status='active'
+    activate DB
+    DB --> DBST : Row | None
+    deactivate DB
+    DBST --> STMR : StreamSessionModel | None
+    deactivate DBST
+    STMR --> WSE : StreamSession | None
+    deactivate STMR
+
+    alt [No active session for camera_id]
+        WSE --> FE : WS CLOSE 4004\n"Stream not active"
+        deactivate WSE
+        FE --> U : "Stream not started.\nPlease start the stream first."
+    else [Session is active]
+        WSE -> WSM : add_client(camera_id, ws_connection)
+        activate WSM
+        WSM --> WSE : OK (client registered)
+        deactivate WSM
+        WSE --> FE : WS OPEN (101 Switching Protocols)
+        FE --> U : Show live video player
+    end
+end
+
+== ② Continuous Frame Broadcast Loop ==
+
+note over OCV, WSM : Background async task running\nper camera_id — reads frames\nfrom OpenCV and broadcasts\nto all connected WS clients
+
+loop [While stream is ACTIVE and clients are connected]
+    OCV -> OCV : cap.read() → frame (BGR numpy array)
+    activate OCV
+
+    alt [Frame read failed — reconnect attempt]
+        OCV -> OCV : reconnect_attempts += 1
+        OCV -> DBST : UPDATE stream_sessions\nSET status='reconnecting',\nreconnect_attempts=:n\nWHERE camera_id=:id
+        activate DBST
+        DBST --> OCV : OK
+        deactivate DBST
+        OCV -> OCV : time.sleep(retry_delay)\ncap = cv2.VideoCapture(stream_url)
+
+        alt [reconnect_attempts > MAX_RETRIES]
+            OCV -> DBST : UPDATE stream_sessions\nSET status='error',\nerror_message='Max retries exceeded'\nWHERE camera_id=:id
+            activate DBST
+            DBST --> OCV : OK
+            deactivate DBST
+            OCV -> WSM : broadcast_error(camera_id,\n"Stream connection lost")
+            activate WSM
+            WSM --> FE : WS TEXT\n{type: "error",\nmessage: "Stream connection lost"}
+            deactivate WSM
+            FE --> U : Show reconnect banner
+        end
+    else [Frame read successful]
+        OCV -> OCV : cv2.imencode('.jpg', frame,\n[cv2.IMWRITE_JPEG_QUALITY, 80])\n→ jpeg_bytes
+        deactivate OCV
+
+        OCV -> DBST : UPDATE stream_sessions\nSET last_frame_at=NOW()\nWHERE camera_id=:id
+        activate DBST
+        DBST --> OCV : OK
+        deactivate DBST
+
+        OCV -> WSM : broadcast_frame(camera_id, jpeg_bytes)
+        activate WSM
+        note right of WSM : Sends to ALL clients\nconnected to this camera_id\nvia WebSocket binary messages
+        WSM --> FE : WS BINARY\n<JPEG frame bytes>
+        deactivate WSM
+
+        FE -> FE : Draw frame on <canvas> or <img>\nvia URL.createObjectURL(blob)
+        FE --> U : Rendered video frame
+    end
+end
+
+== ③ Client Disconnect ==
+
+U -> FE : Close stream view / tab
+FE -> WSE : WS CLOSE (1000 Normal)
+activate WSE
+WSE -> WSM : remove_client(camera_id, ws_connection)
+activate WSM
+
+alt [No more clients connected to camera_id]
+    WSM --> WSE : clients_remaining = 0
+    deactivate WSM
+    note over WSE : Optionally pause OpenCV\ncapture to save resources\n(policy: keep alive for N seconds)
+    WSE --> FE : WS CLOSED
+    deactivate WSE
+else [Other clients still connected]
+    WSM --> WSE : clients_remaining = N
+    deactivate WSM
+    note over WSE : OpenCV capture continues\nfor remaining clients
+    WSE --> FE : WS CLOSED
+    deactivate WSE
+end
+
+deactivate FE
+
+@enduml

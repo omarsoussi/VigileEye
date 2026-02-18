@@ -1,0 +1,264 @@
+@startuml Auth_Login
+skinparam backgroundColor #FAFAFA
+skinparam sequenceArrowThickness 1.5
+skinparam sequence {
+    ArrowColor #37474F
+    LifeLineBorderColor #B0BEC5
+    LifeLineBackgroundColor #ECEFF1
+    BoxBorderColor #78909C
+    GroupBorderColor #7E57C2
+    GroupBackgroundColor #EDE7F6
+    GroupHeaderFontColor #311B92
+    DividerBackgroundColor #E3F2FD
+    DividerBorderColor #1565C0
+    DividerFontColor #0D47A1
+}
+skinparam participant {
+    BackgroundColor #E3F2FD
+    BorderColor #1976D2
+    FontColor #0D47A1
+}
+skinparam actor {
+    BackgroundColor #FFF8E1
+    BorderColor #F57F17
+}
+skinparam note {
+    BackgroundColor #FFFDE7
+    BorderColor #F9A825
+}
+
+title **Auth Service (port 8000) — Login: 3-Attempt Lockout + 2FA OTP**
+
+actor "User" as U
+participant "**Frontend**\n<<React / Ionic>>" as FE #FFF8E1
+participant "**AuthRoute**\n<<API Layer>>" as AR #DBEAFE
+participant "**AuthService**\n<<App Service>>" as AS #EDE7F6
+participant "**LoginUserUseCase**\n<<Use Case>>" as LUC #EDE7F6
+participant "**ConfirmLoginUseCase**\n<<Use Case>>" as CLUC #EDE7F6
+participant "**IUserRepository**\n<<Domain>>" as UR #F3E5F5
+participant "**IOTPRepository**\n<<Domain>>" as OTPR #F3E5F5
+participant "**DBUserRepository**\n<<Infrastructure>>" as DBU #E0F2F1
+participant "**DBOTPRepository**\n<<Infrastructure>>" as DBOO #E0F2F1
+participant "**PasswordHasher**\n<<Infra/Security>>" as PH #E0F2F1
+participant "**OTPGenerator**\n<<Infra/Security>>" as OTPG #E0F2F1
+participant "**JWTHandler**\n<<Infra/Security>>" as JWT #E0F2F1
+participant "**EmailSender**\n<<Infra/External>>" as ES #FBE9E7
+participant "**PostgreSQL**\n<<Database>>" as DB #F5F5F5
+
+== ① Step 1 — Submit Credentials ==
+
+U -> FE : Enter email & password
+activate FE
+FE -> AR : POST /api/v1/auth/login\n{email, password}
+activate AR
+AR -> AS : login(email, password)
+activate AS
+AS -> LUC : execute(LoginUserInput{email, password})
+activate LUC
+
+LUC -> UR : get_by_email(email)
+activate UR
+UR -> DBU : get_by_email(email)
+activate DBU
+DBU -> DB : SELECT * FROM users\nWHERE email = :email
+activate DB
+DB --> DBU : Row | None
+deactivate DB
+DBU --> UR : User | None
+deactivate DBU
+UR --> LUC : User | None
+deactivate UR
+
+alt [User not found OR is_verified = False]
+    LUC --> AS : raise AuthenticationError\n("Invalid credentials")
+    deactivate LUC
+    AS --> AR : raise
+    deactivate AS
+    AR --> FE : 401 Unauthorized\n{detail: "Invalid credentials"}
+    deactivate AR
+    FE --> U : Show error message
+else [Account is locked: user.is_locked() == True\n  lockout_until > NOW()]
+    LUC --> AS : raise AccountLockedError\n("Account locked until [time]")
+    deactivate LUC
+    AS --> AR : raise
+    deactivate AS
+    AR --> FE : 423 Locked\n{detail: "Account locked,\ntry again after <lockout_until>"}
+    deactivate AR
+    FE --> U : Show lockout message + remaining time
+else [User found, verified, not locked — check password]
+    LUC -> PH : verify(raw_password, user.password_hash)
+    activate PH
+    PH --> LUC : is_valid: bool
+    deactivate PH
+
+    alt [Wrong password — increment attempts]
+        LUC -> LUC : user.increment_failed_attempts()\n[failed_login_attempts += 1]
+
+        alt [failed_login_attempts >= 3 — lock account]
+            LUC -> LUC : user.lock_account()\n[lockout_until = NOW() + 1 hour]
+            LUC -> UR : update(user)
+            activate UR
+            UR -> DBU : update(user)
+            activate DBU
+            DBU -> DB : UPDATE users\nSET failed_login_attempts = 3,\nlockout_until = NOW()+interval'1 hour'\nWHERE id = :user_id
+            activate DB
+            DB --> DBU : OK
+            deactivate DB
+            DBU --> UR : OK
+            deactivate DBU
+            UR --> LUC : User
+            deactivate UR
+            LUC --> AS : raise AccountLockedError\n("Too many failed attempts.\nAccount locked for 1 hour.")
+            deactivate LUC
+            AS --> AR : raise
+            deactivate AS
+            AR --> FE : 423 Locked\n{detail: "Account locked for 1 hour"}
+            deactivate AR
+            FE --> U : "Account locked. Try again in 1 hour."
+        else [failed_login_attempts < 3 — warn user]
+            LUC -> UR : update(user{failed_login_attempts})
+            activate UR
+            UR -> DBU : update(user)
+            activate DBU
+            DBU -> DB : UPDATE users\nSET failed_login_attempts = :n\nWHERE id = :user_id
+            activate DB
+            DB --> DBU : OK
+            deactivate DB
+            DBU --> UR : OK
+            deactivate DBU
+            UR --> LUC : User
+            deactivate UR
+            LUC --> AS : raise AuthenticationError\n("Invalid credentials. Attempt N/3")
+            deactivate LUC
+            AS --> AR : raise
+            deactivate AS
+            AR --> FE : 401 Unauthorized\n{detail: "Invalid credentials. Attempt N/3"}
+            deactivate AR
+            FE --> U : "Wrong password (N/3 attempts)"
+        end
+
+    else [Correct password — proceed to 2FA]
+        LUC -> LUC : user.reset_failed_attempts()\n[failed_login_attempts=0, lockout_until=None]
+        LUC -> UR : update(user)
+        activate UR
+        UR -> DBU : update(user)
+        activate DBU
+        DBU -> DB : UPDATE users\nSET failed_login_attempts=0,\nlockout_until=NULL\nWHERE id = :user_id
+        activate DB
+        DB --> DBU : OK
+        deactivate DB
+        DBU --> UR : OK
+        deactivate DBU
+        UR --> LUC : User
+        deactivate UR
+
+        LUC -> OTPG : generate(length=6)
+        activate OTPG
+        OTPG --> LUC : "739241"
+        deactivate OTPG
+
+        LUC -> OTPR : create(OTP{user_id, code,\npurpose=LOGIN_2FA,\nexpires_at=NOW()+10min,\nis_used=False})
+        activate OTPR
+        OTPR -> DBOO : create(otp)
+        activate DBOO
+        DBOO -> DB : INSERT INTO otps\n(user_id, code, purpose='LOGIN_2FA',\nexpires_at, is_used=False)
+        activate DB
+        DB --> DBOO : OK
+        deactivate DB
+        DBOO --> OTPR : OTPModel
+        deactivate DBOO
+        OTPR --> LUC : OTP entity
+        deactivate OTPR
+
+        LUC -> ES : send_2fa_email(email, otp_code)
+        activate ES
+        note right of ES : HTML email\nwith 6-digit OTP\nvalid 10 minutes
+        ES --> LUC : Delivered
+        deactivate ES
+
+        LUC --> AS : LoginUserOutput{pending_2fa: true}
+        deactivate LUC
+        AS --> AR : LoginUserOutput
+        deactivate AS
+        AR --> FE : 200 OK\n{message: "2FA OTP sent to email",\npending_2fa: true}
+        deactivate AR
+        FE --> U : "Enter OTP sent to your email"
+    end
+end
+
+== ② Step 2 — Confirm 2FA OTP ==
+
+U -> FE : Enter 6-digit OTP
+FE -> AR : POST /api/v1/auth/login/confirm\n{email, otp_code}
+activate AR
+AR -> AS : confirm_login(email, otp_code)
+activate AS
+AS -> CLUC : execute(ConfirmLoginInput{email, otp_code})
+activate CLUC
+
+CLUC -> OTPR : get_valid_otp(user_id, code,\nOTPPurpose.LOGIN_2FA)
+activate OTPR
+OTPR -> DBOO : get_valid_otp(...)
+activate DBOO
+DBOO -> DB : SELECT * FROM otps\nWHERE user_id=:uid AND code=:code\nAND purpose='LOGIN_2FA'\nAND expires_at > NOW()\nAND is_used = False
+activate DB
+DB --> DBOO : Row | None
+deactivate DB
+DBOO --> OTPR : OTPModel | None
+deactivate DBOO
+OTPR --> CLUC : OTP | None
+deactivate OTPR
+
+alt [OTP invalid or expired]
+    CLUC --> AS : raise OTPExpiredError
+    deactivate CLUC
+    AS --> AR : raise
+    deactivate AS
+    AR --> FE : 401 Unauthorized\n{detail: "Invalid or expired OTP"}
+    deactivate AR
+    FE --> U : Show error
+else [OTP valid]
+    CLUC -> OTPR : mark_as_used(otp_id)
+    activate OTPR
+    OTPR -> DBOO : mark_as_used(otp_id)
+    activate DBOO
+    DBOO -> DB : UPDATE otps\nSET is_used=TRUE WHERE id=:otp_id
+    activate DB
+    DB --> DBOO : OK
+    deactivate DB
+    DBOO --> OTPR : OK
+    deactivate DBOO
+    OTPR --> CLUC : True
+    deactivate OTPR
+
+    CLUC -> UR : update(user{last_login=NOW()})
+    activate UR
+    UR -> DBU : update(user)
+    activate DBU
+    DBU -> DB : UPDATE users\nSET last_login=NOW()\nWHERE id=:user_id
+    activate DB
+    DB --> DBU : OK
+    deactivate DB
+    DBU --> UR : OK
+    deactivate DBU
+    UR --> CLUC : User
+    deactivate UR
+
+    CLUC -> JWT : create_token_pair(user_id, email,\nadditional_claims={})
+    activate JWT
+    note right of JWT : HS256 signed\n• access_token  exp=15 min\n• refresh_token exp=7 days\nShared secret across all services
+    JWT --> CLUC : {access_token, refresh_token}
+    deactivate JWT
+
+    CLUC --> AS : ConfirmLoginOutput\n{access_token, refresh_token}
+    deactivate CLUC
+    AS --> AR : ConfirmLoginOutput
+    deactivate AS
+    AR --> FE : 200 OK\n{access_token, refresh_token,\ntoken_type: "bearer"}
+    deactivate AR
+    FE --> U : Store tokens in localStorage\nRedirect to Dashboard
+end
+
+deactivate FE
+
+@enduml

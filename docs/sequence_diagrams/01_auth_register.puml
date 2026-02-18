@@ -1,0 +1,218 @@
+@startuml Auth_Register
+skinparam backgroundColor #FAFAFA
+skinparam sequenceArrowThickness 1.5
+skinparam sequence {
+    ArrowColor #37474F
+    LifeLineBorderColor #B0BEC5
+    LifeLineBackgroundColor #ECEFF1
+    BoxBorderColor #78909C
+    GroupBorderColor #7E57C2
+    GroupBackgroundColor #EDE7F6
+    GroupHeaderFontColor #311B92
+    DividerBackgroundColor #E3F2FD
+    DividerBorderColor #1565C0
+    DividerFontColor #0D47A1
+}
+skinparam participant {
+    BackgroundColor #E3F2FD
+    BorderColor #1976D2
+    FontColor #0D47A1
+}
+skinparam actor {
+    BackgroundColor #FFF8E1
+    BorderColor #F57F17
+}
+skinparam note {
+    BackgroundColor #FFFDE7
+    BorderColor #F9A825
+}
+
+title **Auth Service (port 8000) — Register & Email OTP Verification**
+
+actor "User" as U
+participant "**Frontend**\n<<React / Ionic>>" as FE #FFF8E1
+participant "**AuthRoute**\n<<API Layer>>" as AR #DBEAFE
+participant "**AuthService**\n<<App Service>>" as AS #EDE7F6
+participant "**RegisterUserUseCase**\n<<Use Case>>" as RUC #EDE7F6
+participant "**VerifyEmailUseCase**\n<<Use Case>>" as VUC #EDE7F6
+participant "**IUserRepository**\n<<Domain>>" as UR #F3E5F5
+participant "**IOTPRepository**\n<<Domain>>" as OTPR #F3E5F5
+participant "**DBUserRepository**\n<<Infrastructure>>" as DBU #E0F2F1
+participant "**DBOTPRepository**\n<<Infrastructure>>" as DBOO #E0F2F1
+participant "**OTPGenerator**\n<<Infra/Security>>" as OTPG #E0F2F1
+participant "**EmailSender**\n<<Infra/External>>" as ES #FBE9E7
+participant "**PostgreSQL**\n<<Database>>" as DB #F5F5F5
+
+== Service Lifecycle — Startup ==
+note over AR, AS : FastAPI lifespan startup\n• Routers mounted on /api/v1/auth\n• DB engine + session factory initialised\n• Repositories & services injected via Depends()
+
+== ① Registration ==
+
+U -> FE : Fill form {email, username, password}
+activate FE
+FE -> AR : POST /api/v1/auth/register\n{email, username, password}
+activate AR
+AR -> AS : register(email, username, password)
+activate AS
+AS -> RUC : execute(RegisterUserInput)
+activate RUC
+
+RUC -> UR : get_by_email(email)
+activate UR
+UR -> DBU : get_by_email(email)
+activate DBU
+DBU -> DB : SELECT id FROM users\nWHERE email = :email
+activate DB
+DB --> DBU : Row | None
+deactivate DB
+DBU --> UR : User | None
+deactivate DBU
+UR --> RUC : User | None
+deactivate UR
+
+alt [Email already registered]
+    RUC --> AS : raise EmailAlreadyExistsError
+    deactivate RUC
+    AS --> AR : raise
+    deactivate AS
+    AR --> FE : 409 Conflict\n{detail: "Email already registered"}
+    deactivate AR
+    FE --> U : Show error toast
+else [Username already taken]
+    RUC -> UR : get_by_username(username)
+    activate UR
+    UR --> RUC : User
+    deactivate UR
+    RUC --> AS : raise UsernameAlreadyExistsError
+    deactivate RUC
+    AS --> AR : raise
+    deactivate AS
+    AR --> FE : 409 Conflict\n{detail: "Username already taken"}
+    deactivate AR
+    FE --> U : Show error toast
+else [Valid new user]
+    RUC -> RUC : PasswordHasher.hash(password)\n[bcrypt, cost=12]
+    RUC -> UR : create(User{email, username,\npassword_hash, is_verified=False})
+    activate UR
+    UR -> DBU : create(user)
+    activate DBU
+    DBU -> DB : INSERT INTO users\n(email, username, password_hash,\nis_verified=False, created_at)
+    activate DB
+    DB --> DBU : {id, created_at}
+    deactivate DB
+    DBU --> UR : UserModel
+    deactivate DBU
+    UR --> RUC : User entity
+    deactivate UR
+
+    RUC -> OTPG : generate(length=6)
+    activate OTPG
+    OTPG --> RUC : "482951"
+    deactivate OTPG
+
+    RUC -> OTPR : create(OTP{user_id, code,\npurpose=EMAIL_VERIFICATION,\nexpires_at=NOW()+10min,\nis_used=False})
+    activate OTPR
+    OTPR -> DBOO : create(otp)
+    activate DBOO
+    DBOO -> DB : INSERT INTO otps\n(user_id, code, purpose,\nexpires_at, is_used=False)
+    activate DB
+    DB --> DBOO : OK
+    deactivate DB
+    DBOO --> OTPR : OTPModel
+    deactivate DBOO
+    OTPR --> RUC : OTP entity
+    deactivate OTPR
+
+    RUC -> ES : send_verification_email(email, otp_code)
+    activate ES
+    note right of ES : SMTP / SendGrid\nHTML email with 6-digit OTP\nvalid for 10 minutes
+    ES --> RUC : Delivered
+    deactivate ES
+
+    RUC --> AS : RegisterUserOutput(user_id)
+    deactivate RUC
+    AS --> AR : RegisterUserOutput
+    deactivate AS
+    AR --> FE : 201 Created\n{message: "Verification email sent",\nuser_id: "uuid..."}
+    deactivate AR
+    FE --> U : "Check your inbox for OTP"
+end
+
+== ② Email OTP Verification ==
+
+U -> FE : Enter 6-digit OTP
+FE -> AR : POST /api/v1/auth/verify\n{email, otp_code}
+activate AR
+AR -> AS : verify_email(email, otp_code)
+activate AS
+AS -> VUC : execute(VerifyEmailInput)
+activate VUC
+
+VUC -> OTPR : get_valid_otp(user_id, code,\nOTPPurpose.EMAIL_VERIFICATION)
+activate OTPR
+OTPR -> DBOO : get_valid_otp(...)
+activate DBOO
+DBOO -> DB : SELECT * FROM otps\nWHERE user_id=:uid AND code=:code\nAND purpose='EMAIL_VERIFICATION'\nAND expires_at > NOW()\nAND is_used = False
+activate DB
+DB --> DBOO : Row | None
+deactivate DB
+DBOO --> OTPR : OTPModel | None
+deactivate DBOO
+OTPR --> VUC : OTP | None
+deactivate OTPR
+
+alt [OTP invalid or expired]
+    VUC --> AS : raise OTPExpiredError / OTPInvalidError
+    deactivate VUC
+    AS --> AR : raise
+    deactivate AS
+    AR --> FE : 400 Bad Request\n{detail: "Invalid or expired OTP"}
+    deactivate AR
+    FE --> U : Show error + "Resend OTP" option
+else [OTP valid]
+    VUC -> UR : update(User{is_verified=True})
+    activate UR
+    UR -> DBU : update(user)
+    activate DBU
+    DBU -> DB : UPDATE users\nSET is_verified = TRUE\nWHERE id = :user_id
+    activate DB
+    DB --> DBU : OK
+    deactivate DB
+    DBU --> UR : UserModel
+    deactivate DBU
+    UR --> VUC : User
+    deactivate UR
+
+    VUC -> OTPR : mark_as_used(otp_id)
+    activate OTPR
+    OTPR -> DBOO : mark_as_used(otp_id)
+    activate DBOO
+    DBOO -> DB : UPDATE otps SET is_used=TRUE\nWHERE id = :otp_id
+    activate DB
+    DB --> DBOO : OK
+    deactivate DB
+    DBOO --> OTPR : True
+    deactivate DBOO
+    OTPR --> VUC : True
+    deactivate OTPR
+
+    VUC -> ES : send_welcome_email(email, username)
+    activate ES
+    ES --> VUC : Delivered
+    deactivate ES
+
+    VUC --> AS : VerifyEmailOutput(verified=True)
+    deactivate VUC
+    AS --> AR : VerifyEmailOutput
+    deactivate AS
+    AR --> FE : 200 OK\n{message: "Email verified successfully"}
+    deactivate AR
+    FE --> U : "Account activated! Redirecting to login..."
+end
+
+deactivate FE
+
+== Service Lifecycle — Shutdown ==
+note over AR, AS : FastAPI lifespan shutdown\n• DB connection pool closed
+
+@enduml

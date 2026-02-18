@@ -1,0 +1,235 @@
+@startuml Camera_Update_Delete
+skinparam backgroundColor #FAFAFA
+skinparam sequenceArrowThickness 1.5
+skinparam sequence {
+    ArrowColor #37474F
+    LifeLineBorderColor #B0BEC5
+    LifeLineBackgroundColor #ECEFF1
+    BoxBorderColor #78909C
+    GroupBorderColor #7E57C2
+    GroupBackgroundColor #EDE7F6
+    GroupHeaderFontColor #311B92
+    DividerBackgroundColor #E3F2FD
+    DividerBorderColor #1565C0
+    DividerFontColor #0D47A1
+}
+skinparam participant {
+    BackgroundColor #E3F2FD
+    BorderColor #1976D2
+    FontColor #0D47A1
+}
+skinparam actor {
+    BackgroundColor #FFF8E1
+    BorderColor #F57F17
+}
+skinparam note {
+    BackgroundColor #FFFDE7
+    BorderColor #F9A825
+}
+
+title **Camera Management Service (port 8002) — Update, Enable/Disable & Delete Camera**
+
+actor "User" as U
+participant "**Frontend**\n<<React / Ionic>>" as FE #FFF8E1
+participant "**CameraRoute**\n<<API Layer>>" as CR #DBEAFE
+participant "**JWTHandler**\n<<Infra/Security>>" as JWT #E0F2F1
+participant "**CameraService**\n<<App Service>>" as CS #EDE7F6
+participant "**UpdateCameraUseCase**\n<<Use Case>>" as UCUC #EDE7F6
+participant "**DeleteCameraUseCase**\n<<Use Case>>" as DCUC #EDE7F6
+participant "**EnableCameraUseCase**\n<<Use Case>>" as ECUC #EDE7F6
+participant "**DisableCameraUseCase**\n<<Use Case>>" as DISUC #EDE7F6
+participant "**ICameraRepository**\n<<Domain>>" as CAMR #F3E5F5
+participant "**DBCameraRepository**\n<<Infrastructure>>" as DBCAM #E0F2F1
+participant "**PostgreSQL**\n<<Database>>" as DB #F5F5F5
+
+== ① Update Camera ==
+
+U -> FE : Edit camera fields\n{name, description, stream_url,\nresolution, fps, encoding, location}
+activate FE
+FE -> CR : PUT /api/v1/cameras/{camera_id}\nAuthorization: Bearer <token>\n{updated fields}
+activate CR
+
+ref over FE, CR, JWT : JWT Token Validation
+
+CR -> CS : update_camera(camera_id, user_id, fields)
+activate CS
+CS -> UCUC : execute(camera_id, user_id, name,\ndescription, stream_url, resolution,\nfps, encoding, location)
+activate UCUC
+
+UCUC -> CAMR : get_by_id(camera_id)
+activate CAMR
+CAMR -> DBCAM : get_by_id(camera_id)
+activate DBCAM
+DBCAM -> DB : SELECT * FROM cameras\nWHERE id = :camera_id
+activate DB
+DB --> DBCAM : Row | None
+deactivate DB
+DBCAM --> CAMR : CameraModel | None
+deactivate DBCAM
+CAMR --> UCUC : Camera | None
+deactivate CAMR
+
+alt [Camera not found]
+    UCUC --> CS : raise CameraNotFoundError
+    deactivate UCUC
+    CS --> CR : raise
+    deactivate CS
+    CR --> FE : 404 Not Found\n{detail: "Camera not found"}
+    deactivate CR
+    FE --> U : Show error
+else [User is not the owner]
+    UCUC --> CS : raise ForbiddenError
+    deactivate UCUC
+    CS --> CR : raise
+    deactivate CS
+    CR --> FE : 403 Forbidden\n{detail: "Not authorized"}
+    deactivate CR
+    FE --> U : Show error
+else [Camera found, user is owner]
+    UCUC -> UCUC : camera.update_config(name, description,\nstream_url, resolution, fps,\nencoding, location)
+
+    UCUC -> CAMR : update(camera)
+    activate CAMR
+    CAMR -> DBCAM : update(camera)
+    activate DBCAM
+    DBCAM -> DB : UPDATE cameras\nSET name=:name, stream_url=:url,\nresolution=:res, fps=:fps,\nencoding=:enc, description=:desc,\nbuilding=:b, floor=:f,\nupdated_at=NOW()\nWHERE id=:camera_id
+    activate DB
+    DB --> DBCAM : OK
+    deactivate DB
+    DBCAM --> CAMR : CameraModel
+    deactivate DBCAM
+    CAMR --> UCUC : Camera
+    deactivate CAMR
+
+    UCUC --> CS : Camera (updated)
+    deactivate UCUC
+    CS --> CR : Camera
+    deactivate CS
+    CR --> FE : 200 OK\n{updated camera DTO}
+    deactivate CR
+    FE --> U : Show updated camera info
+end
+
+== ② Enable / Disable Camera ==
+
+U -> FE : Click Enable or Disable toggle
+FE -> CR : POST /api/v1/cameras/{camera_id}/enable\n  OR /disable\nAuthorization: Bearer <token>
+activate CR
+
+ref over FE, CR, JWT : JWT Token Validation
+
+CR -> CS : enable_camera(camera_id, user_id)\n  OR disable_camera(camera_id, user_id)
+activate CS
+
+alt [Enable requested]
+    CS -> ECUC : execute(camera_id, user_id)
+    activate ECUC
+    ECUC -> CAMR : get_by_id(camera_id)
+    activate CAMR
+    CAMR --> ECUC : Camera
+    deactivate CAMR
+    ECUC -> ECUC : camera.enable()\n[is_active=True, status=OFFLINE]
+    ECUC -> CAMR : update(camera)
+    activate CAMR
+    CAMR -> DBCAM : update(camera)
+    activate DBCAM
+    DBCAM -> DB : UPDATE cameras\nSET is_active=TRUE,\nstatus='OFFLINE'\nWHERE id=:camera_id
+    activate DB
+    DB --> DBCAM : OK
+    deactivate DB
+    DBCAM --> CAMR : CameraModel
+    deactivate DBCAM
+    CAMR --> ECUC : Camera
+    deactivate CAMR
+    ECUC --> CS : Camera
+    deactivate ECUC
+else [Disable requested]
+    CS -> DISUC : execute(camera_id, user_id)
+    activate DISUC
+    DISUC -> CAMR : get_by_id(camera_id)
+    activate CAMR
+    CAMR --> DISUC : Camera
+    deactivate CAMR
+    DISUC -> DISUC : camera.disable()\n[is_active=False, status=DISABLED]
+    DISUC -> CAMR : update(camera)
+    activate CAMR
+    CAMR -> DBCAM : update(camera)
+    activate DBCAM
+    DBCAM -> DB : UPDATE cameras\nSET is_active=FALSE,\nstatus='DISABLED'\nWHERE id=:camera_id
+    activate DB
+    DB --> DBCAM : OK
+    deactivate DB
+    DBCAM --> CAMR : CameraModel
+    deactivate DBCAM
+    CAMR --> DISUC : Camera
+    deactivate CAMR
+    DISUC --> CS : Camera
+    deactivate DISUC
+end
+
+CS --> CR : Camera (updated status)
+deactivate CS
+CR --> FE : 200 OK\n{id, status, is_active}
+deactivate CR
+FE --> U : Update toggle + status badge
+
+== ③ Delete Camera ==
+
+U -> FE : Click "Delete Camera" → Confirm dialog
+FE -> CR : DELETE /api/v1/cameras/{camera_id}\nAuthorization: Bearer <token>
+activate CR
+
+ref over FE, CR, JWT : JWT Token Validation
+
+CR -> CS : delete_camera(camera_id, user_id)
+activate CS
+CS -> DCUC : execute(camera_id, user_id)
+activate DCUC
+
+DCUC -> CAMR : get_by_id(camera_id)
+activate CAMR
+CAMR -> DBCAM : get_by_id(camera_id)
+activate DBCAM
+DBCAM -> DB : SELECT * FROM cameras\nWHERE id = :camera_id
+activate DB
+DB --> DBCAM : Row | None
+deactivate DB
+DBCAM --> CAMR : CameraModel | None
+deactivate DBCAM
+CAMR --> DCUC : Camera | None
+deactivate CAMR
+
+alt [Camera not found OR user is not owner]
+    DCUC --> CS : raise CameraNotFoundError\n  OR ForbiddenError
+    deactivate DCUC
+    CS --> CR : raise
+    deactivate CS
+    CR --> FE : 404 / 403
+    deactivate CR
+    FE --> U : Show error
+else [Camera found, user is owner]
+    DCUC -> CAMR : delete(camera_id)
+    activate CAMR
+    CAMR -> DBCAM : delete(camera_id)
+    activate DBCAM
+    DBCAM -> DB : DELETE FROM cameras\nWHERE id = :camera_id
+    activate DB
+    DB --> DBCAM : OK
+    deactivate DB
+    DBCAM --> CAMR : None
+    deactivate DBCAM
+    CAMR --> DCUC : None
+    deactivate CAMR
+
+    DCUC --> CS : None
+    deactivate DCUC
+    CS --> CR : None
+    deactivate CS
+    CR --> FE : 204 No Content
+    deactivate CR
+    FE --> U : Remove camera from list
+end
+
+deactivate FE
+
+@enduml

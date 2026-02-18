@@ -1,0 +1,176 @@
+@startuml Camera_Health_Heartbeat
+skinparam backgroundColor #FAFAFA
+skinparam sequenceArrowThickness 1.5
+skinparam sequence {
+    ArrowColor #37474F
+    LifeLineBorderColor #B0BEC5
+    LifeLineBackgroundColor #ECEFF1
+    BoxBorderColor #78909C
+    GroupBorderColor #7E57C2
+    GroupBackgroundColor #EDE7F6
+    GroupHeaderFontColor #311B92
+    DividerBackgroundColor #E3F2FD
+    DividerBorderColor #1565C0
+    DividerFontColor #0D47A1
+}
+skinparam participant {
+    BackgroundColor #E3F2FD
+    BorderColor #1976D2
+    FontColor #0D47A1
+}
+skinparam actor {
+    BackgroundColor #FFF8E1
+    BorderColor #F57F17
+}
+skinparam note {
+    BackgroundColor #FFFDE7
+    BorderColor #F9A825
+}
+
+title **Camera Management Service (port 8002) — Heartbeat & Health Check**
+
+actor "Camera\nDevice / Agent" as CAM
+actor "User" as U
+participant "**Frontend**\n<<React / Ionic>>" as FE #FFF8E1
+participant "**CameraRoute**\n<<API Layer>>" as CR #DBEAFE
+participant "**JWTHandler**\n<<Infra/Security>>" as JWT #E0F2F1
+participant "**CameraService**\n<<App Service>>" as CS #EDE7F6
+participant "**RecordHealthUseCase**\n<<Use Case>>" as RHUC #EDE7F6
+participant "**GetCameraUseCase**\n<<Use Case>>" as GCUC #EDE7F6
+participant "**ICameraRepository**\n<<Domain>>" as CAMR #F3E5F5
+participant "**ICameraHealthRepository**\n<<Domain>>" as HLTH #F3E5F5
+participant "**DBCameraRepository**\n<<Infrastructure>>" as DBCAM #E0F2F1
+participant "**DBCameraHealthRepository**\n<<Infrastructure>>" as DBHL #E0F2F1
+participant "**PostgreSQL**\n<<Database>>" as DB #F5F5F5
+
+== ① Camera Heartbeat (periodic — sent by camera agent) ==
+
+note over CAM : Camera agent sends heartbeat\nevery N seconds to signal it's alive\nand report live metrics
+
+CAM -> CR : POST /api/v1/cameras/{camera_id}/heartbeat\nAuthorization: Bearer <token>\n{latency_ms, frame_drop_rate, uptime_percentage}
+activate CR
+
+ref over CAM, CR, JWT : JWT Token Validation
+
+CR -> CS : record_heartbeat(camera_id, health_data)
+activate CS
+CS -> RHUC : execute(camera_id, latency_ms,\nframe_drop_rate, uptime_percentage)
+activate RHUC
+
+RHUC -> CAMR : get_by_id(camera_id)
+activate CAMR
+CAMR -> DBCAM : get_by_id(camera_id)
+activate DBCAM
+DBCAM -> DB : SELECT * FROM cameras\nWHERE id = :camera_id
+activate DB
+DB --> DBCAM : Row | None
+deactivate DB
+DBCAM --> CAMR : CameraModel | None
+deactivate DBCAM
+CAMR --> RHUC : Camera | None
+deactivate CAMR
+
+alt [Camera not found]
+    RHUC --> CS : raise CameraNotFoundError
+    deactivate RHUC
+    CS --> CR : raise
+    deactivate CS
+    CR --> CAM : 404 Not Found
+    deactivate CR
+else [Camera found]
+    RHUC -> RHUC : camera.mark_online()\n[status=ONLINE]
+    RHUC -> CAMR : update(camera{last_heartbeat=NOW(),\nstatus=ONLINE})
+    activate CAMR
+    CAMR -> DBCAM : update(camera)
+    activate DBCAM
+    DBCAM -> DB : UPDATE cameras\nSET last_heartbeat=NOW(),\nstatus='ONLINE'\nWHERE id=:camera_id
+    activate DB
+    DB --> DBCAM : OK
+    deactivate DB
+    DBCAM --> CAMR : CameraModel
+    deactivate DBCAM
+    CAMR --> RHUC : Camera
+    deactivate CAMR
+
+    RHUC -> HLTH : record_health(CameraHealth{\ncamera_id, latency_ms,\nframe_drop_rate,\nuptime_percentage,\nrecorded_at=NOW()})
+    activate HLTH
+    HLTH -> DBHL : record_health(health)
+    activate DBHL
+    DBHL -> DB : INSERT INTO camera_health\n(camera_id, latency_ms,\nframe_drop_rate, uptime_percentage,\nrecorded_at)
+    activate DB
+    DB --> DBHL : {id, recorded_at}
+    deactivate DB
+    DBHL --> HLTH : CameraHealthModel
+    deactivate DBHL
+    HLTH --> RHUC : CameraHealth entity
+    deactivate HLTH
+
+    RHUC --> CS : CameraHealth
+    deactivate RHUC
+    CS --> CR : CameraHealth
+    deactivate CS
+    CR --> CAM : 200 OK\n{recorded_at, status: "ONLINE"}
+    deactivate CR
+end
+
+== ② Get Camera Health (requested by user via Frontend) ==
+
+U -> FE : Click "Health" on camera card
+activate FE
+FE -> CR : GET /api/v1/cameras/{camera_id}/health\nAuthorization: Bearer <token>
+activate CR
+
+ref over FE, CR, JWT : JWT Token Validation
+
+CR -> CS : get_camera_health(camera_id, user_id)
+activate CS
+CS -> GCUC : execute(camera_id, user_id)
+activate GCUC
+
+GCUC -> CAMR : get_by_id(camera_id)
+activate CAMR
+CAMR -> DBCAM : get_by_id(camera_id)
+activate DBCAM
+DBCAM -> DB : SELECT * FROM cameras\nWHERE id = :camera_id
+activate DB
+DB --> DBCAM : Row
+deactivate DB
+DBCAM --> CAMR : CameraModel
+deactivate DBCAM
+CAMR --> GCUC : Camera
+deactivate CAMR
+
+alt [user_id != camera.owner_user_id]
+    GCUC --> CS : raise ForbiddenError
+    deactivate GCUC
+    CS --> CR : raise
+    deactivate CS
+    CR --> FE : 403 Forbidden
+    deactivate CR
+    FE --> U : Show error
+else [Authorized]
+    GCUC -> HLTH : get_health_history(camera_id, limit=100)
+    activate HLTH
+    HLTH -> DBHL : get_health_history(camera_id, limit=100)
+    activate DBHL
+    DBHL -> DB : SELECT * FROM camera_health\nWHERE camera_id=:id\nORDER BY recorded_at DESC\nLIMIT 100
+    activate DB
+    DB --> DBHL : [Row, ...]
+    deactivate DB
+    DBHL --> HLTH : [CameraHealthModel, ...]
+    deactivate DBHL
+    HLTH --> GCUC : [CameraHealth, ...]
+    deactivate HLTH
+
+    GCUC --> CS : {camera, health_history}
+    deactivate GCUC
+    CS --> CR : {camera, health_history}
+    deactivate CS
+    CR --> FE : 200 OK\n{camera_id, status,\nlast_heartbeat,\nhealth_history: [\n  {latency_ms, frame_drop_rate,\n   uptime_percentage, recorded_at},\n  ...\n]}
+    deactivate CR
+    FE --> U : Render health charts\n(latency, uptime, frame drops)
+end
+
+deactivate FE
+
+@enduml

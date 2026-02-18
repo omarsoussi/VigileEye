@@ -1,0 +1,64 @@
+---
+title: Camera Management Service (port 8002) — Use Case Diagram
+---
+flowchart LR
+    classDef actor      fill:#FFF8E1,stroke:#E65100,color:#000,font-weight:bold,rx:6
+    classDef usecase    fill:#E3F2FD,stroke:#1976D2,color:#000
+    classDef include_uc fill:#EDE7F6,stroke:#7E57C2,color:#000
+    classDef ext_actor  fill:#E8F5E9,stroke:#388E3C,color:#000,font-weight:bold,rx:6
+
+    %% ── Actors ─────────────────────────────────────────────
+    Owner(["👤 Camera Owner\n(Authenticated User)"]):::actor
+    CameraAgent(["📷 Camera\nDevice / Agent"]):::ext_actor
+
+    %% ── System Boundary ─────────────────────────────────────
+    subgraph CAM["  Camera Management Service — port 8002  "]
+        direction TB
+
+        subgraph CRUD["Camera CRUD"]
+            direction TB
+            CreateCam(["Create Camera"]):::usecase
+            ListCams(["List My\nCameras"]):::usecase
+            GetCam(["Get Camera\nDetails"]):::usecase
+            UpdateCam(["Update Camera\nConfiguration"]):::usecase
+            DeleteCam(["Delete Camera"]):::usecase
+        end
+
+        subgraph TOGGLE["Lifecycle Control"]
+            direction LR
+            EnableCam(["Enable Camera"]):::usecase
+            DisableCam(["Disable Camera"]):::usecase
+            CheckOwnership(["Verify Camera\nOwnership"]):::include_uc
+        end
+
+        subgraph HEALTH["Health Monitoring"]
+            direction TB
+            RecordHB(["Record\nHeartbeat"]):::usecase
+            ViewHealth(["View Camera\nHealth History"]):::usecase
+            UpdateStatus(["Update Camera\nStatus (ONLINE)"]):::include_uc
+            RecordMetrics(["Record Health\nMetrics"]):::include_uc
+        end
+    end
+
+    %% ── Owner associations ───────────────────────────────────
+    Owner -->|"initiates"| CreateCam
+    Owner -->|"initiates"| ListCams
+    Owner -->|"initiates"| GetCam
+    Owner -->|"initiates"| UpdateCam
+    Owner -->|"initiates"| DeleteCam
+    Owner -->|"initiates"| EnableCam
+    Owner -->|"initiates"| DisableCam
+    Owner -->|"initiates"| ViewHealth
+
+    %% ── Camera Agent associations ─────────────────────────────
+    CameraAgent -->|"initiates\n(periodic)"| RecordHB
+
+    %% ── Include relationships ────────────────────────────────
+    UpdateCam  -. "<<include>>" .-> CheckOwnership
+    DeleteCam  -. "<<include>>" .-> CheckOwnership
+    EnableCam  -. "<<include>>" .-> CheckOwnership
+    DisableCam -. "<<include>>" .-> CheckOwnership
+    GetCam     -. "<<include>>" .-> CheckOwnership
+
+    RecordHB -. "<<include>>" .-> UpdateStatus
+    RecordHB -. "<<include>>" .-> RecordMetrics
