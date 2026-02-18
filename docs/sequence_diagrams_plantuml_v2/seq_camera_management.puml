@@ -1,0 +1,284 @@
+@startuml Seq_Camera_Management
+skinparam backgroundColor #FAFAFA
+skinparam sequenceArrowThickness 1.5
+skinparam sequence {
+    ArrowColor #37474F
+    LifeLineBorderColor #B0BEC5
+    LifeLineBackgroundColor #ECEFF1
+    BoxBorderColor #78909C
+    GroupBorderColor #7E57C2
+    GroupBackgroundColor #EDE7F6
+    GroupHeaderFontColor #311B92
+    DividerBackgroundColor #E3F2FD
+    DividerBorderColor #1565C0
+    DividerFontColor #0D47A1
+}
+skinparam participant {
+    BackgroundColor #E3F2FD
+    BorderColor #1976D2
+    FontColor #0D47A1
+}
+skinparam actor {
+    BackgroundColor #FFF8E1
+    BorderColor #F57F17
+}
+skinparam note {
+    BackgroundColor #FFFDE7
+    BorderColor #F9A825
+}
+
+title **Sequence Diagram: Camera Management Service**\n(Create • List • Heartbeat • Delete)
+
+actor "User" as U
+actor "Camera\nDevice / Agent" as CAM
+participant "**Frontend**\n<<React / Ionic>>" as FE #FFF8E1
+participant "**CameraRoute**\n<<API Layer>>" as CR #DBEAFE
+participant "**JWTHandler**\n<<Infra/Security>>" as JWT #E0F2F1
+participant "**CameraService**\n<<App Service>>" as CS #EDE7F6
+participant "**CreateCameraUseCase**\n<<Use Case>>" as CCUC #EDE7F6
+participant "**ListUserCamerasUseCase**\n<<Use Case>>" as LCUC #EDE7F6
+participant "**DeleteCameraUseCase**\n<<Use Case>>" as DCUC #EDE7F6
+participant "**RecordHealthUseCase**\n<<Use Case>>" as RHUC #EDE7F6
+participant "**ICameraRepository**\n<<Domain>>" as CAMR #F3E5F5
+participant "**ICameraHealthRepository**\n<<Domain>>" as HLTH #F3E5F5
+participant "**DBCameraRepository**\n<<Infrastructure>>" as DBCAM #E0F2F1
+participant "**DBCameraHealthRepository**\n<<Infrastructure>>" as DBHL #E0F2F1
+participant "**PostgreSQL**\n<<Database>>" as DB #F5F5F5
+
+== Service Lifecycle — Startup ==
+note over CR, CS : FastAPI lifespan startup\n• Routers mounted on /api/v1/cameras\n• DB engine initialised\n• JWT secret loaded from settings
+
+'──────────────────────────────────────────────────────────────
+' JWT TOKEN VALIDATION — defined once here,
+' referenced via "ref" in seq_streaming.puml
+' and seq_members_invitation.puml
+'──────────────────────────────────────────────────────────────
+group JWT Token Validation [defined here — referenced in all subsequent service diagrams]
+    note over CR, JWT : Every protected endpoint calls this block\nbefore delegating to the Application layer
+    FE -> CR : Authorization: Bearer <access_token>
+    activate CR
+    CR -> JWT : verify_token(token, token_type="access")
+    activate JWT
+    note right of JWT : Decode HS256 token\nVerify signature + expiry\nExtract payload {user_id, email}
+    alt [Token invalid or expired]
+        JWT --> CR : raise JWTDecodeError
+        deactivate JWT
+        CR --> FE : 401 Unauthorized\n{detail: "Invalid or expired token"}
+        deactivate CR
+    else [Token valid]
+        JWT --> CR : payload {user_id, email, exp}
+        deactivate JWT
+        note over CR : user_id injected into handler\nvia FastAPI Depends(get_current_user)
+    end
+end
+
+== ① Create Camera ==
+
+U -> FE : Fill camera form\n{name, stream_url, protocol,\ncamera_type, location, description}
+activate FE
+FE -> CR : POST /api/v1/cameras\nAuthorization: Bearer <token>
+activate CR
+
+ref over FE, CR, JWT : JWT Token Validation
+
+CR -> CS : create_camera(owner_user_id, camera_data)
+activate CS
+CS -> CCUC : execute(owner_user_id, name, stream_url,\nprotocol, resolution, fps, encoding,\ncamera_type, description, location)
+activate CCUC
+
+CCUC -> CAMR : create(Camera{owner_user_id,\nname, stream_url, protocol,\nstatus=OFFLINE, is_active=True,\nlocation: CameraLocation{...},\ncreated_at=NOW()})
+activate CAMR
+CAMR -> DBCAM : create(camera)
+activate DBCAM
+DBCAM -> DB : INSERT INTO cameras\n(owner_user_id, name, stream_url,\nprotocol, status='OFFLINE',\nis_active=True, created_at)
+activate DB
+DB --> DBCAM : {id, created_at}
+deactivate DB
+DBCAM --> CAMR : CameraModel
+deactivate DBCAM
+CAMR --> CCUC : Camera entity
+deactivate CAMR
+
+CCUC --> CS : Camera entity
+deactivate CCUC
+CS --> CR : Camera entity
+deactivate CS
+CR --> FE : 201 Created\n{camera_id, name, status,\nlocation, created_at}
+deactivate CR
+FE --> U : Camera added to dashboard
+
+== ② List User Cameras ==
+
+U -> FE : Open cameras dashboard
+FE -> CR : GET /api/v1/cameras\nAuthorization: Bearer <token>
+activate CR
+
+ref over FE, CR, JWT : JWT Token Validation
+
+CR -> CS : list_cameras(owner_user_id)
+activate CS
+CS -> LCUC : execute(user_id)
+activate LCUC
+
+LCUC -> CAMR : get_by_owner(owner_user_id)
+activate CAMR
+CAMR -> DBCAM : get_by_owner(owner_user_id)
+activate DBCAM
+DBCAM -> DB : SELECT * FROM cameras\nWHERE owner_user_id=:uid\nORDER BY created_at DESC
+activate DB
+DB --> DBCAM : [Row, ...]
+deactivate DB
+DBCAM --> CAMR : [CameraModel, ...]
+deactivate DBCAM
+CAMR --> LCUC : [Camera, ...]
+deactivate CAMR
+
+LCUC --> CS : List[Camera]
+deactivate LCUC
+CS --> CR : List[Camera]
+deactivate CS
+CR --> FE : 200 OK\n[{id, name, status,\nlast_heartbeat, location}]
+deactivate CR
+FE --> U : Render camera grid with status badges
+deactivate FE
+
+== ③ Heartbeat (periodic — sent by camera device) ==
+
+CAM -> CR : POST /api/v1/cameras/{id}/heartbeat\nAuthorization: Bearer <token>\n{latency_ms, frame_drop_rate, uptime_%}
+activate CR
+
+ref over CAM, CR, JWT : JWT Token Validation
+
+CR -> CS : record_heartbeat(camera_id, health_data)
+activate CS
+CS -> RHUC : execute(camera_id, latency_ms,\nframe_drop_rate, uptime_percentage)
+activate RHUC
+
+RHUC -> CAMR : get_by_id(camera_id)
+activate CAMR
+CAMR -> DBCAM : get_by_id(camera_id)
+activate DBCAM
+DBCAM -> DB : SELECT * FROM cameras\nWHERE id = :camera_id
+activate DB
+DB --> DBCAM : Row | None
+deactivate DB
+DBCAM --> CAMR : CameraModel | None
+deactivate DBCAM
+CAMR --> RHUC : Camera | None
+deactivate CAMR
+
+alt [Camera not found]
+    RHUC --> CS : raise CameraNotFoundError
+    deactivate RHUC
+    CS --> CR : raise
+    deactivate CS
+    CR --> CAM : 404 Not Found
+    deactivate CR
+else [Camera found]
+    RHUC -> RHUC : camera.mark_online()\n[status = ONLINE]
+    RHUC -> CAMR : update(camera{last_heartbeat=NOW(),\nstatus=ONLINE})
+    activate CAMR
+    CAMR -> DBCAM : update(camera)
+    activate DBCAM
+    DBCAM -> DB : UPDATE cameras\nSET status='ONLINE',\nlast_heartbeat=NOW()\nWHERE id=:camera_id
+    activate DB
+    DB --> DBCAM : OK
+    deactivate DB
+    DBCAM --> CAMR : CameraModel
+    deactivate DBCAM
+    CAMR --> RHUC : Camera
+    deactivate CAMR
+
+    RHUC -> HLTH : record_health(CameraHealth{\ncamera_id, latency_ms,\nframe_drop_rate, uptime_percentage})
+    activate HLTH
+    HLTH -> DBHL : record_health(health)
+    activate DBHL
+    DBHL -> DB : INSERT INTO camera_health\n(camera_id, latency_ms,\nframe_drop_rate, uptime_percentage,\nrecorded_at=NOW())
+    activate DB
+    DB --> DBHL : {id, recorded_at}
+    deactivate DB
+    DBHL --> HLTH : CameraHealthModel
+    deactivate DBHL
+    HLTH --> RHUC : CameraHealth entity
+    deactivate HLTH
+
+    RHUC --> CS : CameraHealth
+    deactivate RHUC
+    CS --> CR : CameraHealth
+    deactivate CS
+    CR --> CAM : 200 OK\n{status: "ONLINE", recorded_at}
+    deactivate CR
+end
+
+== ④ Delete Camera ==
+
+U -> FE : Click "Delete Camera" → Confirm dialog
+activate FE
+FE -> CR : DELETE /api/v1/cameras/{id}\nAuthorization: Bearer <token>
+activate CR
+
+ref over FE, CR, JWT : JWT Token Validation
+
+CR -> CS : delete_camera(camera_id, user_id)
+activate CS
+CS -> DCUC : execute(camera_id, user_id)
+activate DCUC
+
+DCUC -> CAMR : get_by_id(camera_id)
+activate CAMR
+CAMR -> DBCAM : get_by_id(camera_id)
+activate DBCAM
+DBCAM -> DB : SELECT * FROM cameras\nWHERE id = :camera_id
+activate DB
+DB --> DBCAM : Row | None
+deactivate DB
+DBCAM --> CAMR : CameraModel | None
+deactivate DBCAM
+CAMR --> DCUC : Camera | None
+deactivate CAMR
+
+alt [Camera not found]
+    DCUC --> CS : raise CameraNotFoundError
+    deactivate DCUC
+    CS --> CR : raise
+    deactivate CS
+    CR --> FE : 404 Not Found
+    deactivate CR
+    FE --> U : Show error
+else [user_id ≠ owner_user_id — not authorized]
+    DCUC --> CS : raise ForbiddenError
+    deactivate DCUC
+    CS --> CR : raise
+    deactivate CS
+    CR --> FE : 403 Forbidden\n{detail: "Not authorized"}
+    deactivate CR
+    FE --> U : Show error
+else [Camera found and user is owner]
+    DCUC -> CAMR : delete(camera_id)
+    activate CAMR
+    CAMR -> DBCAM : delete(camera_id)
+    activate DBCAM
+    DBCAM -> DB : DELETE FROM cameras\nWHERE id = :camera_id
+    activate DB
+    DB --> DBCAM : OK
+    deactivate DB
+    DBCAM --> CAMR : None
+    deactivate DBCAM
+    CAMR --> DCUC : None
+    deactivate CAMR
+
+    DCUC --> CS : None
+    deactivate DCUC
+    CS --> CR : None
+    deactivate CS
+    CR --> FE : 204 No Content
+    deactivate CR
+    FE --> U : Remove camera from list
+end
+
+deactivate FE
+
+== Service Lifecycle — Shutdown ==
+note over CR, CS : FastAPI lifespan shutdown\n• DB connection pool closed
+
+@enduml

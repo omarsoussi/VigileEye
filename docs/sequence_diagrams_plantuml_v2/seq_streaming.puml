@@ -1,0 +1,241 @@
+@startuml Seq_Streaming
+skinparam backgroundColor #FAFAFA
+skinparam sequenceArrowThickness 1.5
+skinparam sequence {
+    ArrowColor #37474F
+    LifeLineBorderColor #B0BEC5
+    LifeLineBackgroundColor #ECEFF1
+    BoxBorderColor #78909C
+    GroupBorderColor #7E57C2
+    GroupBackgroundColor #EDE7F6
+    GroupHeaderFontColor #311B92
+    DividerBackgroundColor #E3F2FD
+    DividerBorderColor #1565C0
+    DividerFontColor #0D47A1
+}
+skinparam participant {
+    BackgroundColor #E3F2FD
+    BorderColor #1976D2
+    FontColor #0D47A1
+}
+skinparam actor {
+    BackgroundColor #FFF8E1
+    BorderColor #F57F17
+}
+skinparam note {
+    BackgroundColor #FFFDE7
+    BorderColor #F9A825
+}
+
+title **Sequence Diagram: Video Streaming Service**\n(Start Stream • WebSocket Frame Delivery • Stop Stream)
+
+actor "User" as U
+participant "**Frontend**\n<<React / Ionic>>" as FE #FFF8E1
+participant "**StreamRoute**\n<<API Layer / WS Endpoint>>" as SR #DBEAFE
+participant "**JWTHandler**\n<<Infra/Security>>" as JWT #E0F2F1
+participant "**StreamService**\n<<App Service>>" as SS #EDE7F6
+participant "**StartStreamUseCase**\n<<Use Case>>" as SSUC #EDE7F6
+participant "**StopStreamUseCase**\n<<Use Case>>" as STPUC #EDE7F6
+participant "**IStreamRepository**\n<<Domain>>" as STMR #F3E5F5
+participant "**DBStreamRepository**\n<<Infrastructure>>" as DBST #E0F2F1
+participant "**OpenCVCapture**\n<<Infra/OpenCV>>" as OCV #E8F5E9
+participant "**WebSocketManager**\n<<Infra/WS>>" as WSM #E8F5E9
+participant "**CameraFeed**\n<<RTSP / HTTP>>" as FEED #FBE9E7
+participant "**PostgreSQL**\n<<Database>>" as DB #F5F5F5
+
+== Service Lifecycle — Startup ==
+note over SR, SS : FastAPI lifespan startup\n• Routers + WebSocket endpoints registered\n• OpenCV capture pool initialised\n• WebSocket connection registry created
+
+== ① Start Stream ==
+
+U -> FE : Click "Watch Live Stream"
+activate FE
+FE -> SR : POST /api/v1/streams/start\nAuthorization: Bearer <token>\n{camera_id, stream_url, config}
+activate SR
+
+ref over FE, SR, JWT : JWT Token Validation\n(defined in seq_camera_management.puml)
+
+SR -> SS : start_stream(camera_id, stream_url,\nStreamConfig, force_restart)
+activate SS
+SS -> SSUC : execute(camera_id, stream_url,\nStreamConfig, force_restart)
+activate SSUC
+
+SSUC -> STMR : get_active_session(camera_id)
+activate STMR
+STMR -> DBST : get_active_session(camera_id)
+activate DBST
+DBST -> DB : SELECT * FROM stream_sessions\nWHERE camera_id=:id\nAND status IN ('active','connecting')
+activate DB
+DB --> DBST : Row | None
+deactivate DB
+DBST --> STMR : StreamSessionModel | None
+deactivate DBST
+STMR --> SSUC : StreamSession | None
+deactivate STMR
+
+alt [Session already ACTIVE and force_restart = False]
+    SSUC --> SS : (existing_session, is_new=False)
+    deactivate SSUC
+    SS --> SR : StreamResult{is_new: false}
+    deactivate SS
+    SR --> FE : 200 OK\n{ws_url: "/ws/stream/{camera_id}", is_new: false}
+    deactivate SR
+    FE --> U : Open existing WebSocket connection
+else [No active session — start new]
+    SSUC -> STMR : create(StreamSession{camera_id,\nstream_url, status=PENDING, fps})
+    activate STMR
+    STMR -> DBST : create(session)
+    activate DBST
+    DBST -> DB : INSERT INTO stream_sessions\n(camera_id, status='pending', fps, created_at)
+    activate DB
+    DB --> DBST : {session_id, created_at}
+    deactivate DB
+    DBST --> STMR : StreamSessionModel
+    deactivate DBST
+    STMR --> SSUC : StreamSession
+    deactivate STMR
+
+    SSUC -> OCV : VideoCapture(stream_url)
+    activate OCV
+    OCV -> FEED : Connect (RTSP handshake / HTTP GET)
+    activate FEED
+    FEED --> OCV : Stream established
+    deactivate FEED
+    OCV --> SSUC : capture_handle
+    deactivate OCV
+
+    SSUC -> STMR : update(session{status=ACTIVE,\nstarted_at=NOW()})
+    activate STMR
+    STMR -> DBST : update(session)
+    activate DBST
+    DBST -> DB : UPDATE stream_sessions\nSET status='active', started_at=NOW()\nWHERE id=:session_id
+    activate DB
+    DB --> DBST : OK
+    deactivate DB
+    DBST --> STMR : StreamSessionModel
+    deactivate DBST
+    STMR --> SSUC : StreamSession
+    deactivate STMR
+
+    SSUC -> WSM : register_stream(camera_id, capture_handle)
+    activate WSM
+    note right of WSM : Stores capture handle in\nin-memory registry keyed by camera_id.\nReady to serve WebSocket clients.
+    WSM --> SSUC : OK
+    deactivate WSM
+
+    SSUC --> SS : (session, is_new=True)
+    deactivate SSUC
+    SS --> SR : StreamResult{is_new: true}
+    deactivate SS
+    SR --> FE : 200 OK\n{ws_url: "/ws/stream/{camera_id}", is_new: true}
+    deactivate SR
+    FE --> U : Connect to WebSocket for live frames
+end
+
+== ② WebSocket Frame Delivery ==
+
+FE -> SR : WS CONNECT /ws/stream/{camera_id}\n?token=<access_token>
+activate SR
+
+ref over FE, SR, JWT : JWT Token Validation\n(defined in seq_camera_management.puml)
+
+SR -> WSM : add_client(camera_id, ws_connection)
+activate WSM
+WSM --> SR : OK (client registered)
+deactivate WSM
+SR --> FE : WS OPEN (101 Switching Protocols)
+FE --> U : Show live video player
+
+loop [While stream is ACTIVE and clients connected — ~15 fps]
+    SR -> OCV : cap.read()
+    activate OCV
+    OCV --> SR : BGR numpy frame
+    deactivate OCV
+    SR -> SR : cv2.imencode('.jpg', frame, quality=80)\n→ JPEG bytes
+    SR -> DBST : UPDATE last_frame_at=NOW()\nWHERE camera_id=:id
+    activate DBST
+    DBST --> SR : OK
+    deactivate DBST
+    SR --> FE : WS BINARY <JPEG frame bytes>
+    FE --> U : Render frame on canvas element
+end
+
+== ③ Stop Stream ==
+
+U -> FE : Close stream view
+FE -> SR : WS CLOSE (1000 Normal)
+SR -> WSM : remove_client(camera_id, ws_connection)
+activate WSM
+WSM --> SR : clients_remaining = 0
+deactivate WSM
+SR --> FE : WS CLOSED
+deactivate SR
+
+FE -> SR : POST /api/v1/streams/stop\n{camera_id}
+activate SR
+
+ref over FE, SR, JWT : JWT Token Validation\n(defined in seq_camera_management.puml)
+
+SR -> SS : stop_stream(camera_id)
+activate SS
+SS -> STPUC : execute(camera_id)
+activate STPUC
+
+STPUC -> STMR : get_active_session(camera_id)
+activate STMR
+STMR -> DBST : get_active_session(camera_id)
+activate DBST
+DBST -> DB : SELECT * FROM stream_sessions\nWHERE camera_id=:id AND status='active'
+activate DB
+DB --> DBST : Row | None
+deactivate DB
+DBST --> STMR : StreamSessionModel | None
+deactivate DBST
+STMR --> STPUC : StreamSession | None
+deactivate STMR
+
+alt [No active session found]
+    STPUC --> SS : raise StreamNotFoundError
+    deactivate STPUC
+    SS --> SR : raise
+    deactivate SS
+    SR --> FE : 404 Not Found\n{detail: "No active stream"}
+    deactivate SR
+    FE --> U : Show info toast
+else [Active session found]
+    STPUC -> OCV : cap.release()
+    note right of OCV : cv2.VideoCapture.release()\nFrees network / camera resource
+    STPUC -> WSM : close_all_clients(camera_id)
+    activate WSM
+    WSM --> FE : WS CLOSE 1000 "Stream stopped by server"
+    WSM --> STPUC : OK
+    deactivate WSM
+
+    STPUC -> STMR : update(session{status=STOPPED,\nstopped_at=NOW()})
+    activate STMR
+    STMR -> DBST : update(session)
+    activate DBST
+    DBST -> DB : UPDATE stream_sessions\nSET status='stopped', stopped_at=NOW()\nWHERE id=:session_id
+    activate DB
+    DB --> DBST : OK
+    deactivate DB
+    DBST --> STMR : StreamSessionModel
+    deactivate DBST
+    STMR --> STPUC : StreamSession
+    deactivate STMR
+
+    STPUC --> SS : StreamSession (stopped)
+    deactivate STPUC
+    SS --> SR : StreamSession
+    deactivate SS
+    SR --> FE : 200 OK\n{status: "stopped", stopped_at}
+    deactivate SR
+    FE --> U : "Stream ended"
+end
+
+deactivate FE
+
+== Service Lifecycle — Shutdown ==
+note over SR, SS : FastAPI lifespan shutdown\n• All active OpenCV captures released\n• WebSocket connections closed\n• Sessions updated to status='stopped'
+
+@enduml

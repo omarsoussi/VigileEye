@@ -1,0 +1,278 @@
+@startuml Seq_Members_Invitation
+skinparam backgroundColor #FAFAFA
+skinparam sequenceArrowThickness 1.5
+skinparam sequence {
+    ArrowColor #37474F
+    LifeLineBorderColor #B0BEC5
+    LifeLineBackgroundColor #ECEFF1
+    BoxBorderColor #78909C
+    GroupBorderColor #7E57C2
+    GroupBackgroundColor #EDE7F6
+    GroupHeaderFontColor #311B92
+    DividerBackgroundColor #E3F2FD
+    DividerBorderColor #1565C0
+    DividerFontColor #0D47A1
+}
+skinparam participant {
+    BackgroundColor #E3F2FD
+    BorderColor #1976D2
+    FontColor #0D47A1
+}
+skinparam actor {
+    BackgroundColor #FFF8E1
+    BorderColor #F57F17
+}
+skinparam note {
+    BackgroundColor #FFFDE7
+    BorderColor #F9A825
+}
+
+title **Sequence Diagram: Members Invitation Service**\n(Send Invitation • View Received • Accept / Decline)
+
+actor "Owner\n(Inviter)" as OWNER
+actor "Recipient" as RECIP
+participant "**Frontend**\n<<React / Ionic>>" as FE #FFF8E1
+participant "**InvitationRoute**\n<<API Layer>>" as IR #DBEAFE
+participant "**JWTHandler**\n<<Infra/Security>>" as JWT #E0F2F1
+participant "**InvitationService**\n<<App Service>>" as IS #EDE7F6
+participant "**CreateInvitationUseCase**\n<<Use Case>>" as CIUC #EDE7F6
+participant "**AcceptInvitationUseCase**\n<<Use Case>>" as AIUC #EDE7F6
+participant "**DeclineInvitationUseCase**\n<<Use Case>>" as DIUC #EDE7F6
+participant "**IInvitationRepository**\n<<Domain>>" as INVR #F3E5F5
+participant "**DBInvitationRepository**\n<<Infrastructure>>" as DBINV #E0F2F1
+participant "**OTPGenerator**\n<<Infra/Security>>" as OTPG #E0F2F1
+participant "**EmailSender**\n<<Infra/External>>" as ES #FBE9E7
+participant "**PostgreSQL**\n<<Database>>" as DB #F5F5F5
+
+== Service Lifecycle — Startup ==
+note over IR, IS : FastAPI lifespan startup\n• Routers mounted on /api/v1/members\n• DB engine initialised
+
+== ① Send Invitation ==
+
+OWNER -> FE : Fill invitation form\n{recipient_email,\npermission (READER|EDITOR),\ncamera_ids, expires_at}
+activate FE
+FE -> IR : POST /api/v1/members/invitations\nAuthorization: Bearer <token>
+activate IR
+
+ref over FE, IR, JWT : JWT Token Validation\n(defined in seq_camera_management.puml)
+
+IR -> IS : create_invitation(inviter_user_id,\ninviter_email, recipient_email,\npermission, camera_ids,\nunlimited, expires_at)
+activate IS
+IS -> CIUC : execute(CreateInvitationInput)
+activate CIUC
+
+CIUC -> INVR : list_sent(inviter_user_id)
+activate INVR
+INVR -> DBINV : list_sent(inviter_user_id)
+activate DBINV
+DBINV -> DB : SELECT * FROM invitations\nWHERE inviter_user_id=:uid\nAND recipient_email=:email\nAND status='pending'
+activate DB
+DB --> DBINV : [Row, ...] | []
+deactivate DB
+DBINV --> INVR : [InvitationModel, ...]
+deactivate DBINV
+INVR --> CIUC : [Invitation, ...]
+deactivate INVR
+
+alt [Duplicate pending invitation exists]
+    CIUC --> IS : raise InvitationAlreadyExistsError
+    deactivate CIUC
+    IS --> IR : raise
+    deactivate IS
+    IR --> FE : 409 Conflict\n{detail: "Invitation already pending"}
+    deactivate IR
+    FE --> OWNER : Show error toast
+else [No conflict — create invitation]
+    CIUC -> OTPG : generate_alphanumeric(length=8)
+    activate OTPG
+    OTPG --> CIUC : "A3F9K2BX"
+    deactivate OTPG
+
+    CIUC -> CIUC : code_hash = bcrypt.hash(raw_code)\ncode_expires_at = NOW() + 48h
+
+    CIUC -> INVR : add(Invitation{inviter_user_id,\ninviter_email, recipient_email,\npermission, status=PENDING,\ncode_hash, code_expires_at,\ncamera_ids, expires_at})
+    activate INVR
+    INVR -> DBINV : add(invitation)
+    activate DBINV
+    DBINV -> DB : INSERT INTO invitations\n(inviter_user_id, inviter_email,\nrecipient_email, permission,\nstatus='pending', code_hash,\ncode_expires_at=NOW()+48h)\nINSERT INTO invitation_cameras × N
+    activate DB
+    DB --> DBINV : {invitation_id, created_at}
+    deactivate DB
+    DBINV --> INVR : InvitationModel
+    deactivate DBINV
+    INVR --> CIUC : Invitation entity
+    deactivate INVR
+
+    CIUC -> ES : send_invitation_email(\nrecipient_email, raw_code,\npermission, camera_names,\nexpires_at)
+    activate ES
+    note right of ES : HTML email with\n8-char alphanumeric code\npermission level + camera names\nvalid 48 hours
+    ES --> CIUC : Delivered
+    deactivate ES
+
+    CIUC --> IS : Invitation entity
+    deactivate CIUC
+    IS --> IR : Invitation entity
+    deactivate IS
+    IR --> FE : 201 Created\n{invitation_id, status: "pending",\nrecipient_email, permission}
+    deactivate IR
+    FE --> OWNER : "Invitation sent to [email]"
+end
+
+== ② View Received Invitations ==
+
+RECIP -> FE : Open "My Invitations" panel
+FE -> IR : GET /api/v1/members/invitations/received\nAuthorization: Bearer <token>
+activate IR
+
+ref over FE, IR, JWT : JWT Token Validation\n(defined in seq_camera_management.puml)
+
+IR -> IS : list_received(recipient_email)
+activate IS
+IS -> INVR : list_received(recipient_email)
+activate INVR
+INVR -> DBINV : list_received(recipient_email)
+activate DBINV
+DBINV -> DB : SELECT * FROM invitations\nWHERE recipient_email=:email\nAND status='pending'
+activate DB
+DB --> DBINV : [Row, ...]
+deactivate DB
+DBINV --> INVR : [InvitationModel, ...]
+deactivate DBINV
+INVR --> IS : [Invitation, ...]
+deactivate INVR
+IS --> IR : [Invitation, ...]
+deactivate IS
+IR --> FE : 200 OK\n[{id, inviter_email, permission,\ncamera_ids, expires_at}]
+deactivate IR
+FE --> RECIP : Show pending invitations\nwith Accept / Decline buttons
+
+== ③ Respond to Invitation ==
+
+alt [Recipient accepts invitation]
+    RECIP -> FE : Click "Accept" + enter code "A3F9K2BX"
+    FE -> IR : POST /api/v1/members/invitations/{id}/accept\n{code: "A3F9K2BX"}
+    activate IR
+
+    ref over FE, IR, JWT : JWT Token Validation\n(defined in seq_camera_management.puml)
+
+    IR -> IS : accept_invitation(invitation_id,\ncurrent_user_id,\ncurrent_user_email, code)
+    activate IS
+    IS -> AIUC : execute(AcceptInvitationInput)
+    activate AIUC
+
+    AIUC -> INVR : get_by_id(invitation_id)
+    activate INVR
+    INVR -> DBINV : get_by_id(invitation_id)
+    activate DBINV
+    DBINV -> DB : SELECT * FROM invitations\nWHERE id=:invitation_id
+    activate DB
+    DB --> DBINV : Row | None
+    deactivate DB
+    DBINV --> INVR : InvitationModel | None
+    deactivate DBINV
+    INVR --> AIUC : Invitation | None
+    deactivate INVR
+
+    alt [Invitation not found OR already handled OR is_expired()]
+        AIUC --> IS : raise InvitationNotFoundError\nOR InvitationExpiredError
+        deactivate AIUC
+        IS --> IR : raise
+        deactivate IS
+        IR --> FE : 404 / 410\n{detail: "Invitation not found or expired"}
+        deactivate IR
+        FE --> RECIP : Show error
+    else [Code mismatch — bcrypt.verify() == False]
+        AIUC --> IS : raise InvalidInvitationCodeError
+        deactivate AIUC
+        IS --> IR : raise
+        deactivate IS
+        IR --> FE : 400 Bad Request\n{detail: "Invalid invitation code"}
+        deactivate IR
+        FE --> RECIP : "Wrong code"
+    else [Valid code — create Membership]
+        AIUC -> INVR : update(invitation{status=ACCEPTED,\nhandled_at=NOW()})
+        activate INVR
+        INVR -> DBINV : update(invitation)
+        activate DBINV
+        DBINV -> DB : UPDATE invitations\nSET status='accepted',\nhandled_at=NOW()\nWHERE id=:invitation_id
+        activate DB
+        DB --> DBINV : OK
+        deactivate DB
+        DBINV --> INVR : InvitationModel
+        deactivate DBINV
+        INVR --> AIUC : Invitation
+        deactivate INVR
+
+        AIUC -> DBINV : create Membership{\nowner_user_id=invitation.inviter_user_id,\nmember_user_id=current_user_id,\nmember_email, permission, camera_ids}
+        activate DBINV
+        DBINV -> DB : INSERT INTO memberships\n(owner_user_id, member_user_id,\nmember_email, permission)\nINSERT INTO membership_cameras × N
+        activate DB
+        DB --> DBINV : {membership_id}
+        deactivate DB
+        DBINV --> AIUC : MembershipModel
+        deactivate DBINV
+
+        AIUC -> ES : send_invitation_accepted_email(\ninviter_email, member_email, permission)
+        activate ES
+        ES --> AIUC : Delivered
+        deactivate ES
+
+        AIUC --> IS : Membership entity
+        deactivate AIUC
+        IS --> IR : Membership entity
+        deactivate IS
+        IR --> FE : 201 Created\n{membership_id, permission, camera_ids}
+        deactivate IR
+        FE --> RECIP : "Access granted to N camera(s)"
+    end
+
+else [Recipient declines invitation]
+    RECIP -> FE : Click "Decline"
+    FE -> IR : POST /api/v1/members/invitations/{id}/decline
+    activate IR
+
+    ref over FE, IR, JWT : JWT Token Validation\n(defined in seq_camera_management.puml)
+
+    IR -> IS : decline_invitation(invitation_id, current_user_email)
+    activate IS
+    IS -> DIUC : execute(invitation_id, current_user_email)
+    activate DIUC
+
+    DIUC -> INVR : get_by_id(invitation_id)
+    activate INVR
+    INVR --> DIUC : Invitation
+    deactivate INVR
+
+    DIUC -> INVR : update(invitation{status=DECLINED,\nhandled_at=NOW()})
+    activate INVR
+    INVR -> DBINV : update(invitation)
+    activate DBINV
+    DBINV -> DB : UPDATE invitations\nSET status='declined',\nhandled_at=NOW()\nWHERE id=:invitation_id
+    activate DB
+    DB --> DBINV : OK
+    deactivate DB
+    DBINV --> INVR : InvitationModel
+    deactivate DBINV
+    INVR --> DIUC : Invitation
+    deactivate INVR
+
+    DIUC -> ES : send_invitation_declined_email(\ninviter_email, recipient_email)
+    activate ES
+    ES --> DIUC : Delivered
+    deactivate ES
+
+    DIUC --> IS : None
+    deactivate DIUC
+    IS --> IR : None
+    deactivate IS
+    IR --> FE : 204 No Content
+    deactivate IR
+    FE --> RECIP : "Invitation declined"
+end
+
+deactivate FE
+
+== Service Lifecycle — Shutdown ==
+note over IR, IS : FastAPI lifespan shutdown\n• DB connection pool closed
+
+@enduml
