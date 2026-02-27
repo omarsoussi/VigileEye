@@ -17,9 +17,9 @@ import {
   HiOutlineCog,
   HiCog,
   HiOutlineAdjustments,
-  HiAdjustments
+  HiAdjustments,
 } from 'react-icons/hi';
-import { BsCameraVideo, BsGrid } from 'react-icons/bs';
+import { BsCameraVideo, BsGrid, BsPeopleFill } from 'react-icons/bs';
 
 interface TabItem {
   path: string;
@@ -37,24 +37,33 @@ export const TabBar: React.FC = () => {
   const isDark = preferences.mode === 'dark';
 
   const [membersBadgeCount, setMembersBadgeCount] = useState(0);
-  const [configureDropdownOpen, setConfigureDropdownOpen] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const membersDropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setConfigureDropdownOpen(false);
+      const target = event.target as Node;
+      if (
+        dropdownRef.current && !dropdownRef.current.contains(target) &&
+        membersDropdownRef.current && !membersDropdownRef.current.contains(target)
+      ) {
+        setOpenDropdown(null);
+      } else if (openDropdown === '/configure' && dropdownRef.current && !dropdownRef.current.contains(target)) {
+        setOpenDropdown(null);
+      } else if (openDropdown === '/members' && membersDropdownRef.current && !membersDropdownRef.current.contains(target)) {
+        setOpenDropdown(null);
       }
     };
 
-    if (configureDropdownOpen) {
+    if (openDropdown) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [configureDropdownOpen]);
+  }, [openDropdown]);
 
   const tabs: TabItem[] = [
     {
@@ -107,6 +116,10 @@ export const TabBar: React.FC = () => {
     // For Configure tab, check if on zones or cameras path
     if (path === '/configure') {
       return location.pathname.startsWith('/zones') || location.pathname.startsWith('/cameras');
+    }
+    // For Members tab, also highlight when on /groups
+    if (path === '/members') {
+      return location.pathname.startsWith('/members') || location.pathname.startsWith('/groups');
     }
     return location.pathname.startsWith(path);
   };
@@ -182,17 +195,19 @@ export const TabBar: React.FC = () => {
         const active = isActive(tab.path);
         const badgeCount = tabBadgeCounts[tab.path as keyof typeof tabBadgeCounts] || 0;
         
-        // Special handling for Configure tab with dropdown
+        // Special handling for tabs with dropdown
         if (tab.hasDropdown && tab.dropdownItems) {
+          const isThisDropdownOpen = openDropdown === tab.path;
+          const refForTab = tab.path === '/members' ? membersDropdownRef : dropdownRef;
           return (
             <div
               key={tab.path}
-              ref={dropdownRef}
+              ref={refForTab}
               style={{ position: 'relative' }}
             >
               {/* Dropdown Menu */}
               <AnimatePresence>
-                {configureDropdownOpen && (
+                {isThisDropdownOpen && (
                   <motion.div
                     initial={{ opacity: 0, y: 10, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -223,7 +238,7 @@ export const TabBar: React.FC = () => {
                         key={item.path}
                         onClick={() => {
                           navigate(item.path);
-                          setConfigureDropdownOpen(false);
+                          setOpenDropdown(null);
                         }}
                         whileHover={{ scale: 1.02, x: 4 }}
                         whileTap={{ scale: 0.98 }}
@@ -280,7 +295,7 @@ export const TabBar: React.FC = () => {
               </AnimatePresence>
 
               <motion.button
-                onClick={() => setConfigureDropdownOpen(!configureDropdownOpen)}
+                onClick={() => setOpenDropdown(isThisDropdownOpen ? null : tab.path)}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.9 }}
                 style={{
@@ -317,7 +332,7 @@ export const TabBar: React.FC = () => {
                   animate={{ 
                     scale: active ? 1.1 : 1,
                     y: active ? -2 : 0,
-                    rotate: configureDropdownOpen ? 90 : 0,
+                    rotate: isThisDropdownOpen ? 90 : 0,
                   }}
                   transition={{ type: 'spring', stiffness: 400, damping: 20 }}
                   style={{ position: 'relative' }}

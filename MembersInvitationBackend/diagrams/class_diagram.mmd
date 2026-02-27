@@ -1,0 +1,228 @@
+---
+title: Class Diagram – Members Invitation Microservice (Clean Architecture)
+---
+classDiagram
+    direction TB
+
+    %% ═══════════════════════════════════════════════════════════
+    %% DOMAIN LAYER – Entities, Enums & Repository Interfaces
+    %% ═══════════════════════════════════════════════════════════
+
+    namespace Domain {
+
+        class PermissionLevel {
+            <<enumeration>>
+            READER
+            EDITOR
+        }
+
+        class InvitationStatus {
+            <<enumeration>>
+            PENDING
+            ACCEPTED
+            DECLINED
+            CANCELED
+            EXPIRED
+        }
+
+        class GroupMemberStatus {
+            <<enumeration>>
+            PENDING
+            ACCEPTED
+            DECLINED
+        }
+
+        class Invitation {
+            -id : UUID
+            -inviter_user_id : UUID
+            -inviter_email : String
+            -recipient_email : String
+            -permission : PermissionLevel
+            -camera_ids : List~String~
+            -status : InvitationStatus
+            -code_hash : String
+            -expires_at : DateTime
+            -unlimited : Boolean
+            -created_at : DateTime
+            -handled_at : DateTime
+            +is_expired(now : DateTime) Boolean
+            +can_accept(now : DateTime) Boolean
+        }
+
+        class Group {
+            -id : UUID
+            -owner_user_id : UUID
+            -name : String
+            -description : String
+            -default_permission : PermissionLevel
+            -camera_ids : List~String~
+            -created_at : DateTime
+            -updated_at : DateTime
+        }
+
+        class GroupMember {
+            -id : UUID
+            -group_id : UUID
+            -member_email : String
+            -member_user_id : UUID
+            -access : PermissionLevel
+            -status : GroupMemberStatus
+            -invite_code_hash : String
+            -code_expires_at : DateTime
+            -created_at : DateTime
+            -handled_at : DateTime
+        }
+
+        class Membership {
+            -id : UUID
+            -owner_user_id : UUID
+            -member_user_id : UUID
+            -member_email : String
+            -permission : PermissionLevel
+            -camera_ids : List~String~
+            -created_at : DateTime
+            -revoked_at : DateTime
+            +is_active() Boolean
+        }
+
+        class InvitationRepositoryInterface {
+            <<interface>>
+            +add(invitation : Invitation) Invitation
+            +get_by_id(id : UUID) Invitation
+            +list_sent(user_id : UUID) List~Invitation~
+            +list_received(email : String) List~Invitation~
+            +update(invitation : Invitation) Invitation
+        }
+
+        class GroupRepositoryInterface {
+            <<interface>>
+            +add(group : Group) Group
+            +get_by_id(id : UUID) Group
+            +list_by_owner(user_id : UUID) List~Group~
+            +update(group : Group) Group
+            +delete(id : UUID) void
+        }
+
+        class GroupMemberRepositoryInterface {
+            <<interface>>
+            +add(member : GroupMember) GroupMember
+            +get_by_id(id : UUID) GroupMember
+            +list_by_group(group_id : UUID) List~GroupMember~
+            +get_by_group_and_email(gid : UUID, email : String) GroupMember
+            +update(member : GroupMember) GroupMember
+            +delete(id : UUID) void
+        }
+
+        class MembershipRepositoryInterface {
+            <<interface>>
+            +add(membership : Membership) Membership
+            +get_by_owner_and_member(owner : UUID, member : UUID) Membership
+        }
+
+    }
+
+    %% ═══════════════════════════════════════════════════════════
+    %% APPLICATION LAYER – Use Cases
+    %% ═══════════════════════════════════════════════════════════
+
+    namespace Application {
+
+        class CreateInvitationUseCase {
+            -invitation_repo : InvitationRepositoryInterface
+            -email_sender : EmailSenderInterface
+            -settings : Settings
+            +execute(inviter_id : UUID, email : String, permission : String, camera_ids : List) Invitation
+        }
+
+        class AcceptInvitationUseCase {
+            -invitation_repo : InvitationRepositoryInterface
+            -membership_repo : MembershipRepositoryInterface
+            +execute(id : UUID, user_id : UUID, email : String, code : String) Membership
+        }
+
+        class InviteGroupMemberUseCase {
+            -group_repo : GroupRepositoryInterface
+            -member_repo : GroupMemberRepositoryInterface
+            -email_sender : EmailSenderInterface
+            -settings : Settings
+            +execute(group_id : UUID, owner_id : UUID, email : String, access : String) GroupMember
+        }
+
+        class AcceptGroupMemberUseCase {
+            -group_repo : GroupRepositoryInterface
+            -member_repo : GroupMemberRepositoryInterface
+            -membership_repo : MembershipRepositoryInterface
+            +execute(group_id : UUID, member_id : UUID, user_id : UUID, code : String) Membership
+        }
+
+    }
+
+    %% ═══════════════════════════════════════════════════════════
+    %% INFRASTRUCTURE LAYER – Implementations & Utilities
+    %% ═══════════════════════════════════════════════════════════
+
+    namespace Infrastructure {
+
+        class EmailSenderInterface {
+            <<interface>>
+            +send_invitation_code(to : String, code : String, inviter : String, permission : String, expires : int) Boolean
+        }
+
+        class SMTPEmailSender {
+            -host : String
+            -port : int
+            -username : String
+            -password : String
+            +send_invitation_code(to : String, code : String, inviter : String, permission : String, expires : int) Boolean
+        }
+
+        class OTPGenerator {
+            -DEFAULT_LENGTH : int
+            +generate(length : int)$ String
+        }
+
+        class PasswordHasher {
+            -ROUNDS : int
+            +hash(value : String)$ String
+            +verify(plain : String, hashed : String)$ Boolean
+        }
+
+        class JWTHandler {
+            -secret_key : String
+            -algorithm : String
+            +verify_access_token(token : String) Dict
+            +get_user(token : String) Tuple
+        }
+
+    }
+
+    %% ═══════════════════════════════════════════════════════════
+    %% DOMAIN ENTITY RELATIONSHIPS
+    %% ═══════════════════════════════════════════════════════════
+
+    Group "1" *-- "0..*" GroupMember : contains
+    Invitation "1" ..> "0..1" Membership : generates on accept
+    GroupMember "1" ..> "0..1" Membership : generates on accept
+
+    %% ═══════════════════════════════════════════════════════════
+    %% INFRASTRUCTURE – Interface Realization
+    %% ═══════════════════════════════════════════════════════════
+
+    SMTPEmailSender ..|> EmailSenderInterface : implements
+
+    %% ═══════════════════════════════════════════════════════════
+    %% APPLICATION → DOMAIN (Dependency Inversion Principle)
+    %% Use cases depend on abstractions, not concretions
+    %% ═══════════════════════════════════════════════════════════
+
+    CreateInvitationUseCase ..> InvitationRepositoryInterface
+    CreateInvitationUseCase ..> EmailSenderInterface
+    AcceptInvitationUseCase ..> InvitationRepositoryInterface
+    AcceptInvitationUseCase ..> MembershipRepositoryInterface
+
+    InviteGroupMemberUseCase ..> GroupRepositoryInterface
+    InviteGroupMemberUseCase ..> GroupMemberRepositoryInterface
+    InviteGroupMemberUseCase ..> EmailSenderInterface
+    AcceptGroupMemberUseCase ..> GroupRepositoryInterface
+    AcceptGroupMemberUseCase ..> GroupMemberRepositoryInterface
+    AcceptGroupMemberUseCase ..> MembershipRepositoryInterface

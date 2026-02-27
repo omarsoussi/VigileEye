@@ -1,0 +1,146 @@
+---
+title: Use Case Diagram – Members Invitation Microservice
+---
+flowchart LR
+
+    %% ═══════════════════════════════════════════
+    %% PRIMARY ACTORS
+    %% ═══════════════════════════════════════════
+
+    Owner(["👤 Camera Owner"]):::actor
+    Member(["👤 Invited Member"]):::actor
+
+    %% ═══════════════════════════════════════════
+    %% SYSTEM BOUNDARY
+    %% ═══════════════════════════════════════════
+
+    subgraph System["📦 Members Invitation Service"]
+        direction TB
+
+        %% ── Owner Main Use Cases ────────────────
+        MI(["Manage Invitations"]):::mainuc
+        MG(["Manage Groups"]):::mainuc
+        MGM(["Manage Group Members"]):::mainuc
+
+        %% ── Invitation Sub-Use Cases (extend) ──
+        CI(["Create Invitation"]):::usecase
+        LSI(["List Sent Invitations"]):::usecase
+        RIC(["Resend Invitation Code"]):::usecase
+
+        %% ── Group Sub-Use Cases (extend) ────────
+        CG(["Create Group"]):::usecase
+        UG(["Update Group"]):::usecase
+        DG(["Delete Group"]):::usecase
+        LG(["List Groups"]):::usecase
+
+        %% ── Group Member Sub-Use Cases (extend) ─
+        IGM(["Invite Group Member"]):::usecase
+        BIM(["Bulk Invite Members"]):::usecase
+        RGM(["Remove Member"]):::usecase
+        UMA(["Update Member Access"]):::usecase
+        RGC(["Resend Group Codes"]):::usecase
+
+        %% ── Member Use Cases ────────────────────
+        LRI(["List Received Invitations"]):::usecase
+        AI(["Accept Invitation"]):::usecase
+        DI(["Decline Invitation"]):::usecase
+        AGI(["Accept Group Invitation"]):::usecase
+        DGI(["Decline Group Invitation"]):::usecase
+
+        %% ── Shared / Included Use Cases ─────────
+        GOTP(["Generate OTP Code"]):::shared
+        VOTP(["Verify OTP Code"]):::shared
+        CM(["Create Membership"]):::shared
+        SEN(["Send Email Notification"]):::shared
+        AUTH(["Authenticate JWT"]):::shared
+
+    end
+
+    %% ═══════════════════════════════════════════
+    %% SECONDARY ACTOR – External System
+    %% ═══════════════════════════════════════════
+
+    SMTP{{"📧 SMTP Service"}}:::external
+
+    %% ═══════════════════════════════════════════
+    %% ACTOR ↔ USE CASE ASSOCIATIONS
+    %% ═══════════════════════════════════════════
+
+    Owner --- MI
+    Owner --- MG
+    Owner --- MGM
+
+    Member --- LRI
+    Member --- AI
+    Member --- DI
+    Member --- AGI
+    Member --- DGI
+
+    %% ═══════════════════════════════════════════
+    %% «extend» RELATIONSHIPS
+    %% (arrow: extending UC → base UC)
+    %% ═══════════════════════════════════════════
+
+    CI -.->|"«extend»"| MI
+    LSI -.->|"«extend»"| MI
+    RIC -.->|"«extend»"| MI
+
+    CG -.->|"«extend»"| MG
+    UG -.->|"«extend»"| MG
+    DG -.->|"«extend»"| MG
+    LG -.->|"«extend»"| MG
+
+    IGM -.->|"«extend»"| MGM
+    BIM -.->|"«extend»"| MGM
+    RGM -.->|"«extend»"| MGM
+    UMA -.->|"«extend»"| MGM
+    RGC -.->|"«extend»"| MGM
+
+    %% ═══════════════════════════════════════════
+    %% «include» RELATIONSHIPS
+    %% (arrow: base UC → included UC)
+    %% ═══════════════════════════════════════════
+
+    %% Invitation creation includes OTP + email
+    CI -.->|"«include»"| GOTP
+    CI -.->|"«include»"| SEN
+
+    %% Group member invitation includes OTP + email
+    IGM -.->|"«include»"| GOTP
+    IGM -.->|"«include»"| SEN
+
+    %% Bulk invite includes single invite
+    BIM -.->|"«include»"| IGM
+
+    %% Resend codes include email
+    RIC -.->|"«include»"| SEN
+    RGC -.->|"«include»"| SEN
+
+    %% Accepting invitations includes OTP verification + membership
+    AI -.->|"«include»"| VOTP
+    AI -.->|"«include»"| CM
+    AGI -.->|"«include»"| VOTP
+    AGI -.->|"«include»"| CM
+
+    %% Authentication included by all main use cases
+    MI -.->|"«include»"| AUTH
+    MG -.->|"«include»"| AUTH
+    MGM -.->|"«include»"| AUTH
+    AI -.->|"«include»"| AUTH
+    AGI -.->|"«include»"| AUTH
+
+    %% ═══════════════════════════════════════════
+    %% EXTERNAL SYSTEM CONNECTION
+    %% ═══════════════════════════════════════════
+
+    SEN --- SMTP
+
+    %% ═══════════════════════════════════════════
+    %% STYLES
+    %% ═══════════════════════════════════════════
+
+    classDef actor fill:#DBEAFE,stroke:#2563EB,stroke-width:2px,color:#1E3A5F,font-weight:bold
+    classDef mainuc fill:#E0F2FE,stroke:#0284C7,stroke-width:2px,color:#0C4A6E
+    classDef usecase fill:#F0FDF4,stroke:#16A34A,stroke-width:1px,color:#14532D
+    classDef shared fill:#FEF3C7,stroke:#D97706,stroke-width:1px,color:#78350F
+    classDef external fill:#FCE7F3,stroke:#DB2777,stroke-width:2px,color:#831843,font-weight:bold

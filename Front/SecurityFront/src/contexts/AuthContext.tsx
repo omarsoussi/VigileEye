@@ -51,10 +51,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [user]);
 
-  // Auto refresh token on app load
+  // Auto refresh token on app load + set up periodic refresh
   useEffect(() => {
-    const refreshToken = tokenStorage.getRefreshToken();
-    if (refreshToken && user) {
+    let refreshInterval: NodeJS.Timeout | undefined;
+
+    const doRefresh = () => {
+      const refreshToken = tokenStorage.getRefreshToken();
+      if (!refreshToken || !user) return;
       authApi.refreshTokens({ refresh_token: refreshToken })
         .then((response) => {
           tokenStorage.setTokens(response.access_token, response.refresh_token);
@@ -63,8 +66,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           // Token refresh failed, logout user
           logout();
         });
+    };
+
+    // Refresh immediately on mount
+    doRefresh();
+
+    // Then refresh every 25 minutes (tokens expire in 30 min)
+    if (user) {
+      refreshInterval = setInterval(doRefresh, 25 * 60 * 1000);
     }
-  }, []);
+
+    return () => {
+      if (refreshInterval) clearInterval(refreshInterval);
+    };
+    // eslint-disable-next-line
+  }, [user?.id]);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; message: string; requiresOtp?: boolean }> => {
     try {

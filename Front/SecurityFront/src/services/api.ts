@@ -102,6 +102,87 @@ export interface AcceptMemberInvitationRequest {
   code: string;
 }
 
+// Group types
+export interface CreateGroupRequest {
+  name: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+  default_permission?: MemberPermission;
+  camera_ids?: string[];
+}
+
+export interface UpdateGroupRequest {
+  name?: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+  default_permission?: MemberPermission;
+  camera_ids?: string[];
+}
+
+export interface GroupResponse {
+  id: string;
+  owner_user_id: string;
+  name: string;
+  description?: string;
+  icon: string;
+  color: string;
+  default_permission: MemberPermission;
+  camera_ids: string[];
+  member_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GroupMemberResponse {
+  id: string;
+  group_id: string;
+  member_email: string;
+  member_user_id?: string;
+  access: MemberPermission;
+  status: string;
+  created_at: string;
+  handled_at?: string;
+}
+
+export interface GroupDetailResponse extends GroupResponse {
+  members: GroupMemberResponse[];
+}
+
+export interface InviteGroupMemberRequest {
+  email: string;
+  access?: MemberPermission;
+}
+
+export interface BulkInviteGroupMembersRequest {
+  emails: string[];
+  access?: MemberPermission;
+}
+
+export interface BulkInviteResultResponse {
+  invited: string[];
+  skipped: string[];
+  message: string;
+}
+
+export interface AcceptGroupInvitationRequest {
+  code: string;
+}
+
+export interface ReceivedGroupInvitation {
+  id: string;            // group_member id
+  group_id: string;
+  group_name: string;
+  inviter_email: string;
+  member_email: string;
+  permission: MemberPermission;
+  status: string;
+  camera_ids: string[];
+  created_at: string;
+  handled_at?: string | null;
+}
+
 // Login History types
 export interface LoginHistoryEntry {
   id: string;
@@ -291,6 +372,57 @@ function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+// ── Auto-refresh fetch wrapper ──────────────────────────────────────
+// Intercepts 401 responses, refreshes the JWT, and retries ONCE.
+let _refreshPromise: Promise<boolean> | null = null;
+
+async function tryRefreshToken(): Promise<boolean> {
+  const refreshToken = tokenStorage.getRefreshToken();
+  if (!refreshToken) return false;
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    if (!res.ok) return false;
+    const data: TokenResponse = await res.json();
+    tokenStorage.setTokens(data.access_token, data.refresh_token);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Wrapper around fetch that automatically retries with a fresh token on 401.
+ * De-duplicates concurrent refresh attempts so only one refresh call runs.
+ */
+async function authFetch(input: RequestInfo, init?: RequestInit): Promise<Response> {
+  // First attempt
+  const response = await fetch(input, init);
+
+  if (response.status !== 401) return response;
+
+  // Token might be expired — try to refresh (de-duplicate)
+  if (!_refreshPromise) {
+    _refreshPromise = tryRefreshToken().finally(() => { _refreshPromise = null; });
+  }
+  const refreshed = await _refreshPromise;
+  if (!refreshed) {
+    // Refresh failed — clear everything and redirect to login
+    tokenStorage.clearTokens();
+    localStorage.removeItem('vigileye-user');
+    window.location.href = '/login';
+    return response;          // Return original 401 so caller can handle
+  }
+
+  // Retry original request with the new token
+  const newHeaders = new Headers(init?.headers);
+  newHeaders.set('Authorization', `Bearer ${tokenStorage.getAccessToken()}`);
+  return fetch(input, { ...init, headers: newHeaders });
+}
+
 // API Functions
 export const authApi = {
   /**
@@ -411,7 +543,7 @@ export const authApi = {
 
 export const membersApi = {
   createInvitation: async (data: CreateMemberInvitationRequest): Promise<MemberInvitationResponse> => {
-    const response = await fetch(`${MEMBERS_API_BASE_URL}/members/invitations`, {
+    const response = await authFetch(`${MEMBERS_API_BASE_URL}/members/invitations`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -423,7 +555,7 @@ export const membersApi = {
   },
 
   listReceivedInvitations: async (): Promise<MemberInvitationResponse[]> => {
-    const response = await fetch(`${MEMBERS_API_BASE_URL}/members/invitations/received`, {
+    const response = await authFetch(`${MEMBERS_API_BASE_URL}/members/invitations/received`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -434,7 +566,7 @@ export const membersApi = {
   },
 
   listSentInvitations: async (): Promise<MemberInvitationResponse[]> => {
-    const response = await fetch(`${MEMBERS_API_BASE_URL}/members/invitations/sent`, {
+    const response = await authFetch(`${MEMBERS_API_BASE_URL}/members/invitations/sent`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -445,7 +577,7 @@ export const membersApi = {
   },
 
   acceptInvitation: async (invitationId: string, data: AcceptMemberInvitationRequest): Promise<MembershipResponse> => {
-    const response = await fetch(`${MEMBERS_API_BASE_URL}/members/invitations/${invitationId}/accept`, {
+    const response = await authFetch(`${MEMBERS_API_BASE_URL}/members/invitations/${invitationId}/accept`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -457,7 +589,7 @@ export const membersApi = {
   },
 
   declineInvitation: async (invitationId: string, reason?: string): Promise<MessageResponse> => {
-    const response = await fetch(`${MEMBERS_API_BASE_URL}/members/invitations/${invitationId}/decline`, {
+    const response = await authFetch(`${MEMBERS_API_BASE_URL}/members/invitations/${invitationId}/decline`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -469,7 +601,7 @@ export const membersApi = {
   },
 
   resendCode: async (invitationId: string): Promise<MessageResponse> => {
-    const response = await fetch(`${MEMBERS_API_BASE_URL}/members/invitations/${invitationId}/resend-code`, {
+    const response = await authFetch(`${MEMBERS_API_BASE_URL}/members/invitations/${invitationId}/resend-code`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -480,12 +612,133 @@ export const membersApi = {
   },
 };
 
+// Groups API
+export const groupsApi = {
+  createGroup: async (data: CreateGroupRequest): Promise<GroupResponse> => {
+    const response = await authFetch(`${MEMBERS_API_BASE_URL}/members/groups`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<GroupResponse>(response);
+  },
+
+  listGroups: async (): Promise<GroupResponse[]> => {
+    const response = await authFetch(`${MEMBERS_API_BASE_URL}/members/groups`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    return handleResponse<GroupResponse[]>(response);
+  },
+
+  getGroup: async (groupId: string): Promise<GroupDetailResponse> => {
+    const response = await authFetch(`${MEMBERS_API_BASE_URL}/members/groups/${groupId}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    return handleResponse<GroupDetailResponse>(response);
+  },
+
+  updateGroup: async (groupId: string, data: UpdateGroupRequest): Promise<GroupResponse> => {
+    const response = await authFetch(`${MEMBERS_API_BASE_URL}/members/groups/${groupId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<GroupResponse>(response);
+  },
+
+  deleteGroup: async (groupId: string): Promise<MessageResponse> => {
+    const response = await authFetch(`${MEMBERS_API_BASE_URL}/members/groups/${groupId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    return handleResponse<MessageResponse>(response);
+  },
+
+  inviteMember: async (groupId: string, data: InviteGroupMemberRequest): Promise<GroupMemberResponse> => {
+    const response = await authFetch(`${MEMBERS_API_BASE_URL}/members/groups/${groupId}/members`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<GroupMemberResponse>(response);
+  },
+
+  bulkInviteMembers: async (groupId: string, data: BulkInviteGroupMembersRequest): Promise<BulkInviteResultResponse> => {
+    const response = await authFetch(`${MEMBERS_API_BASE_URL}/members/groups/${groupId}/members/bulk`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<BulkInviteResultResponse>(response);
+  },
+
+  updateMember: async (groupId: string, memberId: string, data: { access?: MemberPermission }): Promise<GroupMemberResponse> => {
+    const response = await authFetch(`${MEMBERS_API_BASE_URL}/members/groups/${groupId}/members/${memberId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<GroupMemberResponse>(response);
+  },
+
+  removeMember: async (groupId: string, memberId: string): Promise<MessageResponse> => {
+    const response = await authFetch(`${MEMBERS_API_BASE_URL}/members/groups/${groupId}/members/${memberId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    return handleResponse<MessageResponse>(response);
+  },
+
+  resendMemberCode: async (groupId: string, memberId: string): Promise<MessageResponse> => {
+    const response = await authFetch(`${MEMBERS_API_BASE_URL}/members/groups/${groupId}/members/${memberId}/resend-code`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    return handleResponse<MessageResponse>(response);
+  },
+
+  resendAllCodes: async (groupId: string): Promise<MessageResponse> => {
+    const response = await authFetch(`${MEMBERS_API_BASE_URL}/members/groups/${groupId}/resend-code`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    return handleResponse<MessageResponse>(response);
+  },
+
+  acceptInvitation: async (groupId: string, memberId: string, data: AcceptGroupInvitationRequest): Promise<MembershipResponse> => {
+    const response = await authFetch(`${MEMBERS_API_BASE_URL}/members/groups/${groupId}/members/${memberId}/accept`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<MembershipResponse>(response);
+  },
+
+  declineInvitation: async (groupId: string, memberId: string): Promise<MessageResponse> => {
+    const response = await authFetch(`${MEMBERS_API_BASE_URL}/members/groups/${groupId}/members/${memberId}/decline`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    return handleResponse<MessageResponse>(response);
+  },
+
+  listReceivedInvitations: async (): Promise<ReceivedGroupInvitation[]> => {
+    const response = await authFetch(`${MEMBERS_API_BASE_URL}/members/groups/invitations/received`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    return handleResponse<ReceivedGroupInvitation[]>(response);
+  },
+};
+
 export const camerasApi = {
   /**
    * Create a new camera
    */
   createCamera: async (data: CreateCameraRequest): Promise<CameraResponse> => {
-    const response = await fetch(`${CAMERAS_API_BASE_URL}/cameras`, {
+    const response = await authFetch(`${CAMERAS_API_BASE_URL}/cameras`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -500,7 +753,7 @@ export const camerasApi = {
    * List all cameras for the current user
    */
   listCameras: async (): Promise<CameraResponse[]> => {
-    const response = await fetch(`${CAMERAS_API_BASE_URL}/cameras`, {
+    const response = await authFetch(`${CAMERAS_API_BASE_URL}/cameras`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -514,7 +767,7 @@ export const camerasApi = {
    * Get a camera by ID
    */
   getCamera: async (cameraId: string): Promise<CameraResponse> => {
-    const response = await fetch(`${CAMERAS_API_BASE_URL}/cameras/${cameraId}`, {
+    const response = await authFetch(`${CAMERAS_API_BASE_URL}/cameras/${cameraId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -528,7 +781,7 @@ export const camerasApi = {
    * Update a camera
    */
   updateCamera: async (cameraId: string, data: UpdateCameraRequest): Promise<CameraResponse> => {
-    const response = await fetch(`${CAMERAS_API_BASE_URL}/cameras/${cameraId}`, {
+    const response = await authFetch(`${CAMERAS_API_BASE_URL}/cameras/${cameraId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -543,7 +796,7 @@ export const camerasApi = {
    * Delete a camera
    */
   deleteCamera: async (cameraId: string): Promise<MessageResponse> => {
-    const response = await fetch(`${CAMERAS_API_BASE_URL}/cameras/${cameraId}`, {
+    const response = await authFetch(`${CAMERAS_API_BASE_URL}/cameras/${cameraId}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -557,7 +810,7 @@ export const camerasApi = {
    * Enable a camera
    */
   enableCamera: async (cameraId: string): Promise<CameraResponse> => {
-    const response = await fetch(`${CAMERAS_API_BASE_URL}/cameras/${cameraId}/enable`, {
+    const response = await authFetch(`${CAMERAS_API_BASE_URL}/cameras/${cameraId}/enable`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -571,7 +824,7 @@ export const camerasApi = {
    * Disable a camera
    */
   disableCamera: async (cameraId: string): Promise<CameraResponse> => {
-    const response = await fetch(`${CAMERAS_API_BASE_URL}/cameras/${cameraId}/disable`, {
+    const response = await authFetch(`${CAMERAS_API_BASE_URL}/cameras/${cameraId}/disable`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -585,7 +838,7 @@ export const camerasApi = {
    * Get camera health metrics
    */
   getCameraHealth: async (cameraId: string): Promise<CameraHealthResponse> => {
-    const response = await fetch(`${CAMERAS_API_BASE_URL}/cameras/${cameraId}/health`, {
+    const response = await authFetch(`${CAMERAS_API_BASE_URL}/cameras/${cameraId}/health`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -599,7 +852,7 @@ export const camerasApi = {
    * Record camera heartbeat
    */
   recordHeartbeat: async (cameraId: string, data: RecordHealthRequest): Promise<CameraHealthResponse> => {
-    const response = await fetch(`${CAMERAS_API_BASE_URL}/cameras/${cameraId}/heartbeat`, {
+    const response = await authFetch(`${CAMERAS_API_BASE_URL}/cameras/${cameraId}/heartbeat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -617,7 +870,7 @@ export const streamingApi = {
    * Start streaming from a camera
    */
   startStream: async (data: StartStreamRequest): Promise<StreamSessionResponse> => {
-    const response = await fetch(`${STREAMING_API_BASE_URL}/streams/start`, {
+    const response = await authFetch(`${STREAMING_API_BASE_URL}/streams/start`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -632,7 +885,7 @@ export const streamingApi = {
    * Stop streaming from a camera
    */
   stopStream: async (cameraId: string): Promise<StreamSessionResponse> => {
-    const response = await fetch(`${STREAMING_API_BASE_URL}/streams/stop`, {
+    const response = await authFetch(`${STREAMING_API_BASE_URL}/streams/stop`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -647,7 +900,7 @@ export const streamingApi = {
    * Get stream status for a camera
    */
   getStreamStatus: async (cameraId: string): Promise<StreamStatusResponse> => {
-    const response = await fetch(`${STREAMING_API_BASE_URL}/streams/status/${cameraId}`, {
+    const response = await authFetch(`${STREAMING_API_BASE_URL}/streams/status/${cameraId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -661,7 +914,7 @@ export const streamingApi = {
    * List all active streams
    */
   listActiveStreams: async (): Promise<ActiveStreamsResponse> => {
-    const response = await fetch(`${STREAMING_API_BASE_URL}/streams/active`, {
+    const response = await authFetch(`${STREAMING_API_BASE_URL}/streams/active`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -706,7 +959,7 @@ export const loginHistoryApi = {
     const queryString = params.toString();
     const url = `${API_BASE_URL}/login-history${queryString ? `?${queryString}` : ''}`;
     
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -720,7 +973,7 @@ export const loginHistoryApi = {
    * Get suspicious login attempts
    */
   getSuspiciousLogins: async (limit: number = 10): Promise<LoginHistoryListResponse> => {
-    const response = await fetch(`${API_BASE_URL}/login-history/suspicious?limit=${limit}`, {
+    const response = await authFetch(`${API_BASE_URL}/login-history/suspicious?limit=${limit}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

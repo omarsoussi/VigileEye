@@ -23,3 +23,27 @@ class InvitationAlreadyHandledException(DomainException):
 
 class InvalidInvitationCodeException(DomainException):
     pass
+
+
+class GroupNotFoundException(DomainException):
+    pass
+
+
+class GroupMemberNotFoundException(DomainException):
+    pass
+
+
+class GroupMemberAlreadyExistsException(DomainException):
+    pass
+
+
+class GroupMemberAlreadyHandledException(DomainException):
+    pass
+
+
+class InvalidGroupCodeException(DomainException):
+    pass
+
+
+class GroupCodeExpiredException(DomainException):
+    pass

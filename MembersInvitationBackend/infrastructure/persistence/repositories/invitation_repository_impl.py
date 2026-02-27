@@ -23,8 +23,8 @@ class SQLAlchemyInvitationRepository(InvitationRepositoryInterface):
             inviter_user_id=invitation.inviter_user_id,
             inviter_email=invitation.inviter_email,
             recipient_email=invitation.recipient_email,
-            permission=invitation.permission,
-            status=invitation.status,
+            permission=invitation.permission.value if hasattr(invitation.permission, 'value') else invitation.permission,
+            status=invitation.status.value if hasattr(invitation.status, 'value') else invitation.status,
             unlimited=invitation.unlimited,
             expires_at=invitation.expires_at,
             code_hash=invitation.code_hash,
@@ -74,7 +74,7 @@ class SQLAlchemyInvitationRepository(InvitationRepositoryInterface):
             # Treat as upsert-like error; caller should ensure existence
             return invitation
 
-        model.status = InvitationStatus(invitation.status)
+        model.status = invitation.status.value if hasattr(invitation.status, 'value') else invitation.status
         model.unlimited = invitation.unlimited
         model.expires_at = invitation.expires_at
         model.code_hash = invitation.code_hash
@@ -101,12 +101,12 @@ class SQLAlchemyInvitationRepository(InvitationRepositoryInterface):
             inviter_user_id=model.inviter_user_id,
             inviter_email=model.inviter_email,
             recipient_email=model.recipient_email,
-            permission=PermissionLevel(model.permission),
+            permission=PermissionLevel(model.permission) if isinstance(model.permission, str) else model.permission,
             camera_ids=[c.camera_id for c in (model.cameras or [])],
             created_at=model.created_at,
             expires_at=model.expires_at,
             unlimited=bool(model.unlimited),
-            status=InvitationStatus(model.status),
+            status=InvitationStatus(model.status) if isinstance(model.status, str) else model.status,
             code_hash=model.code_hash,
             code_expires_at=model.code_expires_at,
             handled_at=model.handled_at,

@@ -7,7 +7,6 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import relationship
 
 from infrastructure.persistence.database import Base
-from domain.entities.invitation import PermissionLevel
 
 
 class MembershipModel(Base):
@@ -19,7 +18,10 @@ class MembershipModel(Base):
     member_user_id = Column(PG_UUID(as_uuid=True), nullable=False, index=True)
     member_email = Column(String(320), nullable=False, index=True)
 
-    permission = Column(Enum(PermissionLevel, name="permission_level"), nullable=False)
+    permission = Column(
+        Enum('reader', 'editor', name="permission_level", create_type=False),
+        nullable=False,
+    )
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     revoked_at = Column(DateTime(timezone=True), nullable=True)

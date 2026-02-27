@@ -8,8 +8,13 @@ from infrastructure.config.settings import get_settings
 
 settings = get_settings()
 
+import ssl
+
+_ssl_context = ssl.create_default_context()
+
 engine = create_engine(
     settings.database_url,
+    connect_args={"ssl_context": _ssl_context},
     pool_pre_ping=True,
     pool_size=5,
     max_overflow=10,

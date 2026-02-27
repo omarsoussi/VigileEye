@@ -24,7 +24,7 @@ class SQLAlchemyMembershipRepository(MembershipRepositoryInterface):
             owner_user_id=membership.owner_user_id,
             member_user_id=membership.member_user_id,
             member_email=membership.member_email,
-            permission=membership.permission,
+            permission=membership.permission.value if hasattr(membership.permission, 'value') else membership.permission,
             created_at=membership.created_at,
             revoked_at=membership.revoked_at,
         )
@@ -53,7 +53,7 @@ class SQLAlchemyMembershipRepository(MembershipRepositoryInterface):
             owner_user_id=model.owner_user_id,
             member_user_id=model.member_user_id,
             member_email=model.member_email,
-            permission=PermissionLevel(model.permission),
+            permission=PermissionLevel(model.permission) if isinstance(model.permission, str) else model.permission,
             camera_ids=[c.camera_id for c in (model.cameras or [])],
             created_at=model.created_at,
             revoked_at=model.revoked_at,

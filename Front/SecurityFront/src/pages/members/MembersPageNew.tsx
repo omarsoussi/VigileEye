@@ -4,7 +4,8 @@ import { useSearchParams } from 'react-router-dom';
 import { useTheme } from '../../contexts/ThemeContext';
 import { GlassCard } from '../../components/GlassCard';
 import { defaultCameras } from '../../data/cameraData';
-import { membersApi, camerasApi, MemberInvitationResponse, MemberPermission, CameraResponse } from '../../services/api';
+import { membersApi, camerasApi, groupsApi, MemberInvitationResponse, MemberPermission, CameraResponse, ReceivedGroupInvitation } from '../../services/api';
+import { GroupsSection } from './GroupsSection';
 import {
   HiOutlineUserAdd,
   HiOutlineInbox,
@@ -20,10 +21,11 @@ import {
   HiOutlineCalendar,
   HiOutlineChevronDown,
   HiOutlineChevronUp,
+  HiOutlineUserGroup,
 } from 'react-icons/hi';
 import { BsCircleFill, BsCheckCircleFill, BsXCircleFill, BsClockFill, BsShieldCheck, BsShieldExclamation } from 'react-icons/bs';
 
-type TabType = 'invite' | 'received' | 'sent' | 'history';
+type TabType = 'invite' | 'received' | 'sent' | 'history' | 'groups';
 type HistoryFilter = 'all' | 'accepted' | 'rejected';
 
 // Status colors
@@ -452,6 +454,216 @@ const InvitationCard: React.FC<{
   );
 };
 
+// Group Invitation Card Component
+const GroupInvitationCard: React.FC<{
+  invitation: ReceivedGroupInvitation;
+  isDark: boolean;
+  colors: any;
+  onAccept?: (groupId: string, memberId: string, code: string) => void;
+  onDecline?: (groupId: string, memberId: string) => void;
+  onResend?: (groupId: string, memberId: string) => void;
+}> = ({ invitation, isDark, colors, onAccept, onDecline, onResend }) => {
+  const [acceptCode, setAcceptCode] = useState('');
+  const [showCodeInput, setShowCodeInput] = useState(false);
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '10px 14px',
+    borderRadius: '10px',
+    border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+    background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+    color: colors.text,
+    fontSize: '13px',
+    outline: 'none',
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      style={{
+        padding: '16px',
+        borderRadius: '16px',
+        border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)'}`,
+        background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.8)',
+      }}
+    >
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+            <HiOutlineUserGroup size={16} color={colors.accent} />
+            <span style={{ fontWeight: 700, fontSize: '14px', color: colors.text }}>
+              {invitation.group_name}
+            </span>
+            <span style={{
+              padding: '2px 8px',
+              borderRadius: '999px',
+              background: isDark ? 'rgba(99,102,241,0.15)' : 'rgba(99,102,241,0.1)',
+              border: '1px solid rgba(99,102,241,0.3)',
+              color: '#6366f1',
+              fontSize: '10px',
+              fontWeight: 700,
+            }}>
+              Group
+            </span>
+          </div>
+          <div style={{
+            fontSize: '12px',
+            color: colors.textSecondary,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            flexWrap: 'wrap',
+          }}>
+            {invitation.inviter_email && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <HiOutlineMail size={14} />
+                From: {invitation.inviter_email}
+              </span>
+            )}
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <HiOutlineVideoCamera size={14} />
+              {invitation.camera_ids.length} camera{invitation.camera_ids.length !== 1 ? 's' : ''}
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              {invitation.permission === 'editor' ? <BsShieldCheck size={14} /> : <BsShieldExclamation size={14} />}
+              {invitation.permission === 'editor' ? 'Editor (RW)' : 'Reader (R)'}
+            </span>
+          </div>
+        </div>
+        <StatusBadge status={invitation.status} />
+      </div>
+
+      {/* Actions for pending */}
+      {invitation.status === 'pending' && (
+        <div style={{ marginTop: '14px' }}>
+          {!showCodeInput ? (
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setShowCodeInput(true)}
+                style={{
+                  flex: 1,
+                  padding: '10px 16px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: '#22c55e',
+                  color: '#fff',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                }}
+              >
+                <HiOutlineCheck size={16} />
+                Accept
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => onDecline?.(invitation.group_id, invitation.id)}
+                style={{
+                  flex: 1,
+                  padding: '10px 16px',
+                  borderRadius: '10px',
+                  border: `1px solid ${isDark ? 'rgba(239,68,68,0.4)' : 'rgba(239,68,68,0.3)'}`,
+                  background: 'rgba(239,68,68,0.1)',
+                  color: '#ef4444',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                }}
+              >
+                <HiOutlineX size={16} />
+                Decline
+              </motion.button>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gap: '10px' }}>
+              <input
+                style={inputStyle}
+                placeholder="Enter verification code from email"
+                value={acceptCode}
+                onChange={(e) => setAcceptCode(e.target.value)}
+              />
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    onAccept?.(invitation.group_id, invitation.id, acceptCode);
+                    setAcceptCode('');
+                    setShowCodeInput(false);
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: '#22c55e',
+                    color: '#fff',
+                    fontWeight: 600,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Confirm
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => onResend?.(invitation.group_id, invitation.id)}
+                  style={{
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+                    background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                    color: colors.text,
+                    fontWeight: 600,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Resend
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    setShowCodeInput(false);
+                    setAcceptCode('');
+                  }}
+                  style={{
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+                    background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                    color: colors.textSecondary,
+                    fontWeight: 600,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </motion.button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
 export const MembersPageNew: React.FC = () => {
   const { colors, preferences } = useTheme();
   const isDark = preferences.mode === 'dark';
@@ -475,6 +687,7 @@ export const MembersPageNew: React.FC = () => {
   const [formSuccess, setFormSuccess] = useState('');
 
   const [receivedInvites, setReceivedInvites] = useState<MemberInvitationResponse[]>([]);
+  const [receivedGroupInvites, setReceivedGroupInvites] = useState<ReceivedGroupInvitation[]>([]);
   const [sentInvites, setSentInvites] = useState<MemberInvitationResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [listError, setListError] = useState('');
@@ -529,12 +742,14 @@ export const MembersPageNew: React.FC = () => {
     setIsLoading(true);
     setListError('');
     try {
-      const [received, sent] = await Promise.all([
+      const [received, sent, receivedGroup] = await Promise.all([
         membersApi.listReceivedInvitations(),
         membersApi.listSentInvitations(),
+        groupsApi.listReceivedInvitations(),
       ]);
       setReceivedInvites(received);
       setSentInvites(sent);
+      setReceivedGroupInvites(receivedGroup);
     } catch (err: any) {
       setListError(err?.message || 'Failed to load invitations');
     } finally {
@@ -646,8 +861,54 @@ export const MembersPageNew: React.FC = () => {
     }
   };
 
+  // Group invitation handlers
+  const acceptGroupInvite = async (groupId: string, memberId: string, code: string) => {
+    setActionError('');
+    setActionSuccess('');
+
+    if (!code.trim()) {
+      setActionError('Please enter the verification code from your email.');
+      return;
+    }
+
+    try {
+      await groupsApi.acceptInvitation(groupId, memberId, { code: code.trim() });
+      setActionSuccess('Group invitation accepted! You now have access to the shared cameras.');
+      await loadLists();
+    } catch (err: any) {
+      setActionError(err?.message || 'Failed to accept group invitation');
+    }
+  };
+
+  const declineGroupInvite = async (groupId: string, memberId: string) => {
+    setActionError('');
+    setActionSuccess('');
+
+    try {
+      await groupsApi.declineInvitation(groupId, memberId);
+      setActionSuccess('Group invitation declined.');
+      await loadLists();
+    } catch (err: any) {
+      setActionError(err?.message || 'Failed to decline group invitation');
+    }
+  };
+
+  const resendGroupCode = async (groupId: string, memberId: string) => {
+    setActionError('');
+    setActionSuccess('');
+
+    try {
+      await groupsApi.resendMemberCode(groupId, memberId);
+      setActionSuccess('Verification code resent to your email.');
+    } catch (err: any) {
+      setActionError(err?.message || 'Failed to resend code');
+    }
+  };
+
   // Computed invitation lists
   const pendingReceived = useMemo(() => receivedInvites.filter(inv => inv.status === 'pending'), [receivedInvites]);
+  const pendingGroupReceived = useMemo(() => receivedGroupInvites.filter(inv => inv.status === 'pending'), [receivedGroupInvites]);
+  const totalPendingCount = pendingReceived.length + pendingGroupReceived.length;
   const historyInvites = useMemo(() => {
     const all = [...receivedInvites, ...sentInvites].filter(inv => inv.status !== 'pending');
     if (historyFilter === 'accepted') return all.filter(inv => inv.status === 'accepted');
@@ -658,9 +919,10 @@ export const MembersPageNew: React.FC = () => {
   // Tab configuration
   const tabs: { key: TabType; label: string; icon: React.ReactNode; count?: number }[] = [
     { key: 'invite', label: 'Invite', icon: <HiOutlineUserAdd size={18} /> },
-    { key: 'received', label: 'Received', icon: <HiOutlineInbox size={18} />, count: pendingReceived.length },
+    { key: 'received', label: 'Received', icon: <HiOutlineInbox size={18} />, count: totalPendingCount },
     { key: 'sent', label: 'Sent', icon: <HiOutlinePaperAirplane size={18} />, count: sentInvites.filter(i => i.status === 'pending').length },
     { key: 'history', label: 'History', icon: <HiOutlineClock size={18} /> },
+    { key: 'groups', label: 'Groups', icon: <HiOutlineUserGroup size={18} /> },
   ];
 
   const inputStyle: React.CSSProperties = {
@@ -1109,7 +1371,7 @@ export const MembersPageNew: React.FC = () => {
                     fontSize: '12px',
                     fontWeight: 700,
                   }}>
-                    {pendingReceived.length} pending
+                    {totalPendingCount} pending
                   </span>
                 )}
               </div>
@@ -1129,7 +1391,7 @@ export const MembersPageNew: React.FC = () => {
                   </motion.div>
                   <div>Loading invitations...</div>
                 </div>
-              ) : pendingReceived.length === 0 ? (
+              ) : totalPendingCount === 0 ? (
                 <div style={{ 
                   padding: '40px', 
                   textAlign: 'center',
@@ -1140,6 +1402,17 @@ export const MembersPageNew: React.FC = () => {
                 </div>
               ) : (
                 <div style={{ display: 'grid', gap: '12px' }}>
+                  {pendingGroupReceived.map((inv) => (
+                    <GroupInvitationCard
+                      key={`group-${inv.id}`}
+                      invitation={inv}
+                      isDark={isDark}
+                      colors={colors}
+                      onAccept={acceptGroupInvite}
+                      onDecline={declineGroupInvite}
+                      onResend={resendGroupCode}
+                    />
+                  ))}
                   {pendingReceived.map((inv) => (
                     <InvitationCard
                       key={inv.id}
@@ -1343,6 +1616,24 @@ export const MembersPageNew: React.FC = () => {
                 </div>
               )}
             </GlassCard>
+          </motion.div>
+        )}
+
+        {/* GROUPS TAB */}
+        {activeTab === 'groups' && (
+          <motion.div
+            key="groups"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+          >
+            <GroupsSection
+              cameras={cameras}
+              camerasLoading={camerasLoading}
+              isDark={isDark}
+              isMobile={isMobile}
+              colors={colors}
+            />
           </motion.div>
         )}
       </AnimatePresence>

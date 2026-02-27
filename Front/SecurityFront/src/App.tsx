@@ -149,6 +149,7 @@ const AppRoutes: React.FC = () => {
           </AppLayout>
         </ProtectedRoute>
       } />
+      <Route path="/groups" element={<Navigate to="/members" replace />} />
       <Route path="/settings" element={
         <ProtectedRoute>
           <AppLayout>

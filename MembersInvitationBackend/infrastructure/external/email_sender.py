@@ -29,12 +29,12 @@ class EmailSenderInterface(ABC):
 class SMTPEmailSender(EmailSenderInterface):
     def __init__(
         self,
-        host: str | None = None,
-        port: int | None = None,
-        username: str | None = None,
-        password: str | None = None,
-        from_email: str | None = None,
-        from_name: str | None = None,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        from_email: Optional[str] = None,
+        from_name: Optional[str] = None,
     ):
         self.host = host or settings.smtp_host
         self.port = port or settings.smtp_port

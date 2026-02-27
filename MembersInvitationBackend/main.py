@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from api.routes import invitation_router
+from api.routes import invitation_router, group_router
 from infrastructure.config.settings import get_settings
 from infrastructure.persistence.database import init_db
 
@@ -34,6 +34,7 @@ app.add_middleware(
 )
 
 app.include_router(invitation_router)
+app.include_router(group_router)
 
 
 @app.get("/health")
@@ -44,9 +45,15 @@ def health():
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
     logger.exception("Unhandled error")
+    origin = request.headers.get("origin", "")
+    headers = {}
+    if origin == settings.frontend_url:
+        headers["access-control-allow-origin"] = origin
+        headers["access-control-allow-credentials"] = "true"
     return JSONResponse(
         status_code=500,
         content={"message": "Internal server error", "error_code": "INTERNAL_SERVER_ERROR"},
+        headers=headers,
     )
 
 
