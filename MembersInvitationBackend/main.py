@@ -27,10 +27,10 @@ app = FastAPI(title=settings.app_name, debug=settings.debug, lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_url],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
-    allow_headers=["*"] ,
+    allow_headers=["*"],
 )
 
 app.include_router(invitation_router)
@@ -44,16 +44,11 @@ def health():
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
-    logger.exception("Unhandled error")
-    origin = request.headers.get("origin", "")
-    headers = {}
-    if origin == settings.frontend_url:
-        headers["access-control-allow-origin"] = origin
-        headers["access-control-allow-credentials"] = "true"
+    logger.exception("Unhandled error: %s", exc)
     return JSONResponse(
         status_code=500,
         content={"message": "Internal server error", "error_code": "INTERNAL_SERVER_ERROR"},
-        headers=headers,
+        headers={"access-control-allow-origin": "*"},
     )
 
 
