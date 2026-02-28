@@ -206,6 +206,7 @@ export const GroupsSection: React.FC<GroupsSectionProps> = ({
   const [inviteAccess, setInviteAccess] = useState<MemberPermission>('reader');
   const [bulkEmails, setBulkEmails] = useState('');
   const [showBulk, setShowBulk] = useState(false);
+  const [inviteSending, setInviteSending] = useState(false);
 
   // settings
   const [editIcon, setEditIcon] = useState('');
@@ -322,20 +323,24 @@ export const GroupsSection: React.FC<GroupsSectionProps> = ({
     if (showBulk) {
       const emails = bulkEmails.split(/[\n,;]+/).map(e => e.trim()).filter(Boolean);
       if (emails.length === 0) { setError('Enter at least one email'); return; }
+      setInviteSending(true);
       try {
         const res = await groupsApi.bulkInviteMembers(selected.id, { emails, access: inviteAccess });
         setSuccess(res.message);
         setBulkEmails('');
         fetchGroup(selected.id);
       } catch (e: any) { setError(e?.message || 'Failed to invite'); }
+      finally { setInviteSending(false); }
     } else {
       if (!inviteEmail.trim()) { setError('Enter an email'); return; }
+      setInviteSending(true);
       try {
         await groupsApi.inviteMember(selected.id, { email: inviteEmail, access: inviteAccess });
         setSuccess('Invitation sent!');
         setInviteEmail('');
         fetchGroup(selected.id);
       } catch (e: any) { setError(e?.message || 'Failed to invite'); }
+      finally { setInviteSending(false); }
     }
   };
 
@@ -888,17 +893,35 @@ export const GroupsSection: React.FC<GroupsSectionProps> = ({
                   </div>
                 </div>
 
-                <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
+                <motion.button whileHover={{ scale: inviteSending ? 1 : 1.01 }} whileTap={{ scale: inviteSending ? 1 : 0.99 }}
                   onClick={handleInvite}
+                  disabled={inviteSending}
                   style={{
                     padding: 16, borderRadius: 14, border: 'none',
                     background: `linear-gradient(135deg, ${colors.accent}, ${colors.accent}dd)`,
-                    color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer',
+                    color: '#fff', fontWeight: 700, fontSize: 15,
+                    cursor: inviteSending ? 'not-allowed' : 'pointer',
+                    opacity: inviteSending ? 0.7 : 1,
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
                   }}
                 >
-                  <HiOutlinePaperAirplane size={18} />
-                  {showBulk ? 'Send Bulk Invitations' : 'Send Invitation'}
+                  {inviteSending ? (
+                    <>
+                      <motion.span
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                        style={{ display: 'inline-flex' }}
+                      >
+                        <HiOutlineRefresh size={18} />
+                      </motion.span>
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <HiOutlinePaperAirplane size={18} />
+                      {showBulk ? 'Send Bulk Invitations' : 'Send Invitation'}
+                    </>
+                  )}
                 </motion.button>
               </div>
             </GlassCard>

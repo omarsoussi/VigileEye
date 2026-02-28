@@ -1,4 +1,5 @@
 """Video Streaming Backend - Main Entry Point."""
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,6 +8,15 @@ from infrastructure.config.settings import get_settings
 from infrastructure.persistence.database import init_db
 from api.routes import stream_router
 from api.websocket import websocket_router
+
+# ── Configure logging so stream_manager / broadcaster messages are visible ──
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+# Quieten noisy libraries
+logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 
 @asynccontextmanager

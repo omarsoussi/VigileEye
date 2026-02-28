@@ -47,6 +47,17 @@ class SQLAlchemyMembershipRepository(MembershipRepositoryInterface):
         )
         return self._to_entity(model) if model else None
 
+    def list_by_member_user_id(self, member_user_id: UUID) -> list[Membership]:
+        """List all active memberships for a given member user."""
+        models = (
+            self.db.query(MembershipModel)
+            .filter(MembershipModel.member_user_id == member_user_id)
+            .filter(MembershipModel.revoked_at.is_(None))
+            .order_by(MembershipModel.created_at.desc())
+            .all()
+        )
+        return [self._to_entity(m) for m in models]
+
     def _to_entity(self, model: MembershipModel) -> Membership:
         return Membership(
             id=model.id,

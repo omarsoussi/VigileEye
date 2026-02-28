@@ -610,6 +610,20 @@ export const membersApi = {
     });
     return handleResponse<MessageResponse>(response);
   },
+
+  /**
+   * List all active memberships where the current user is a member (shared cameras)
+   */
+  listMyMemberships: async (): Promise<MembershipResponse[]> => {
+    const response = await authFetch(`${MEMBERS_API_BASE_URL}/members/memberships/mine`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+    });
+    return handleResponse<MembershipResponse[]>(response);
+  },
 };
 
 // Groups API
@@ -754,6 +768,21 @@ export const camerasApi = {
    */
   listCameras: async (): Promise<CameraResponse[]> => {
     const response = await authFetch(`${CAMERAS_API_BASE_URL}/cameras`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+    });
+    return handleResponse<CameraResponse[]>(response);
+  },
+
+  /**
+   * Get multiple cameras by IDs (for shared cameras)
+   */
+  getCamerasBatch: async (ids: string[]): Promise<CameraResponse[]> => {
+    if (ids.length === 0) return [];
+    const response = await authFetch(`${CAMERAS_API_BASE_URL}/cameras/batch?ids=${ids.join(',')}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -1004,5 +1033,28 @@ export const tokenStorage = {
     localStorage.removeItem('vigileye-refresh-token');
   },
 };
+
+/**
+ * Auto-detect streaming protocol from a URL.
+ */
+export function detectProtocol(url: string): string {
+  const lower = url.toLowerCase().trim();
+  if (lower.startsWith('rtsp://')) return 'rtsp';
+  if (lower.startsWith('rtmp://')) return 'rtmp';
+  if (lower.startsWith('onvif://')) return 'onvif';
+  if (lower.includes('.m3u8') || lower.includes('/hls/')) return 'hls';
+  if (lower.startsWith('http://') || lower.startsWith('https://')) return 'http';
+  return 'rtsp';
+}
+
+/**
+ * Extends CameraResponse with permission info for shared cameras.
+ */
+export interface CameraWithPermission extends CameraResponse {
+  /** reader | editor | owner */
+  permission: 'reader' | 'editor' | 'owner';
+  /** true if this camera is shared to the current user (not owned) */
+  isShared: boolean;
+}
 
 export default authApi;

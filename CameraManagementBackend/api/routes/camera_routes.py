@@ -1,7 +1,7 @@
 """Camera API Routes."""
 from __future__ import annotations
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -107,6 +107,29 @@ def list_cameras(
     repo = SQLAlchemyCameraRepository(db)
     use_case = ListUserCamerasUseCase(repo)
     cameras = use_case.execute(current_user.id)
+    return [_camera_to_response(c) for c in cameras]
+
+
+@router.get("/batch", response_model=List[CameraResponse])
+def get_cameras_batch(
+    ids: str = Query(..., description="Comma-separated camera UUIDs"),
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """Get multiple cameras by IDs. Used for viewing shared cameras (via memberships)."""
+    from uuid import UUID as _UUID
+    camera_ids = []
+    for raw_id in ids.split(","):
+        raw_id = raw_id.strip()
+        if raw_id:
+            try:
+                camera_ids.append(_UUID(raw_id))
+            except ValueError:
+                continue
+    if not camera_ids:
+        return []
+    repo = SQLAlchemyCameraRepository(db)
+    cameras = repo.get_by_ids(camera_ids)
     return [_camera_to_response(c) for c in cameras]
 
 

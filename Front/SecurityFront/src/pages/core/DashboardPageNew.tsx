@@ -4,8 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { GlassCard, AnimatedButton } from '../../components/GlassCard';
-import { camerasApi, CameraResponse, streamingApi } from '../../services/api';
+import { CameraWithPermission } from '../../services/api';
 import { useVideoStream } from '../../hooks/useVideoStream';
+import { useAllCameras } from '../../hooks/useAllCameras';
 import { getCameraImage, getCameraLocationString, defaultCameras } from '../../data/cameraData';
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, 
@@ -107,11 +108,11 @@ const StatCard: React.FC<StatCardProps> = ({ icon, label, value, subtext, color,
 };
 
 interface CameraPreviewProps {
-  camera: CameraResponse;
+  camera: CameraWithPermission;
 }
 
 const CameraPreview: React.FC<CameraPreviewProps> = ({ camera }) => {
-  const { id, name, status, camera_type, is_active } = camera;
+  const { id, name, status, camera_type, is_active, isShared, permission } = camera;
   const location = getCameraLocationString(camera);
   const image = getCameraImage(camera_type);
   const displayStatus = is_active && status === 'online' ? 'live' : 'offline';
@@ -188,6 +189,29 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({ camera }) => {
                 : 'OFFLINE'}
             </span>
           </div>
+
+          {/* Shared badge */}
+          {isShared && (
+            <div style={{
+              position: 'absolute',
+              top: '10px',
+              left: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '3px 8px',
+              borderRadius: '10px',
+              background: permission === 'editor' ? 'rgba(99,102,241,0.85)' : 'rgba(107,114,128,0.85)',
+              backdropFilter: 'blur(10px)',
+              fontSize: '10px',
+              fontWeight: 600,
+              color: '#fff',
+              textTransform: 'uppercase',
+              letterSpacing: '0.3px',
+            }}>
+              {permission === 'editor' ? 'Editor' : 'Shared'}
+            </div>
+          )}
 
           {/* Play button overlay when not streaming */}
           {displayStatus === 'live' && !isStreaming && (
@@ -312,8 +336,7 @@ export const DashboardPageNew: React.FC = () => {
   const { user } = useAuth();
   const isDark = preferences.mode === 'dark';
   const [isMobile, setIsMobile] = useState(false);
-  const [cameras, setCameras] = useState<CameraResponse[]>([]);
-  const [camerasLoading, setCamerasLoading] = useState(true);
+  const { cameras, isLoading: camerasLoading } = useAllCameras();
   
   // Connection quality state
   const [connectionQuality, setConnectionQuality] = useState<{
@@ -398,23 +421,6 @@ export const DashboardPageNew: React.FC = () => {
       default: return '#6b7280';
     }
   };
-
-  const fetchCameras = useCallback(async () => {
-    try {
-      setCamerasLoading(true);
-      const data = await camerasApi.listCameras();
-      setCameras(data.length > 0 ? data : defaultCameras);
-    } catch (err) {
-      console.error('Failed to fetch cameras:', err);
-      setCameras(defaultCameras);
-    } finally {
-      setCamerasLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchCameras();
-  }, [fetchCameras]);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 1024);

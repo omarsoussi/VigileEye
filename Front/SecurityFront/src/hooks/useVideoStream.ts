@@ -51,6 +51,19 @@ export function useVideoStream({
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
 
+  // ── Stable refs so connect/disconnect never change identity ──
+  const cameraRef = useRef(camera);
+  cameraRef.current = camera;
+
+  const onFrameRef = useRef(onFrame);
+  onFrameRef.current = onFrame;
+
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
+
+  // Keep a ref to the connect function for reconnect callbacks
+  const connectRef = useRef<() => Promise<void>>();
+
   // Take snapshot of current frame
   const takeSnapshot = useCallback((): Blob | null => {
     return lastFrameBlobRef.current;
@@ -80,9 +93,12 @@ export function useVideoStream({
     setConnectionState('disconnected');
   }, []);
 
+  // connect is now fully stable — reads camera/callbacks from refs
   const connect = useCallback(async () => {
     // Disconnect existing connection
     disconnect();
+
+    const cam = cameraRef.current;
 
     setConnectionState('connecting');
     setError(null);
@@ -90,21 +106,22 @@ export function useVideoStream({
     try {
       // First, start the stream via REST API
       await streamingApi.startStream({
-        camera_id: camera.id,
-        stream_url: camera.stream_url,
+        camera_id: cam.id,
+        stream_url: cam.stream_url,
         config: {
-          fps: camera.fps,
+          fps: cam.fps,
           quality: 85,
         },
       });
 
       // Then connect via WebSocket
-      const wsUrl = streamingApi.getStreamWebSocketUrl(camera.id);
+      const wsUrl = streamingApi.getStreamWebSocketUrl(cam.id);
       const ws = new WebSocket(wsUrl);
 
       ws.binaryType = 'blob';
 
       ws.onopen = () => {
+        console.log(`[useVideoStream] WS open for camera ${cam.id}`);
         setConnectionState('connected');
         setError(null);
         frameCountRef.current = 0;
@@ -143,10 +160,8 @@ export function useVideoStream({
           // Reset reconnect counter on successful frame
           reconnectAttemptsRef.current = 0;
 
-          // Callback
-          if (onFrame) {
-            onFrame(blob);
-          }
+          // Callback (read from ref for latest value)
+          onFrameRef.current?.(blob);
         } else if (typeof event.data === 'string') {
           // Control message (ping/pong)
           if (event.data === 'ping') {
@@ -159,9 +174,7 @@ export function useVideoStream({
         console.error('WebSocket error:', event);
         setError('Connection error');
         setConnectionState('error');
-        if (onError) {
-          onError(new Error('WebSocket connection error'));
-        }
+        onErrorRef.current?.(new Error('WebSocket connection error'));
       };
 
       ws.onclose = (event) => {
@@ -179,7 +192,7 @@ export function useVideoStream({
             const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current - 1), 10000);
             reconnectTimeoutRef.current = setTimeout(() => {
               if (wsRef.current === ws || wsRef.current === null) {
-                connect();
+                connectRef.current?.();
               }
             }, delay);
           } else {
@@ -197,13 +210,15 @@ export function useVideoStream({
       console.error('Failed to start stream:', err);
       setError(err instanceof Error ? err.message : 'Failed to start stream');
       setConnectionState('error');
-      if (onError) {
-        onError(err instanceof Error ? err : new Error('Failed to start stream'));
-      }
+      onErrorRef.current?.(err instanceof Error ? err : new Error('Failed to start stream'));
     }
-  }, [camera, disconnect, onFrame, onError]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [disconnect]);
 
-  // Auto-connect on mount if enabled
+  // Keep connectRef up to date
+  connectRef.current = connect;
+
+  // Auto-connect when camera.id changes (or on mount if autoConnect=true)
   useEffect(() => {
     if (autoConnect) {
       connect();
@@ -212,7 +227,8 @@ export function useVideoStream({
     return () => {
       disconnect();
     };
-  }, [autoConnect, connect, disconnect]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoConnect, camera.id]);
 
   return {
     connectionState,

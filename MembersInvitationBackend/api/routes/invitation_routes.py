@@ -20,6 +20,7 @@ from application.use_cases.decline_invitation import DeclineInvitationUseCase
 from application.use_cases.list_received_invitations import ListReceivedInvitationsUseCase
 from application.use_cases.list_sent_invitations import ListSentInvitationsUseCase
 from application.use_cases.resend_invitation_code import ResendInvitationCodeUseCase
+from infrastructure.persistence.repositories.membership_repository_impl import SQLAlchemyMembershipRepository
 from domain.exceptions import (
     DomainException,
     InvitationAlreadyHandledException,
@@ -181,3 +182,25 @@ def resend_code(
         raise HTTPException(status_code=status.HTTP_410_GONE, detail={"message": str(e), "error_code": "EXPIRED"})
     except InvitationAlreadyHandledException as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"message": str(e), "error_code": "INVALID"})
+
+
+@router.get("/memberships/mine", response_model=list[MembershipResponse])
+def list_my_memberships(
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """List all active memberships where the current user is a member (shared cameras)."""
+    repo = SQLAlchemyMembershipRepository(db)
+    memberships = repo.list_by_member_user_id(current_user.id)
+    return [
+        MembershipResponse(
+            id=str(m.id),
+            owner_user_id=str(m.owner_user_id),
+            member_user_id=str(m.member_user_id),
+            member_email=m.member_email,
+            permission=m.permission.value if hasattr(m.permission, 'value') else m.permission,
+            camera_ids=m.camera_ids,
+            created_at=m.created_at,
+        )
+        for m in memberships
+    ]

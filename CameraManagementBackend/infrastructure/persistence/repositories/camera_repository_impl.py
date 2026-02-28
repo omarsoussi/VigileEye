@@ -56,6 +56,15 @@ class SQLAlchemyCameraRepository(CameraRepositoryInterface):
         ).all()
         return [self._model_to_entity(m) for m in models]
 
+    def get_by_ids(self, camera_ids: List[UUID]) -> List[Camera]:
+        """Get cameras by a list of IDs."""
+        if not camera_ids:
+            return []
+        models = self.db.query(CameraModel).filter(
+            CameraModel.id.in_(camera_ids)
+        ).all()
+        return [self._model_to_entity(m) for m in models]
+
     def update(self, camera: Camera) -> Camera:
         """Update an existing camera."""
         model = self.db.query(CameraModel).filter(CameraModel.id == camera.id).first()

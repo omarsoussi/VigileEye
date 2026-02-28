@@ -15,6 +15,8 @@ from infrastructure.streaming.ffmpeg_stream_reader import FFmpegStreamReader
 from infrastructure.streaming.frame_encoder import FrameEncoder
 from infrastructure.streaming.stream_broadcaster import StreamBroadcaster
 from infrastructure.streaming.stream_resolver import StreamResolver, StreamType
+from infrastructure.persistence.database import SessionLocal
+from infrastructure.persistence.repositories import SQLAlchemyStreamSessionRepository
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +60,17 @@ class StreamManager:
         self._readers: Dict[UUID, Union[CameraStreamReader, FFmpegStreamReader]] = {}
         self._tasks: Dict[UUID, asyncio.Task] = {}
         self._running = False
+
+    def _update_session_safe(self, session: StreamSession) -> None:
+        """Update a stream session using a fresh DB session to avoid stale-session errors."""
+        db = SessionLocal()
+        try:
+            repo = SQLAlchemyStreamSessionRepository(db)
+            repo.update(session)
+        except Exception as e:
+            logger.error(f"Failed to update session in DB: {e}")
+        finally:
+            db.close()
 
     async def start_stream(
         self,
@@ -140,6 +153,8 @@ class StreamManager:
         fps = config.fps if config else self.default_fps
         frame_interval = 1.0 / fps
         sequence = 0
+        consecutive_none = 0
+        MAX_CONSECUTIVE_NONE = 300  # ~3 s at 100 Hz polling → give up
 
         try:
             # Open the stream
@@ -149,16 +164,18 @@ class StreamManager:
                 # FFmpeg reader has async open with URL resolution
                 success = await reader.open_async()
                 if not success:
-                    raise Exception("Failed to open FFmpeg stream")
+                    raise Exception("Failed to open FFmpeg stream – reader.open_async() returned False")
             else:
                 # OpenCV reader uses sync open
                 reader.open()
+                if not reader.is_open:
+                    raise Exception("Failed to open OpenCV stream – capture not opened")
             
-            logger.info(f"Stream opened for camera {camera_id}")
+            logger.info(f"Stream opened successfully for camera {camera_id}")
 
-            # Update session status
+            # Update session status using a fresh DB session
             session.activate()
-            self.session_repository.update(session)
+            self._update_session_safe(session)
 
             logger.info(f"Stream active for camera {camera_id} at {fps} FPS, broadcasting...")
 
@@ -169,9 +186,19 @@ class StreamManager:
                 result = await reader.read_frame_async()
 
                 if result is None:
-                    # No frame available, brief pause
+                    consecutive_none += 1
+                    # Check if reader has died (FFmpeg exited, OpenCV release, etc.)
+                    if not reader.is_open:
+                        logger.error(f"Reader for camera {camera_id} is no longer open – stopping stream")
+                        raise Exception("Reader closed unexpectedly")
+                    if consecutive_none >= MAX_CONSECUTIVE_NONE:
+                        logger.error(f"Camera {camera_id}: {MAX_CONSECUTIVE_NONE} consecutive null frames – stopping stream")
+                        raise Exception(f"No frames received after {MAX_CONSECUTIVE_NONE} attempts")
                     await asyncio.sleep(0.01)
                     continue
+
+                # Got a valid frame – reset counter
+                consecutive_none = 0
 
                 frame_array, width, height = result
 
@@ -192,8 +219,10 @@ class StreamManager:
                 # Broadcast to subscribers
                 sent_count = await self.broadcaster.broadcast_frame(frame)
                 
-                if sequence % 100 == 0:
-                    logger.debug(f"Camera {camera_id}: frame {sequence}, sent to {sent_count} subscribers")
+                if sequence == 0:
+                    logger.info(f"Camera {camera_id}: first frame broadcast ({width}x{height}, {len(frame_bytes)} bytes, {sent_count} subscribers)")
+                elif sequence % 150 == 0:
+                    logger.info(f"Camera {camera_id}: frame {sequence}, sent to {sent_count} subscribers")
 
                 # Update session
                 session.update_last_frame()
@@ -208,13 +237,17 @@ class StreamManager:
         except asyncio.CancelledError:
             logger.info(f"Stream task cancelled for camera {camera_id}")
         except Exception as e:
-            logger.error(f"Stream error for camera {camera_id}: {e}")
-            session.mark_error(str(e))
-            self.session_repository.update(session)
+            logger.error(f"Stream error for camera {camera_id}: {e}", exc_info=True)
+            try:
+                session.mark_error(str(e))
+                self._update_session_safe(session)
+            except Exception:
+                pass
         finally:
             reader.close()
             self._readers.pop(camera_id, None)
             self._tasks.pop(camera_id, None)
+            logger.info(f"Stream loop ended for camera {camera_id} (sent {sequence} frames)")
 
     async def stop_stream(self, camera_id: UUID) -> None:
         """

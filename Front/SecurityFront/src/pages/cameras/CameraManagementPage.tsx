@@ -23,6 +23,7 @@ import {
   CreateCameraRequest, 
   UpdateCameraRequest,
   CameraType,
+  detectProtocol,
 } from '../../services/api';
 
 interface CameraFormData {
@@ -948,19 +949,17 @@ export const CameraManagementPage: React.FC = () => {
                   </div>
                   <div>
                     <label style={labelStyle}>Stream URL *</label>
-                    <input type="text" value={formData.stream_url} onChange={(e) => setFormData({ ...formData, stream_url: e.target.value })} placeholder="rtsp://192.168.1.100:554/stream" style={inputStyle} />
+                    <input type="text" value={formData.stream_url} onChange={(e) => {
+                      const url = e.target.value;
+                      setFormData({ ...formData, stream_url: url, protocol: detectProtocol(url) });
+                    }} placeholder="rtsp://192.168.1.100:554/stream" style={inputStyle} />
+                    {formData.stream_url && (
+                      <div style={{ fontSize: '11px', color: accentColor, fontWeight: 600, marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        Protocol detected: {formData.protocol.toUpperCase()}
+                      </div>
+                    )}
                   </div>
                   <div style={{ display: 'flex', gap: '12px' }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={labelStyle}>Protocol</label>
-                      <select value={formData.protocol} onChange={(e) => setFormData({ ...formData, protocol: e.target.value })} style={inputStyle}>
-                        <option value="rtsp">RTSP</option>
-                        <option value="rtmp">RTMP</option>
-                        <option value="hls">HLS</option>
-                        <option value="http">HTTP</option>
-                        <option value="onvif">ONVIF</option>
-                      </select>
-                    </div>
                     <div style={{ flex: 1 }}>
                       <label style={labelStyle}>Camera Type</label>
                       <select value={formData.camera_type} onChange={(e) => setFormData({ ...formData, camera_type: e.target.value as CameraType })} style={inputStyle}>

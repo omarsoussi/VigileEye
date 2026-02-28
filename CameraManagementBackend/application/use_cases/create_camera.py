@@ -13,6 +13,23 @@ class CreateCameraUseCase:
     def __init__(self, camera_repo: CameraRepositoryInterface):
         self.camera_repo = camera_repo
 
+    @staticmethod
+    def _detect_protocol(stream_url: str, protocol_hint: str | None = None) -> str:
+        """Auto-detect the streaming protocol from the URL."""
+        url_lower = stream_url.lower().strip()
+        if url_lower.startswith("rtsp://"):
+            return "rtsp"
+        if url_lower.startswith("rtmp://"):
+            return "rtmp"
+        if url_lower.startswith("onvif://"):
+            return "onvif"
+        if ".m3u8" in url_lower or "/hls/" in url_lower:
+            return "hls"
+        if url_lower.startswith("http://") or url_lower.startswith("https://"):
+            return "http"
+        # Fall back to hint from client, or rtsp as default
+        return protocol_hint or "rtsp"
+
     def execute(
         self,
         owner_user_id: UUID,
@@ -29,6 +46,9 @@ class CreateCameraUseCase:
         location: dict | None = None,
     ) -> Camera:
         """Create a new camera for the user."""
+        # Auto-detect protocol from URL
+        resolved_protocol = self._detect_protocol(stream_url, protocol)
+
         # Parse location
         location_obj = None
         if location:
@@ -46,7 +66,7 @@ class CreateCameraUseCase:
             owner_user_id=owner_user_id,
             name=name,
             stream_url=stream_url,
-            protocol=protocol,
+            protocol=resolved_protocol,
             resolution=resolution,
             fps=fps,
             encoding=encoding,

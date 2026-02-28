@@ -909,6 +909,32 @@ export const MembersPageNew: React.FC = () => {
   const pendingReceived = useMemo(() => receivedInvites.filter(inv => inv.status === 'pending'), [receivedInvites]);
   const pendingGroupReceived = useMemo(() => receivedGroupInvites.filter(inv => inv.status === 'pending'), [receivedGroupInvites]);
   const totalPendingCount = pendingReceived.length + pendingGroupReceived.length;
+
+  // Search state for received tab
+  const [receivedSearch, setReceivedSearch] = useState('');
+
+  // Merge and sort all pending received invitations (both individual + group) by newest first, with search
+  const sortedPendingReceived = useMemo(() => {
+    type InvItem = { type: 'single'; data: MemberInvitationResponse } | { type: 'group'; data: ReceivedGroupInvitation };
+    const items: InvItem[] = [
+      ...pendingReceived.map(inv => ({ type: 'single' as const, data: inv })),
+      ...pendingGroupReceived.map(inv => ({ type: 'group' as const, data: inv })),
+    ];
+    // Sort newest first
+    items.sort((a, b) => new Date(b.data.created_at).getTime() - new Date(a.data.created_at).getTime());
+    // Apply search filter (by sender email or date)
+    if (receivedSearch.trim()) {
+      const q = receivedSearch.trim().toLowerCase();
+      return items.filter(item => {
+        const email = item.type === 'single' ? item.data.inviter_email : item.data.inviter_email;
+        const dateStr = new Date(item.data.created_at).toLocaleDateString();
+        const isoDate = item.data.created_at?.slice(0, 10) || ''; // YYYY-MM-DD
+        return email.toLowerCase().includes(q) || dateStr.includes(q) || isoDate.includes(q);
+      });
+    }
+    return items;
+  }, [pendingReceived, pendingGroupReceived, receivedSearch]);
+
   const historyInvites = useMemo(() => {
     const all = [...receivedInvites, ...sentInvites].filter(inv => inv.status !== 'pending');
     if (historyFilter === 'accepted') return all.filter(inv => inv.status === 'accepted');
@@ -1356,12 +1382,12 @@ export const MembersPageNew: React.FC = () => {
                 display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'space-between',
-                marginBottom: '16px',
+                marginBottom: '12px',
               }}>
                 <div style={{ fontSize: '16px', fontWeight: 700 }}>
                   Pending Invitations
                 </div>
-                {pendingReceived.length > 0 && (
+                {totalPendingCount > 0 && (
                   <span style={{
                     padding: '6px 12px',
                     borderRadius: '999px',
@@ -1375,6 +1401,47 @@ export const MembersPageNew: React.FC = () => {
                   </span>
                 )}
               </div>
+
+              {/* Search bar for received invitations */}
+              {totalPendingCount > 0 && (
+                <div style={{ position: 'relative', marginBottom: '14px' }}>
+                  <HiOutlineSearch
+                    size={16}
+                    color={colors.textMuted}
+                    style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', zIndex: 1 }}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Search by sender email or date (e.g. 2026-02-27)..."
+                    value={receivedSearch}
+                    onChange={e => setReceivedSearch(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 36px 10px 36px',
+                      borderRadius: '10px',
+                      border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`,
+                      background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                      color: colors.text,
+                      fontSize: '13px',
+                      outline: 'none',
+                    }}
+                  />
+                  {receivedSearch && (
+                    <motion.button
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => setReceivedSearch('')}
+                      style={{
+                        position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)',
+                        background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+                        border: 'none', borderRadius: '6px', width: 20, height: 20,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                      }}
+                    >
+                      <HiOutlineX size={12} color={colors.textMuted} />
+                    </motion.button>
+                  )}
+                </div>
+              )}
 
               {isLoading ? (
                 <div style={{ 
@@ -1400,32 +1467,42 @@ export const MembersPageNew: React.FC = () => {
                   <HiOutlineInbox size={48} style={{ opacity: 0.3, marginBottom: '12px' }} />
                   <div>No pending invitations</div>
                 </div>
+              ) : sortedPendingReceived.length === 0 ? (
+                <div style={{ 
+                  padding: '30px', 
+                  textAlign: 'center',
+                  color: colors.textSecondary,
+                }}>
+                  <HiOutlineSearch size={32} style={{ opacity: 0.3, marginBottom: '8px' }} />
+                  <div style={{ fontSize: '13px' }}>No invitations match "{receivedSearch}"</div>
+                </div>
               ) : (
                 <div style={{ display: 'grid', gap: '12px' }}>
-                  {pendingGroupReceived.map((inv) => (
-                    <GroupInvitationCard
-                      key={`group-${inv.id}`}
-                      invitation={inv}
-                      isDark={isDark}
-                      colors={colors}
-                      onAccept={acceptGroupInvite}
-                      onDecline={declineGroupInvite}
-                      onResend={resendGroupCode}
-                    />
-                  ))}
-                  {pendingReceived.map((inv) => (
-                    <InvitationCard
-                      key={inv.id}
-                      invitation={inv}
-                      type="received"
-                      cameras={cameras}
-                      isDark={isDark}
-                      colors={colors}
-                      onAccept={acceptInvite}
-                      onDecline={declineInvite}
-                      onResend={resendCode}
-                    />
-                  ))}
+                  {sortedPendingReceived.map((item) =>
+                    item.type === 'group' ? (
+                      <GroupInvitationCard
+                        key={`group-${item.data.id}`}
+                        invitation={item.data}
+                        isDark={isDark}
+                        colors={colors}
+                        onAccept={acceptGroupInvite}
+                        onDecline={declineGroupInvite}
+                        onResend={resendGroupCode}
+                      />
+                    ) : (
+                      <InvitationCard
+                        key={item.data.id}
+                        invitation={item.data}
+                        type="received"
+                        cameras={cameras}
+                        isDark={isDark}
+                        colors={colors}
+                        onAccept={acceptInvite}
+                        onDecline={declineInvite}
+                        onResend={resendCode}
+                      />
+                    )
+                  )}
                 </div>
               )}
 

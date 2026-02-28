@@ -34,6 +34,11 @@ class CameraRepositoryInterface(ABC):
         pass
 
     @abstractmethod
+    def get_by_ids(self, camera_ids: List[UUID]) -> List[Camera]:
+        """Get cameras by a list of IDs."""
+        pass
+
+    @abstractmethod
     def list_all(self) -> List[Camera]:
         """List all cameras."""
         pass
