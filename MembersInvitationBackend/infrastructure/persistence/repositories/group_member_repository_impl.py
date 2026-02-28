@@ -103,7 +103,7 @@ class SQLAlchemyGroupMemberRepository(GroupMemberRepositoryInterface):
             group_id=model.group_id,
             member_user_id=model.member_user_id,
             member_email=model.member_email,
-            access=PermissionLevel(model.access),
+            access=PermissionLevel(model.access.lower() if isinstance(model.access, str) else model.access.value),
             status=GroupMemberStatus(model.status),
             invite_code_hash=model.invite_code_hash,
             code_expires_at=model.code_expires_at,

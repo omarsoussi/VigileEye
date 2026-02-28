@@ -101,7 +101,7 @@ class SQLAlchemyInvitationRepository(InvitationRepositoryInterface):
             inviter_user_id=model.inviter_user_id,
             inviter_email=model.inviter_email,
             recipient_email=model.recipient_email,
-            permission=PermissionLevel(model.permission) if isinstance(model.permission, str) else model.permission,
+            permission=PermissionLevel(model.permission.lower()) if isinstance(model.permission, str) else model.permission,
             camera_ids=[c.camera_id for c in (model.cameras or [])],
             created_at=model.created_at,
             expires_at=model.expires_at,

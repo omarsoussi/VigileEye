@@ -90,7 +90,7 @@ class SQLAlchemyGroupRepository(GroupRepositoryInterface):
             description=model.description,
             icon=model.icon,
             color=model.color,
-            default_permission=PermissionLevel(model.default_permission),
+            default_permission=PermissionLevel(model.default_permission.lower() if isinstance(model.default_permission, str) else model.default_permission.value),
             camera_ids=[c.camera_id for c in (model.cameras or [])],
             created_at=model.created_at,
             updated_at=model.updated_at,

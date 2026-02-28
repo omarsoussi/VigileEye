@@ -64,7 +64,7 @@ class SQLAlchemyMembershipRepository(MembershipRepositoryInterface):
             owner_user_id=model.owner_user_id,
             member_user_id=model.member_user_id,
             member_email=model.member_email,
-            permission=PermissionLevel(model.permission) if isinstance(model.permission, str) else model.permission,
+            permission=PermissionLevel(model.permission.lower()) if isinstance(model.permission, str) else model.permission,
             camera_ids=[c.camera_id for c in (model.cameras or [])],
             created_at=model.created_at,
             revoked_at=model.revoked_at,
