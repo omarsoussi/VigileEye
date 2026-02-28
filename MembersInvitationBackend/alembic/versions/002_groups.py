@@ -18,6 +18,13 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Guard: skip if groups table already exists
+    conn = op.get_bind()
+    if conn.execute(
+        sa.text("SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='groups'")
+    ).fetchone():
+        return
+
     # Create group_member_status enum (IF NOT EXISTS for idempotency)
     op.execute("DO $$ BEGIN CREATE TYPE group_member_status AS ENUM ('pending', 'accepted', 'declined'); EXCEPTION WHEN duplicate_object THEN NULL; END $$")
 

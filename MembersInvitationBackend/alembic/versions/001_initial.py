@@ -18,22 +18,38 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Guard: skip entirely if invitations table already exists (idempotent re-run)
+    conn = op.get_bind()
+    exists = conn.execute(
+        sa.text("SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='invitations'")
+    ).fetchone()
+    if exists:
+        return
+
+    # Create enum types safely (no-op if they already exist)
+    op.execute(
+        "DO $$ BEGIN "
+        "CREATE TYPE permission_level AS ENUM ('reader', 'editor'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; END $$"
+    )
+    op.execute(
+        "DO $$ BEGIN "
+        "CREATE TYPE invitation_status AS ENUM ('pending', 'accepted', 'declined', 'canceled', 'expired'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; END $$"
+    )
+
+    # Use create_type=False so SQLAlchemy doesn't try to re-create the enum types
+    permission_level = postgresql.ENUM("reader", "editor", name="permission_level", create_type=False)
+    invitation_status = postgresql.ENUM("pending", "accepted", "declined", "canceled", "expired", name="invitation_status", create_type=False)
+
     op.create_table(
         "invitations",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("inviter_user_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("inviter_email", sa.String(length=320), nullable=False),
         sa.Column("recipient_email", sa.String(length=320), nullable=False),
-        sa.Column(
-            "permission",
-            sa.Enum("reader", "editor", name="permission_level"),
-            nullable=False,
-        ),
-        sa.Column(
-            "status",
-            sa.Enum("pending", "accepted", "declined", "canceled", "expired", name="invitation_status"),
-            nullable=False,
-        ),
+        sa.Column("permission", permission_level, nullable=False),
+        sa.Column("status", invitation_status, nullable=False),
         sa.Column("unlimited", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("code_hash", sa.String(length=200), nullable=False),
@@ -61,7 +77,7 @@ def upgrade() -> None:
         sa.Column("owner_user_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("member_user_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("member_email", sa.String(length=320), nullable=False),
-        sa.Column("permission", sa.Enum("reader", "editor", name="permission_level"), nullable=False),
+        sa.Column("permission", permission_level, nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("revoked_at", sa.DateTime(timezone=True), nullable=True),
     )

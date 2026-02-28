@@ -1,11 +1,9 @@
-"""Normalize permission_level enum values to lowercase.
+"""Normalize permission_level enum labels to lowercase.
 
-Some existing rows contain 'READER'/'EDITOR' (uppercase) which don't match
-the SQLAlchemy-side enum values ('reader'/'editor'). This migration:
-  1. Converts all four affected columns to plain text
-  2. Drops and recreates the permission_level enum type with lowercase labels
-  3. Lowercases the existing data
-  4. Converts the columns back to the enum type
+The DB enum type was created with uppercase labels (READER/EDITOR).
+SQLAlchemy expects lowercase labels (reader/editor).
+Use ALTER TYPE ... RENAME VALUE to fix the enum labels in place —
+no data rows need updating because PostgreSQL stores enums as ordinals.
 
 Revision ID: 004_normalize_permission_case
 Revises: 003_group_cameras
@@ -22,74 +20,51 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # ── Step 1: Detach columns from the enum so we can manipulate it ──
-    for table, column in [
-        ("invitations", "permission"),
-        ("memberships", "permission"),
-        ("groups", "default_permission"),
-        ("group_members", "access"),
-    ]:
-        op.execute(f"ALTER TABLE {table} ALTER COLUMN {column} TYPE text")
+    # Rename uppercase enum labels to lowercase, only if they exist.
+    # Idempotent: checks pg_enum before renaming so re-runs are safe.
+    op.execute("""
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM pg_enum e
+                JOIN pg_type t ON e.enumtypid = t.oid
+                WHERE t.typname = 'permission_level' AND e.enumlabel = 'READER'
+            ) THEN
+                ALTER TYPE permission_level RENAME VALUE 'READER' TO 'reader';
+            END IF;
 
-    # ── Step 2: Drop the existing enum type (may have wrong-cased labels) ──
-    op.execute("DROP TYPE IF EXISTS permission_level")
-
-    # ── Step 3: Normalise all values to lowercase ──
-    for table, column in [
-        ("invitations", "permission"),
-        ("memberships", "permission"),
-        ("groups", "default_permission"),
-        ("group_members", "access"),
-    ]:
-        op.execute(f"UPDATE {table} SET {column} = LOWER({column})")
-
-    # ── Step 4: Recreate enum type with lowercase labels ──
-    op.execute("CREATE TYPE permission_level AS ENUM ('reader', 'editor')")
-
-    # ── Step 5: Re-attach columns to the new enum type ──
-    for table, column in [
-        ("invitations", "permission"),
-        ("memberships", "permission"),
-        ("groups", "default_permission"),
-        ("group_members", "access"),
-    ]:
-        op.execute(
-            f"ALTER TABLE {table} "
-            f"ALTER COLUMN {column} TYPE permission_level "
-            f"USING {column}::permission_level"
-        )
+            IF EXISTS (
+                SELECT 1 FROM pg_enum e
+                JOIN pg_type t ON e.enumtypid = t.oid
+                WHERE t.typname = 'permission_level' AND e.enumlabel = 'EDITOR'
+            ) THEN
+                ALTER TYPE permission_level RENAME VALUE 'EDITOR' TO 'editor';
+            END IF;
+        END $$;
+    """)
 
 
 def downgrade() -> None:
-    # Reverse: go back to uppercase enum values
-    for table, column in [
-        ("invitations", "permission"),
-        ("memberships", "permission"),
-        ("groups", "default_permission"),
-        ("group_members", "access"),
-    ]:
-        op.execute(f"ALTER TABLE {table} ALTER COLUMN {column} TYPE text")
+    # Restore uppercase labels if needed.
+    op.execute("""
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM pg_enum e
+                JOIN pg_type t ON e.enumtypid = t.oid
+                WHERE t.typname = 'permission_level' AND e.enumlabel = 'reader'
+            ) THEN
+                ALTER TYPE permission_level RENAME VALUE 'reader' TO 'READER';
+            END IF;
 
-    op.execute("DROP TYPE IF EXISTS permission_level")
+            IF EXISTS (
+                SELECT 1 FROM pg_enum e
+                JOIN pg_type t ON e.enumtypid = t.oid
+                WHERE t.typname = 'permission_level' AND e.enumlabel = 'editor'
+            ) THEN
+                ALTER TYPE permission_level RENAME VALUE 'editor' TO 'EDITOR';
+            END IF;
+        END $$;
+    """)
 
-    for table, column in [
-        ("invitations", "permission"),
-        ("memberships", "permission"),
-        ("groups", "default_permission"),
-        ("group_members", "access"),
-    ]:
-        op.execute(f"UPDATE {table} SET {column} = UPPER({column})")
 
-    op.execute("CREATE TYPE permission_level AS ENUM ('READER', 'EDITOR')")
-
-    for table, column in [
-        ("invitations", "permission"),
-        ("memberships", "permission"),
-        ("groups", "default_permission"),
-        ("group_members", "access"),
-    ]:
-        op.execute(
-            f"ALTER TABLE {table} "
-            f"ALTER COLUMN {column} TYPE permission_level "
-            f"USING {column}::permission_level"
-        )

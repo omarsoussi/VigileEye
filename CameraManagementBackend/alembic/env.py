@@ -3,7 +3,7 @@ import os
 import sys
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
+from sqlalchemy import engine_from_config, create_engine
 from sqlalchemy import pool
 
 from alembic import context
@@ -16,9 +16,14 @@ if PROJECT_ROOT not in sys.path:
 # Import models to ensure they're registered with Base
 from infrastructure.persistence.models import CameraModel, CameraAccessModel, CameraHealthModel
 from infrastructure.persistence.database import Base
+from infrastructure.config.settings import get_settings
 
 # this is the Alembic Config object
 config = context.config
+
+# Override sqlalchemy.url with value from .env so alembic.ini localhost is ignored
+settings = get_settings()
+config.set_main_option("sqlalchemy.url", settings.database_url)
 
 # Interpret the config file for Python logging.
 if config.config_file_name is not None:

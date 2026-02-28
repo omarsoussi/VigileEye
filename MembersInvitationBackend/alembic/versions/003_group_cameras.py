@@ -18,6 +18,13 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Guard: skip if group_cameras table already exists
+    conn = op.get_bind()
+    if conn.execute(
+        sa.text("SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='group_cameras'")
+    ).fetchone():
+        return
+
     op.create_table(
         "group_cameras",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
