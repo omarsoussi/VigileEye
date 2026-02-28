@@ -212,7 +212,6 @@ export function useVideoStream({
       setConnectionState('error');
       onErrorRef.current?.(err instanceof Error ? err : new Error('Failed to start stream'));
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [disconnect]);
 
   // Keep connectRef up to date
@@ -227,7 +226,8 @@ export function useVideoStream({
     return () => {
       disconnect();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // camera.id is the only dep we care about — full `camera` object changes ref every render
+  // eslint-disable-line
   }, [autoConnect, camera.id]);
 
   return {
