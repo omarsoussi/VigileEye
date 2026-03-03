@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.routes.camera_routes import router as camera_router
+from api.routes.zone_routes import router as zone_router
 from infrastructure.config.settings import settings
 from infrastructure.persistence.database import init_db
 
@@ -37,6 +38,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(camera_router)
+app.include_router(zone_router)
 
 
 @app.get("/health")

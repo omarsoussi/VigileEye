@@ -4,8 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { GlassCard, AnimatedButton } from '../../components/GlassCard';
-import { CameraWithPermission } from '../../services/api';
-import { useVideoStream } from '../../hooks/useVideoStream';
+import { CameraWithPermission, zonesApi, ZoneStatsResponse } from '../../services/api';
+import { useCameraStatus } from '../../hooks/useCameraStatus';
+import { LiveThumbnail } from '../../components/LiveThumbnail';
 import { useAllCameras } from '../../hooks/useAllCameras';
 import { getCameraImage, getCameraLocationString, defaultCameras } from '../../data/cameraData';
 import { 
@@ -112,18 +113,13 @@ interface CameraPreviewProps {
 }
 
 const CameraPreview: React.FC<CameraPreviewProps> = ({ camera }) => {
-  const { id, name, status, camera_type, is_active, isShared, permission } = camera;
+  const { id, name, is_active, isShared, permission } = camera;
   const location = getCameraLocationString(camera);
-  const image = getCameraImage(camera_type);
-  const displayStatus = is_active && status === 'online' ? 'live' : 'offline';
+  const isOnline = is_active !== false; // Gate on is_active only, not stale DB status
   const navigate = useNavigate();
   const { colors, preferences } = useTheme();
   const isDark = preferences.mode === 'dark';
-  const { frameUrl, connectionState, isStreaming } = useVideoStream({
-    camera,
-    autoConnect: displayStatus === 'live',
-  });
-  
+
   return (
     <motion.div
       whileHover={{ scale: 1.02 }}
@@ -133,69 +129,22 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({ camera }) => {
     >
       <GlassCard padding="0" borderRadius="20px" style={{ overflow: 'hidden' }}>
         <div style={{ position: 'relative', height: '120px' }}>
-          <img 
-            src={frameUrl || image}
-            alt={name}
-            style={{ 
-              width: '100%', 
-              height: '100%', 
-              objectFit: 'cover',
-            }}
+          {/* Live stream thumbnail */}
+          <LiveThumbnail
+            camera={camera}
+            height="120px"
+            isOnline={isOnline}
+            showFps={true}
+            showStatus={true}
+            borderRadius="0"
           />
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.7) 100%)',
-          }} />
-          
-          {/* Status Badge */}
-          <div style={{
-            position: 'absolute',
-            top: '10px',
-            right: '10px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '4px 10px',
-            borderRadius: '12px',
-            background: displayStatus === 'live' 
-              ? 'rgba(34, 197, 94, 0.9)'
-              : 'rgba(239, 68, 68, 0.9)',
-            backdropFilter: 'blur(10px)',
-          }}>
-            {displayStatus === 'live' && isStreaming && (
-              <motion.div
-                animate={{ opacity: [1, 0.4, 1] }}
-                transition={{ repeat: Infinity, duration: 1.5 }}
-              >
-                <BsCircleFill size={6} color="#fff" />
-              </motion.div>
-            )}
-            {displayStatus !== 'live' || !isStreaming ? (
-              <BsCircleFill size={6} color="#fff" />
-            ) : null}
-            <span style={{ 
-              fontSize: '11px', 
-              fontWeight: 600, 
-              color: '#fff',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-            }}>
-              {displayStatus === 'live'
-                ? (isStreaming ? 'LIVE' : (connectionState === 'connecting' ? 'CONNECTING' : 'LIVE'))
-                : 'OFFLINE'}
-            </span>
-          </div>
 
           {/* Shared badge */}
           {isShared && (
             <div style={{
               position: 'absolute',
               top: '10px',
-              left: '10px',
+              right: '10px',
               display: 'flex',
               alignItems: 'center',
               gap: '4px',
@@ -213,50 +162,29 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({ camera }) => {
             </div>
           )}
 
-          {/* Play button overlay when not streaming */}
-          {displayStatus === 'live' && !isStreaming && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: '40px',
-                height: '40px',
-                borderRadius: '50%',
-                background: 'rgba(255,255,255,0.2)',
-                backdropFilter: 'blur(5px)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <HiOutlinePlay size={20} color="#fff" />
-            </motion.div>
-          )}
-          
           {/* Camera Info */}
           <div style={{
             position: 'absolute',
             bottom: '10px',
             left: '12px',
             right: '12px',
+            zIndex: 2,
           }}>
-            <div style={{ 
-              fontSize: '14px', 
-              fontWeight: 600, 
+            <div style={{
+              fontSize: '14px',
+              fontWeight: 600,
               color: '#fff',
               marginBottom: '2px',
+              textShadow: '0 1px 3px rgba(0,0,0,0.5)',
             }}>
               {name}
             </div>
-            <div style={{ 
-              fontSize: '11px', 
+            <div style={{
+              fontSize: '11px',
               color: 'rgba(255,255,255,0.8)',
+              textShadow: '0 1px 2px rgba(0,0,0,0.5)',
             }}>
-              {location}
+              {location} &bull; {camera.resolution} @ {camera.fps}fps
             </div>
           </div>
         </div>
@@ -337,6 +265,37 @@ export const DashboardPageNew: React.FC = () => {
   const isDark = preferences.mode === 'dark';
   const [isMobile, setIsMobile] = useState(false);
   const { cameras, isLoading: camerasLoading } = useAllCameras();
+
+  // Real-time camera status
+  const { onlineCount, offlineCount, disabledCount, recheckAll, isChecking: statusChecking } = useCameraStatus(cameras, 30_000);
+
+  // Real zone stats from API
+  const [zoneStats, setZoneStats] = useState<ZoneStatsResponse | null>(null);
+  useEffect(() => {
+    zonesApi.getStats().then(setZoneStats).catch(() => {});
+  }, []);
+
+  // Derived camera counts for pie chart (use real counts)
+  const cameraStatusData = useMemo(() => {
+    // If status check hasn't run yet, fall back to DB values
+    if (onlineCount + offlineCount + disabledCount === 0 && cameras.length > 0) {
+      const online = cameras.filter(c => c.status === 'online' && c.is_active).length;
+      const offline = cameras.filter(c => c.status === 'offline' && c.is_active).length;
+      const disabled = cameras.filter(c => !c.is_active).length;
+      return { online, offline, disabled };
+    }
+    return { online: onlineCount, offline: offlineCount, disabled: disabledCount };
+  }, [cameras, onlineCount, offlineCount, disabledCount]);
+
+  // Security status indicator
+  const securitySummary = useMemo(() => {
+    const { online, offline, disabled } = cameraStatusData;
+    const total = cameras.length;
+    if (total === 0) return { label: 'No Cameras', sub: 'Add cameras to start monitoring', color: '#6b7280', icon: 'warning' };
+    if (offline > 0) return { label: 'Attention Required', sub: `${offline} camera${offline > 1 ? 's' : ''} offline`, color: '#f59e0b', icon: 'warning' };
+    if (online === 0 && disabled === total) return { label: 'All Cameras Disabled', sub: 'Enable cameras to start monitoring', color: '#ef4444', icon: 'danger' };
+    return { label: 'System Protected', sub: `${online} camera${online !== 1 ? 's' : ''} online • No threats detected`, color: '#22c55e', icon: 'ok' };
+  }, [cameras.length, cameraStatusData]);
   
   // Connection quality state
   const [connectionQuality, setConnectionQuality] = useState<{
@@ -585,7 +544,7 @@ export const DashboardPageNew: React.FC = () => {
                 width: isMobile ? '50px' : '60px',
                 height: isMobile ? '50px' : '60px',
                 borderRadius: '20px',
-                background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+                background: `linear-gradient(135deg, ${securitySummary.color} 0%, ${securitySummary.color}cc 100%)`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -601,13 +560,13 @@ export const DashboardPageNew: React.FC = () => {
                 color: colors.text,
                 marginBottom: '4px',
               }}>
-                System Protected
+                {securitySummary.label}
               </div>
               <div style={{ 
                 fontSize: isMobile ? '12px' : '13px', 
                 color: colors.textSecondary,
               }}>
-                All cameras online • No threats detected
+                {securitySummary.sub}
               </div>
             </div>
             {!isMobile && <BsChevronRight size={20} style={{ color: colors.textMuted }} />}
@@ -777,35 +736,35 @@ export const DashboardPageNew: React.FC = () => {
       >
         <StatCard
           icon={<RiCameraLine size={isMobile ? 18 : 20} />}
-          label="Active Cameras"
-          value={cameras.filter(c => c.is_active).length}
-          subtext={`${cameras.length} total`}
+          label="Online Cameras"
+          value={cameraStatusData.online}
+          subtext={`${cameras.length} total • ${cameraStatusData.offline} offline`}
           color="#3b82f6"
           onClick={() => navigate('/monitoring')}
         />
         <StatCard
           icon={<RiAlertLine size={isMobile ? 18 : 20} />}
           label="Alerts Today"
-          value="12"
-          subtext="+3 new"
+          value="0"
+          subtext="No alerts"
           color="#f59e0b"
           onClick={() => navigate('/alerts')}
         />
         <StatCard
           icon={<HiOutlineShieldCheck size={isMobile ? 18 : 20} />}
           label="Zones"
-          value="4"
-          subtext="All armed"
+          value={zoneStats?.total_zones ?? 0}
+          subtext={zoneStats ? `${zoneStats.active_zones} active` : 'Loading...'}
           color="#22c55e"
           onClick={() => navigate('/zones')}
         />
         <StatCard
           icon={<HiOutlineChartBar size={isMobile ? 18 : 20} />}
           label="Uptime"
-          value="99.9%"
-          subtext="This month"
+          value={cameras.length > 0 ? `${Math.round((cameraStatusData.online / Math.max(cameras.length, 1)) * 100)}%` : '—'}
+          subtext={cameras.length > 0 ? `${cameraStatusData.online}/${cameras.length} cameras up` : 'No cameras'}
           color="#8b5cf6"
-          onClick={() => navigate('/analytics')}
+          onClick={() => navigate('/monitoring')}
         />
       </motion.div>
 
@@ -849,10 +808,10 @@ export const DashboardPageNew: React.FC = () => {
                 <PieChart>
                   <Pie
                     data={[
-                      { name: 'Online', value: cameras.filter(c => c.status === 'online').length, color: '#22c55e' },
-                      { name: 'Recording', value: cameras.filter(c => c.is_active && c.status === 'online').length, color: '#3b82f6' },
-                      { name: 'Offline', value: cameras.filter(c => c.status === 'offline').length, color: '#ef4444' },
-                    ]}
+                      { name: 'Online', value: cameraStatusData.online, color: '#22c55e' },
+                      { name: 'Offline', value: cameraStatusData.offline, color: '#ef4444' },
+                      { name: 'Disabled', value: cameraStatusData.disabled, color: '#6b7280' },
+                    ].filter(d => d.value > 0)}
                     cx="50%"
                     cy="50%"
                     innerRadius={isMobile ? 35 : 45}
@@ -863,10 +822,10 @@ export const DashboardPageNew: React.FC = () => {
                     animationDuration={800}
                   >
                     {[
-                      { name: 'Online', value: cameras.filter(c => c.status === 'online').length, color: '#22c55e' },
-                      { name: 'Recording', value: cameras.filter(c => c.is_active).length, color: '#3b82f6' },
-                      { name: 'Offline', value: cameras.filter(c => c.status === 'offline').length, color: '#ef4444' },
-                    ].map((entry, index) => (
+                      { name: 'Online', value: cameraStatusData.online, color: '#22c55e' },
+                      { name: 'Offline', value: cameraStatusData.offline, color: '#ef4444' },
+                      { name: 'Disabled', value: cameraStatusData.disabled, color: '#6b7280' },
+                    ].filter(d => d.value > 0).map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
@@ -884,9 +843,9 @@ export const DashboardPageNew: React.FC = () => {
             </div>
             <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '8px' }}>
               {[
-                { label: 'Online', color: '#22c55e', count: cameras.filter(c => c.status === 'online').length },
-                { label: 'Recording', color: '#3b82f6', count: cameras.filter(c => c.is_active).length },
-                { label: 'Offline', color: '#ef4444', count: cameras.filter(c => c.status === 'offline').length },
+                { label: 'Online', color: '#22c55e', count: cameraStatusData.online },
+                { label: 'Offline', color: '#ef4444', count: cameraStatusData.offline },
+                { label: 'Disabled', color: '#6b7280', count: cameraStatusData.disabled },
               ].map((item, index) => (
                 <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: item.color }} />

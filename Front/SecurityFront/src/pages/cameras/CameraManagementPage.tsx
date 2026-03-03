@@ -16,6 +16,7 @@ import {
 } from 'react-icons/hi';
 import { RiCameraLine, RiCameraOffLine } from 'react-icons/ri';
 import { useTheme } from '../../contexts/ThemeContext';
+import { LiveThumbnail } from '../../components/LiveThumbnail';
 import { AnimatedBackground } from '../../components/AnimatedBackground';
 import { 
   camerasApi, 
@@ -752,27 +753,15 @@ export const CameraManagementPage: React.FC = () => {
             >
               <LiquidGlassCard glowColor={getStatusColor(camera.status)} style={{ padding: '16px' }}>
                 <div style={{ display: 'flex', gap: '16px' }}>
-                  <div style={{
-                    width: '80px', height: '60px', borderRadius: '12px',
-                    background: isDark ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.1)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0, position: 'relative', overflow: 'hidden',
-                  }}>
-                    {camera.status === 'online' && camera.is_active ? (
-                      <>
-                        <RiCameraLine size={28} color={mutedColor} />
-                        <motion.div
-                          animate={{ opacity: [1, 0.5, 1] }}
-                          transition={{ duration: 1, repeat: Infinity }}
-                          style={{
-                            position: 'absolute', top: '6px', right: '6px',
-                            width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e',
-                          }}
-                        />
-                      </>
-                    ) : (
-                      <RiCameraOffLine size={28} color="#ef4444" />
-                    )}
+                  <div style={{ width: '80px', height: '60px', flexShrink: 0, borderRadius: '12px', overflow: 'hidden' }}>
+                    <LiveThumbnail
+                      camera={camera}
+                      height="60px"
+                      isOnline={camera.is_active !== false}
+                      showFps={false}
+                      showStatus={true}
+                      borderRadius="12px"
+                    />
                   </div>
 
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -877,7 +866,7 @@ export const CameraManagementPage: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => !submitting && setShowModal(false)}
-              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(10px)', zIndex: 100 }}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(10px)', zIndex: 99998 }}
             />
             <motion.div
               initial={{ opacity: 0, y: 50, scale: 0.9 }}
@@ -887,7 +876,7 @@ export const CameraManagementPage: React.FC = () => {
                 position: 'fixed', bottom: 0, left: 0, right: 0, maxHeight: '90vh',
                 background: isDark ? '#0d1829' : '#fff', borderRadius: '28px 28px 0 0',
                 padding: '24px', paddingBottom: 'calc(40px + env(safe-area-inset-bottom))',
-                zIndex: 101, overflowY: 'auto',
+                zIndex: 99999, overflowY: 'auto',
                 WebkitOverflowScrolling: 'touch',
               }}
             >

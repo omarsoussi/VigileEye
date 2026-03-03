@@ -6,6 +6,7 @@ import { GlassCard } from '../../components/GlassCard';
 import { defaultCameras } from '../../data/cameraData';
 import { membersApi, camerasApi, groupsApi, MemberInvitationResponse, MemberPermission, CameraResponse, ReceivedGroupInvitation } from '../../services/api';
 import { GroupsSection } from './GroupsSection';
+import { LiveThumbnail } from '../../components/LiveThumbnail';
 import {
   HiOutlineUserAdd,
   HiOutlineInbox,
@@ -45,7 +46,7 @@ const CameraCard: React.FC<{
   isDark: boolean;
   colors: any;
 }> = ({ camera, isSelected, onToggle, isDark, colors }) => {
-  const isOnline = camera.status === 'online' && camera.is_active;
+  const isOnline = camera.is_active !== false; // Gate on is_active only, not stale DB status
   
   return (
     <motion.div
@@ -64,42 +65,16 @@ const CameraCard: React.FC<{
         boxShadow: isSelected ? `0 0 20px ${colors.accent}30` : 'none',
       }}
     >
-      {/* Camera Preview */}
-      <div style={{
-        height: '100px',
-        background: isDark ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.1)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        position: 'relative',
-      }}>
-        <HiOutlineVideoCamera 
-          size={32} 
-          style={{ 
-            opacity: isOnline ? 0.5 : 0.3, 
-            color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)',
-            filter: !isOnline ? 'grayscale(1)' : 'none',
-          }} 
+      {/* Camera Live Preview */}
+      <div style={{ height: '100px', position: 'relative' }}>
+        <LiveThumbnail
+          camera={camera}
+          height="100px"
+          isOnline={isOnline}
+          showFps={false}
+          showStatus={true}
+          borderRadius="0"
         />
-        
-        {/* Status indicator */}
-        <div style={{
-          position: 'absolute',
-          top: '8px',
-          left: '8px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '4px',
-          padding: '3px 8px',
-          borderRadius: '8px',
-          background: isOnline ? 'rgba(34, 197, 94, 0.9)' : 'rgba(107, 114, 128, 0.9)',
-          backdropFilter: 'blur(8px)',
-        }}>
-          <BsCircleFill size={5} color="#fff" />
-          <span style={{ fontSize: '9px', fontWeight: 600, color: '#fff', textTransform: 'uppercase' }}>
-            {isOnline ? 'Online' : 'Offline'}
-          </span>
-        </div>
 
         {/* Selection indicator */}
         <div style={{

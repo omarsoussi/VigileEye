@@ -5,6 +5,7 @@
  */
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAudioStream } from '../hooks/useAudioStream';
 import { useVideoStream, StreamConnectionState } from '../hooks/useVideoStream';
 import { CameraResponse } from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
@@ -183,10 +184,10 @@ export const LiveStreamPlayer: React.FC<LiveStreamPlayerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
   const [isRecording, setIsRecording] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [snapshotNotification, setSnapshotNotification] = useState(false);
+  const [showVolumeSlider, setShowVolumeSlider] = useState(false);
 
   const {
     connectionState,
@@ -203,11 +204,27 @@ export const LiveStreamPlayer: React.FC<LiveStreamPlayerProps> = ({
     onError,
   });
 
+  const {
+    isMuted,
+    volume,
+    isAvailable: audioAvailable,
+    isPlaying: audioPlaying,
+    connect: connectAudio,
+    disconnect: disconnectAudio,
+    toggleMute,
+    setVolume,
+  } = useAudioStream({ camera, autoConnect: false });
+
   const handlePlayPause = () => {
     if (isStreaming) {
       disconnect();
+      disconnectAudio();
     } else {
       connect();
+      // Audio auto-connects when video starts if not muted
+      if (!isMuted) {
+        connectAudio();
+      }
     }
   };
 
@@ -255,8 +272,12 @@ export const LiveStreamPlayer: React.FC<LiveStreamPlayerProps> = ({
   }, [isRecording, onRecordingChange]);
 
   const handleToggleMute = useCallback(() => {
-    setIsMuted(!isMuted);
-  }, [isMuted]);
+    toggleMute();
+    // Connect audio on first unmute if streaming
+    if (isMuted && isStreaming && !audioPlaying) {
+      connectAudio();
+    }
+  }, [isMuted, isStreaming, audioPlaying, toggleMute, connectAudio]);
 
   const handleOpenSettings = useCallback(() => {
     console.log('Opening camera settings for:', camera.id);
@@ -308,7 +329,7 @@ export const LiveStreamPlayer: React.FC<LiveStreamPlayerProps> = ({
           style={{
             width: '100%',
             height: '100%',
-            objectFit: isFullscreen ? 'contain' : 'cover',
+            objectFit: 'contain',
           }}
         />
       ) : (
@@ -357,6 +378,11 @@ export const LiveStreamPlayer: React.FC<LiveStreamPlayerProps> = ({
                   Retry
                 </motion.button>
               )}
+            </>
+          ) : connectionState === 'connected' && !frameUrl ? (
+            <>
+              <HiOutlineVideoCamera size={40} style={{ opacity: 0.6, color: '#f59e0b' }} />
+              <span style={{ color: '#f59e0b' }}>No Signal — waiting for camera feed</span>
             </>
           ) : (
             <>
@@ -501,28 +527,79 @@ export const LiveStreamPlayer: React.FC<LiveStreamPlayerProps> = ({
           {/* Bottom bar with controls */}
           {showControls && (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px' }}>
-              {/* Audio toggle */}
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={handleToggleMute}
-                style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '50%',
-                  background: 'rgba(255, 255, 255, 0.15)',
-                  backdropFilter: 'blur(8px)',
-                  border: '1px solid rgba(255,255,255,0.2)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  color: '#fff',
-                }}
-                title={isMuted ? 'Unmute' : 'Mute'}
+              {/* Audio toggle + volume slider */}
+              <div
+                style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
+                onMouseEnter={() => setShowVolumeSlider(true)}
+                onMouseLeave={() => setShowVolumeSlider(false)}
               >
-                {isMuted ? <HiOutlineVolumeOff size={18} /> : <HiOutlineVolumeUp size={18} />}
-              </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={handleToggleMute}
+                  style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '50%',
+                    background: isMuted ? 'rgba(255, 255, 255, 0.15)' : 'rgba(34, 197, 94, 0.3)',
+                    backdropFilter: 'blur(8px)',
+                    border: `1px solid ${isMuted ? 'rgba(255,255,255,0.2)' : 'rgba(34, 197, 94, 0.5)'}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    color: '#fff',
+                  }}
+                  title={!audioAvailable ? 'Audio unavailable' : isMuted ? 'Unmute' : 'Mute'}
+                >
+                  {isMuted ? <HiOutlineVolumeOff size={18} /> : <HiOutlineVolumeUp size={18} />}
+                </motion.button>
+
+                {/* Volume slider popup */}
+                <AnimatePresence>
+                  {showVolumeSlider && !isMuted && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      style={{
+                        position: 'absolute',
+                        bottom: '50px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        padding: '12px 8px',
+                        borderRadius: '12px',
+                        background: 'rgba(0, 0, 0, 0.8)',
+                        backdropFilter: 'blur(12px)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '6px',
+                        minHeight: '100px',
+                      }}
+                    >
+                      <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
+                        {Math.round(volume * 100)}%
+                      </span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={Math.round(volume * 100)}
+                        onChange={(e) => setVolume(Number(e.target.value) / 100)}
+                        style={{
+                          writingMode: 'vertical-lr' as any,
+                          direction: 'rtl',
+                          width: '4px',
+                          height: '80px',
+                          accentColor: '#22c55e',
+                          cursor: 'pointer',
+                        }}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
 
               {/* Play/Pause */}
               <motion.button

@@ -26,6 +26,7 @@ from application.use_cases.toggle_camera import EnableCameraUseCase, DisableCame
 from application.use_cases.record_health import RecordHealthUseCase
 from domain.entities.camera import Camera
 from domain.exceptions import CameraNotFoundException
+from infrastructure.config.settings import settings
 from infrastructure.persistence.database import get_db
 from infrastructure.persistence.repositories import (
     SQLAlchemyCameraRepository,
@@ -106,7 +107,12 @@ def list_cameras(
     """List all cameras owned by the current user."""
     repo = SQLAlchemyCameraRepository(db)
     use_case = ListUserCamerasUseCase(repo)
-    cameras = use_case.execute(current_user.id)
+    cameras = use_case.execute(
+        current_user.id,
+        requester_token=current_user.token,
+        members_service_url=settings.members_service_url,
+        members_timeout_seconds=settings.members_service_timeout_seconds,
+    )
     return [_camera_to_response(c) for c in cameras]
 
 
@@ -130,6 +136,24 @@ def get_cameras_batch(
         return []
     repo = SQLAlchemyCameraRepository(db)
     cameras = repo.get_by_ids(camera_ids)
+
+    # Enforce access: owner or membership (reader/editor)
+    shared_perm_map = {}
+    if current_user.token and settings.members_service_url:
+        from application.services.memberships_client import fetch_my_memberships, build_shared_camera_permission_map
+
+        memberships = fetch_my_memberships(
+            members_service_url=settings.members_service_url,
+            token=current_user.token,
+            timeout_seconds=settings.members_service_timeout_seconds,
+        )
+        shared_perm_map = build_shared_camera_permission_map(memberships)
+
+    cameras = [
+        c
+        for c in cameras
+        if (c.owner_user_id == current_user.id) or (c.id in shared_perm_map)
+    ]
     return [_camera_to_response(c) for c in cameras]
 
 
@@ -143,7 +167,13 @@ def get_camera(
     repo = SQLAlchemyCameraRepository(db)
     use_case = GetCameraUseCase(repo)
     try:
-        camera = use_case.execute(camera_id, current_user.id)
+        camera = use_case.execute(
+            camera_id,
+            current_user.id,
+            requester_token=current_user.token,
+            members_service_url=settings.members_service_url,
+            members_timeout_seconds=settings.members_service_timeout_seconds,
+        )
         return _camera_to_response(camera)
     except CameraNotFoundException as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))

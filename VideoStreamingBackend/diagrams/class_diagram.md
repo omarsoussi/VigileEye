@@ -1,204 +1,198 @@
-# Class Diagram — Video Streaming Microservice (Clean Architecture)
+# Video Streaming Service — Class Diagram
 
 ```mermaid
 classDiagram
     direction TB
 
-    namespace DomainLayer {
-        class StreamStatus {
-            <<enumeration>>
-            PENDING
-            CONNECTING
-            ACTIVE
-            RECONNECTING
-            STOPPED
-            ERROR
-        }
-
-        class FrameEncoding {
-            <<enumeration>>
-            JPEG
-            PNG
-            RAW
-        }
-
-        class StreamConfig {
-            - fps : int
-            - quality : int
-            - width : int
-            - height : int
-            - max_reconnects : int
-            + validate() void
-        }
-
-        class StreamSession {
-            - id : UUID
-            - camera_id : UUID
-            - stream_url : String
-            - status : StreamStatus
-            - fps : int
-            - started_at : DateTime
-            - last_frame_at : DateTime
-            - stopped_at : DateTime
-            - error_message : String
-            - reconnect_attempts : int
-            + create(camera_id, stream_url, fps) StreamSession
-            + start() void
-            + activate() void
-            + stop() void
-            + mark_error(message) void
-            + mark_reconnecting() void
-            + is_alive(timeout) bool
-        }
-
-        class VideoFrame {
-            - camera_id : UUID
-            - timestamp : DateTime
-            - frame_bytes : bytes
-            - width : int
-            - height : int
-            - encoding : FrameEncoding
-            - sequence : int
-            + create(camera_id, frame_bytes, width, height) VideoFrame
-        }
-
-        class StreamSessionRepositoryInterface {
-            <<interface>>
-            + save(session) StreamSession
-            + get_by_id(session_id) StreamSession
-            + get_by_camera_id(camera_id) StreamSession
-            + get_active_sessions() List~StreamSession~
-            + update(session) StreamSession
-            + delete(session_id) void
-        }
+    %% ─── Domain Entities ───
+    class StreamSession {
+        +String id
+        +String cameraId
+        +String userId
+        +String streamUrl
+        +StreamStatus status
+        +String routerId
+        +String videoProducerId
+        +String audioProducerId
+        +int fps
+        +int width
+        +int height
+        +int reconnectAttempts
+        +Date startedAt
+        +Date lastFrameAt
+        +start()
+        +markActive()
+        +markReconnecting()
+        +stop()
+        +markError(msg)
     }
 
-    namespace ApplicationLayer {
-        class StartStreamUseCase {
-            - repository : StreamSessionRepositoryInterface
-            + execute(camera_id, stream_url, config) StreamSession
-        }
-
-        class StopStreamUseCase {
-            - repository : StreamSessionRepositoryInterface
-            + execute(camera_id) StreamSession
-        }
-
-        class GetStreamStatusUseCase {
-            - repository : StreamSessionRepositoryInterface
-            + execute(camera_id) Tuple
-        }
-
-        class ListActiveStreamsUseCase {
-            - repository : StreamSessionRepositoryInterface
-            + execute() List~StreamSession~
-        }
+    class StreamStatus {
+        <<enumeration>>
+        PENDING
+        CONNECTING
+        ACTIVE
+        RECONNECTING
+        STOPPED
+        ERROR
     }
 
-    namespace InfrastructureLayer {
-        class SQLAlchemyStreamSessionRepository {
-            - db : Session
-            + save(session) StreamSession
-            + get_by_id(session_id) StreamSession
-            + get_by_camera_id(camera_id) StreamSession
-            + get_active_sessions() List~StreamSession~
-            + update(session) StreamSession
-            + delete(session_id) void
-        }
-
-        class StreamManager {
-            - broadcaster : StreamBroadcaster
-            - encoder : FrameEncoder
-            - readers : Dict
-            - tasks : Dict
-            + start_stream(session, config) void
-            + stop_stream(camera_id) void
-            + stop_all() void
-            + is_streaming(camera_id) bool
-        }
-
-        class StreamBroadcaster {
-            - subscribers : Dict
-            + subscribe(camera_id, websocket) void
-            + unsubscribe(camera_id, websocket) void
-            + broadcast_frame(frame) int
-            + get_subscriber_count(camera_id) int
-            + close_all(camera_id) void
-        }
-
-        class CameraStreamReader {
-            - camera_id : UUID
-            - stream_url : String
-            - config : StreamConfig
-            + open() bool
-            + read_frame_async() Tuple
-            + close() void
-        }
-
-        class FFmpegStreamReader {
-            - camera_id : UUID
-            - stream_url : String
-            - config : StreamConfig
-            + open_async() bool
-            + read_frame_async() Tuple
-            + close() void
-        }
-
-        class FrameEncoder {
-            - quality : int
-            + encode_jpeg(frame) bytes
-            + encode_png(frame) bytes
-            + encode(frame, encoding) bytes
-        }
-
-        class JWTHandler {
-            - secret_key : String
-            - algorithm : String
-            + verify_token(token) Dict
-            + get_user_id(token) UUID
-            + get_user_email(token) String
-        }
+    class ViewerSession {
+        +String id
+        +String cameraId
+        +String userId
+        +String transportId
+        +String videoConsumerId
+        +String audioConsumerId
+        +ViewerState state
+        +Date connectedAt
+        +Date lastActiveAt
+        +markConnected()
+        +markDisconnected()
+        +pause()
     }
 
-    namespace APILayer {
-        class StreamController {
-            + start_stream(request) StreamSessionResponse
-            + stop_stream(request) StreamSessionResponse
-            + get_stream_status(camera_id) StreamStatusResponse
-            + list_active_streams() ActiveStreamsResponse
-        }
+    class ViewerState {
+        <<enumeration>>
+        CONNECTING
+        CONNECTED
+        PAUSED
+        DISCONNECTED
     }
 
-    %% ── Domain internal relationships ──
-    StreamSession --> StreamStatus : has
-    VideoFrame --> FrameEncoding : has
+    class Camera {
+        +String id
+        +String name
+        +String streamUrl
+        +CameraStatus status
+        +String protocol
+    }
 
-    %% ── Infrastructure implements Domain ──
-    SQLAlchemyStreamSessionRepository ..|> StreamSessionRepositoryInterface : implements
+    %% ─── Service Interfaces (Ports) ───
+    class ISFUService {
+        <<interface>>
+        +init()
+        +getRouterRtpCapabilities(cameraId) RtpCapabilities
+        +ingestCamera(cameraId, rtspUrl, opts) IngestResult
+        +stopIngest(cameraId)
+        +createViewerTransport(cameraId) WebRtcTransportParams
+        +connectViewerTransport(cameraId, transportId, dtlsParameters)
+        +createConsumer(cameraId, transportId, producerId, rtpCapabilities) ConsumerParams
+        +resumeConsumer(cameraId, consumerId)
+        +closeViewerTransport(cameraId, transportId)
+        +isIngesting(cameraId) boolean
+        +getStats(cameraId) Object
+        +shutdown()
+    }
 
-    %% ── Infrastructure compositions & aggregations ──
-    StreamManager *-- StreamBroadcaster
-    StreamManager *-- FrameEncoder
-    StreamManager o-- "0..*" CameraStreamReader : creates
-    StreamManager o-- "0..*" FFmpegStreamReader : creates
+    class ICameraService {
+        <<interface>>
+        +getCameraDetails(cameraId, token) Camera
+        +validateAccess(cameraId, userId, token) boolean
+    }
 
-    %% ── Infrastructure → Domain dependencies ──
-    StreamManager --> StreamSessionRepositoryInterface : uses
-    StreamBroadcaster ..> VideoFrame : broadcasts
-    CameraStreamReader --> StreamConfig : uses
-    FFmpegStreamReader --> StreamConfig : uses
+    class IAuthService {
+        <<interface>>
+        +validateToken(token) TokenPayload
+    }
 
-    %% ── Application → Domain dependencies ──
-    StartStreamUseCase --> StreamSessionRepositoryInterface : uses
-    StopStreamUseCase --> StreamSessionRepositoryInterface : uses
-    GetStreamStatusUseCase --> StreamSessionRepositoryInterface : uses
-    ListActiveStreamsUseCase --> StreamSessionRepositoryInterface : uses
+    %% ─── Repository Interfaces ───
+    class IStreamSessionRepository {
+        <<interface>>
+        +save(StreamSession) StreamSession
+        +getById(id) StreamSession
+        +getByCameraId(cameraId) StreamSession
+        +getAll() List~StreamSession~
+        +remove(id)
+    }
 
-    %% ── API → Application & Infrastructure ──
-    StreamController --> StartStreamUseCase : uses
-    StreamController --> StopStreamUseCase : uses
-    StreamController --> GetStreamStatusUseCase : uses
-    StreamController --> ListActiveStreamsUseCase : uses
-    StreamController --> JWTHandler : authenticates
-    StreamController --> StreamManager : manages
+    class IViewerSessionRepository {
+        <<interface>>
+        +save(ViewerSession) ViewerSession
+        +get(id) ViewerSession
+        +getByCamera(cameraId) List~ViewerSession~
+        +getByUser(userId) List~ViewerSession~
+        +remove(id)
+        +removeByCamera(cameraId)
+    }
+
+    %% ─── Use Cases ───
+    class StartStreamUseCase {
+        -StreamManager streamManager
+        -ICameraService cameraService
+        +execute(request) StreamSession
+    }
+
+    class StopStreamUseCase {
+        -StreamManager streamManager
+        +execute(request) StreamSession
+    }
+
+    class GetStreamStatusUseCase {
+        -StreamManager streamManager
+        +execute(cameraId) StreamStatusResponse
+    }
+
+    class ListActiveStreamsUseCase {
+        -StreamManager streamManager
+        +execute() ActiveStreamsResponse
+    }
+
+    class NegotiateViewerUseCase {
+        -StreamManager streamManager
+        -ICameraService cameraService
+        +ensureStreamAndGetCapabilities(cameraId, rtspUrl) Object
+        +createTransport(cameraId) WebRtcTransportParams
+        +connectTransport(cameraId, transportId, dtlsParameters)
+        +consume(cameraId, transportId, producerId, rtpCapabilities) ConsumerParams
+        +resumeConsumer(cameraId, consumerId)
+        +disconnect(cameraId, transportId)
+    }
+
+    %% ─── Infrastructure ───
+    class MediasoupSFU {
+        -List~Worker~ workers
+        -Map~String,CameraRouter~ cameraRouters
+        +init()
+        +ingestCamera(cameraId, rtspUrl, opts) IngestResult
+        +createViewerTransport(cameraId) WebRtcTransportParams
+        +createConsumer(...) ConsumerParams
+        +shutdown()
+    }
+
+    class StreamManager {
+        -IStreamSessionRepository sessionRepo
+        -ISFUService sfu
+        +startStream(cameraId, url, userId, opts) StreamSession
+        +stopStream(cameraId) StreamSession
+        +getRealTimeInfo(cameraId) RealTimeInfo
+        +getIceServers() List~IceServer~
+        +stopAll()
+    }
+
+    class InMemoryStreamSessionRepository
+    class InMemoryViewerSessionRepository
+    class JwtAuthService
+    class HttpCameraService
+
+    %% ─── Relationships ───
+    StreamSession --> StreamStatus
+    ViewerSession --> ViewerState
+    StreamSession "1" --> "*" ViewerSession : viewers
+
+    MediasoupSFU ..|> ISFUService
+    InMemoryStreamSessionRepository ..|> IStreamSessionRepository
+    InMemoryViewerSessionRepository ..|> IViewerSessionRepository
+    JwtAuthService ..|> IAuthService
+    HttpCameraService ..|> ICameraService
+
+    StreamManager --> IStreamSessionRepository
+    StreamManager --> ISFUService
+    StartStreamUseCase --> StreamManager
+    StartStreamUseCase --> ICameraService
+    StopStreamUseCase --> StreamManager
+    GetStreamStatusUseCase --> StreamManager
+    ListActiveStreamsUseCase --> StreamManager
+    NegotiateViewerUseCase --> StreamManager
+    NegotiateViewerUseCase --> ICameraService
 ```

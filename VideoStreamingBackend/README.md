@@ -1,84 +1,107 @@
-# Video Streaming Service — VigileEye
+# Video Streaming Backend (Node.js)
 
-Real-time video streaming microservice for the VigileEye security platform.
-
-## Overview
-
-The Video Streaming Service handles:
-- Ingesting live video streams from cameras (RTSP/HTTP)
-- Managing stream sessions
-- Extracting and encoding frames
-- Delivering real-time video via WebSocket to frontend and AI services
+Production-ready video streaming service for VigileEye. Pulls RTSP/HTTP camera streams via FFmpeg and distributes JPEG frames to viewers via WebSocket (primary) and HTTP polling (fallback).
 
 ## Architecture
 
 ```
-Camera Mgmt Service
-       |
-       |  (stream_url)
-       v
-Video Streaming Service (port 8003)
-       |              |
-       | frames       | live frames
-       v              v
-AI Service        Frontend (WebSocket)
+┌─────────────────────────────────────────────────────────────┐
+│  API Layer (Express + WebSocket)                            │
+│  ├── REST: /api/v1/streams/*   (start/stop/status/frame)   │
+│  └── WS:  /ws/stream/:id      (real-time binary JPEG)      │
+├─────────────────────────────────────────────────────────────┤
+│  Application Layer (Use Cases)                              │
+│  ├── StartStream    ├── StopStream                          │
+│  ├── GetStreamStatus└── ListActiveStreams                   │
+├─────────────────────────────────────────────────────────────┤
+│  Domain Layer (Entities, Errors, Ports)                     │
+│  ├── StreamSession  ├── Camera                              │
+│  └── Repository / Service interfaces                        │
+├─────────────────────────────────────────────────────────────┤
+│  Infrastructure Layer                                       │
+│  ├── FFmpegProcess (RTSP → JPEG frames via child process)   │
+│  ├── StreamManager (lifecycle, reconnect, fan-out)          │
+│  ├── JwtAuthService (validates Auth service tokens)         │
+│  ├── HttpCameraService (calls Camera Mgmt FastAPI)          │
+│  └── InMemoryStreamSessionRepository                        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Ports
+- **8003** — HTTP + WebSocket
+
+## Integration Points
+| Service | Port | Purpose |
+|---------|------|---------|
+| Auth Backend | 8000 | JWT validation (shared secret) |
+| Camera Management | 8002 | Fetch camera details & stream URLs |
+| Frontend | 3000 | WebSocket/HTTP frame consumer |
+
+## Quick Start
+
+```bash
+npm install
+npm run build
+npm start           # production
+npm run dev         # development with hot-reload
+npm test            # run unit tests
 ```
 
 ## API Endpoints
 
-### REST (Control Plane)
-- `POST /api/v1/streams/start` — Start a stream session
-- `POST /api/v1/streams/stop` — Stop a stream session
-- `GET /api/v1/streams/status/{camera_id}` — Get stream status
-- `GET /api/v1/streams/active` — List active streams
+### REST (requires `Authorization: Bearer <token>`)
 
-### WebSocket (Data Plane)
-- `/ws/stream/{camera_id}` — Live video frames (JPEG) for frontend
-- `/ws/frames/{camera_id}` — Raw frames for AI service
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/v1/streams/start` | Start streaming a camera |
+| POST | `/api/v1/streams/stop` | Stop streaming a camera |
+| GET | `/api/v1/streams/status/:id` | Get stream status |
+| GET | `/api/v1/streams/active` | List all active streams |
+| GET | `/api/v1/streams/frame/:id` | Get latest JPEG frame (HTTP polling) |
 
-## Setup
+### WebSocket
 
-1. Create virtual environment:
+| Path | Description |
+|------|-------------|
+| `/ws/stream/:cameraId?token=<JWT>` | Real-time binary JPEG frames |
+| `/ws/frames/:cameraId?token=<JWT>` | Same as above (alias) |
+
+## Docker
+
 ```bash
-python -m venv venv
-source venv/bin/activate
-```
+# CPU (default)
+docker build -t videostreaming .
 
-2. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+# GPU (NVIDIA)
+docker build -f Dockerfile.gpu -t videostreaming-gpu .
 
-3. Configure environment:
-```bash
-cp .env.example .env
-# Edit .env with your settings
-```
-
-4. Run database migrations:
-```bash
-alembic upgrade head
-```
-
-5. Start the server:
-```bash
-uvicorn main:app --host 0.0.0.0 --port 8003 --reload
+# Run
+docker run -p 8003:8003 --env-file .env videostreaming
 ```
 
 ## Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| DATABASE_URL | PostgreSQL connection string | - |
-| JWT_SECRET | Must match Auth service | - |
-| JWT_ALGORITHM | Token algorithm | HS256 |
-| DEFAULT_FPS | Default frames per second | 15 |
-| FRAME_QUALITY | JPEG quality (1-100) | 85 |
+See `.env.example` for all options. Key variables:
 
-## Technologies
+- `JWT_SECRET_KEY` — Must match the Auth service
+- `CAMERA_SERVICE_URL` — Camera Management backend URL  
+- `FFMPEG_PATH` — Path to FFmpeg binary
+- `DEFAULT_FPS` — Default frame rate (15)
 
-- FastAPI (async REST + WebSocket)
-- OpenCV (video decoding)
-- SQLAlchemy + Alembic (persistence)
-- WebSockets (real-time transport)
-- JWT (authentication)
+## How Streaming Works
+
+1. Client requests stream via REST (`POST /streams/start`) or auto-start via frame endpoint / WebSocket
+2. Service fetches camera details (stream_url) from Camera Management service
+3. FFmpeg child process pulls RTSP/HTTP stream, outputs MJPEG frames to stdout
+4. StreamManager extracts individual JPEG frames from the FFmpeg output
+5. Frames are distributed to all connected WebSocket viewers in real-time
+6. HTTP polling endpoint serves the latest frame for fallback/thumbnails
+7. Auto-reconnection with exponential backoff if camera disconnects
+
+## Performance
+
+- Sub-second latency via WebSocket binary frames
+- One FFmpeg process per camera (shared across viewers)
+- Automatic reconnection (configurable max attempts)
+- Rate-limited API endpoints
+- Graceful shutdown with stream cleanup

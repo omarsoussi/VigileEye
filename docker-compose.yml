@@ -1,47 +1,172 @@
+########################################################
+# VigileEye – Docker Compose (all services, Neon DB)
+########################################################
+
+# ---------- shared variables (anchors) -----------------
+x-neon-host: &neon-host "ep-restless-firefly-agyxskdr-pooler.c-2.eu-central-1.aws.neon.tech"
+x-neon-user: &neon-user "neondb_owner"
+x-neon-pass: &neon-pass "npg_JlMpDFoa34rL"
+x-jwt-secret: &jwt-secret "your-super-secret-jwt-key-change-in-production-min-32-chars"
+x-jwt-algo:   &jwt-algo   "HS256"
+
+networks:
+  vigileeye-network:
+    driver: bridge
+
 services:
+  # ───────────────── Auth Backend (port 8000) ─────────────────
   backend:
     build:
       context: ./Backend
       dockerfile: Dockerfile
     env_file:
       - ./Backend/.env
+    environment:
+      DATABASE_URL: "postgresql+pg8000://neondb_owner:npg_JlMpDFoa34rL@ep-restless-firefly-agyxskdr-pooler.c-2.eu-central-1.aws.neon.tech/CameraMonitoringDB"
+      PGSSLMODE: require
+      JWT_SECRET_KEY: *jwt-secret
+      JWT_ALGORITHM: *jwt-algo
+      PORT: "8000"
+      FRONTEND_URL: "http://localhost:3000"
     ports:
       - "8000:8000"
+    networks:
+      - vigileeye-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     restart: unless-stopped
 
+  # ───────────────── Camera Management (port 8002) ────────────
   cameramanagement:
     build:
       context: ./CameraManagementBackend
       dockerfile: Dockerfile
     env_file:
       - ./CameraManagementBackend/.env
+    environment:
+      DATABASE_URL: "postgresql+pg8000://neondb_owner:npg_JlMpDFoa34rL@ep-restless-firefly-agyxskdr-pooler.c-2.eu-central-1.aws.neon.tech/CMcamerasMgmt"
+      PGSSLMODE: require
+      JWT_SECRET_KEY: *jwt-secret
+      JWT_ALGORITHM: *jwt-algo
+      PORT: "8002"
+      FRONTEND_URL: "http://localhost:3000"
+      MEMBERS_SERVICE_URL: "http://membersinvitation:8001"
+      MEMBERS_SERVICE_TIMEOUT_SECONDS: "2.0"
     ports:
       - "8002:8002"
+    networks:
+      - vigileeye-network
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     restart: unless-stopped
 
+  # ───────────────── Members Invitation (port 8001) ───────────
   membersinvitation:
     build:
       context: ./MembersInvitationBackend
       dockerfile: Dockerfile
     env_file:
       - ./MembersInvitationBackend/.env
+    environment:
+      DATABASE_URL: "postgresql+pg8000://neondb_owner:npg_JlMpDFoa34rL@ep-restless-firefly-agyxskdr-pooler.c-2.eu-central-1.aws.neon.tech/CMmembers"
+      PGSSLMODE: require
+      JWT_SECRET_KEY: *jwt-secret
+      JWT_ALGORITHM: *jwt-algo
+      PORT: "8001"
+      SMTP_HOST: "smtp.gmail.com"
+      SMTP_PORT: "587"
+      SMTP_USERNAME: "soussiomar213@gmail.com"
+      SMTP_PASSWORD: "hmjc gimq uayg zayc"
+      SMTP_FROM_EMAIL: "soussiomar213@gmail.com"
+      SMTP_FROM_NAME: "VigileEye"
+      FRONTEND_URL: "http://localhost:3000"
     ports:
       - "8001:8001"
+    networks:
+      - vigileeye-network
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     restart: unless-stopped
 
+  # ───────────────── Video Streaming (port 8003) ──────────────
   videostreaming:
     build:
       context: ./VideoStreamingBackend
       dockerfile: Dockerfile
     env_file:
       - ./VideoStreamingBackend/.env
+    environment:
+      PORT: "8003"
+      NODE_ENV: production
+      JWT_SECRET_KEY: *jwt-secret
+      JWT_ALGORITHM: *jwt-algo
+      CAMERA_SERVICE_URL: "http://cameramanagement:8002"
+      AUTH_SERVICE_URL: "http://backend:8000"
     ports:
       - "8003:8003"
+    networks:
+      - vigileeye-network
+    depends_on:
+      backend:
+        condition: service_healthy
+      cameramanagement:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "const h=require('http');h.get('http://localhost:8003/health',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
     restart: unless-stopped
 
+  # ───────────────── React Frontend (port 3000) ───────────────
   front:
     build:
       context: ./Front/SecurityFront
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_API_URL: "http://localhost:8000/api/v1"
+        REACT_APP_MEMBERS_API_URL: "http://localhost:8001/api/v1"
+        REACT_APP_CAMERAS_API_URL: "http://localhost:8002/api/v1"
+        REACT_APP_STREAMING_API_URL: "http://localhost:8003"
+        REACT_APP_STREAMING_WS_URL: "ws://localhost:8003/ws"
     ports:
       - "3000:3000"
+    networks:
+      - vigileeye-network
+    depends_on:
+      backend:
+        condition: service_healthy
+      cameramanagement:
+        condition: service_healthy
+      membersinvitation:
+        condition: service_healthy
+      videostreaming:
+        condition: service_healthy
     restart: unless-stopped

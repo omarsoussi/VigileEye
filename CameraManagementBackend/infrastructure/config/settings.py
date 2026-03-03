@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
     
     model_config = SettingsConfigDict(
-        env_file=(".env", "../Backend/.env"),
+        env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore"
     )
@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     debug: bool = Field(default=True, alias="DEBUG")
     port: int = Field(default=8002, alias="PORT")
     frontend_url: str = Field(default="http://localhost:3000", alias="FRONTEND_URL")
+
+    # External services
+    # When empty, membership-based sharing is disabled and only owner/camera_access rules apply.
+    members_service_url: str = Field(default="", alias="MEMBERS_SERVICE_URL")
+    members_service_timeout_seconds: float = Field(default=2.0, alias="MEMBERS_SERVICE_TIMEOUT_SECONDS")
 
 
 @lru_cache()

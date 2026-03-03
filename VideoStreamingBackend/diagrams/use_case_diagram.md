@@ -1,56 +1,69 @@
-# Use Case Diagram — Video Streaming Microservice
+# Video Streaming Service — Use Case Diagram
 
 ```mermaid
-flowchart LR
+graph LR
+    %% Actors
+    Owner((Camera Owner))
+    Viewer((Viewer))
+    System((System / FFmpeg))
 
-    %% ══════════ Primary Actors (left) ══════════
-    Operator(("👤 Operator"))
-    Viewer(("👁 Viewer"))
-
-    %% ══════════ System Boundary ══════════
-    subgraph sys ["🖥️ VigileEye — Video Streaming Service"]
+    %% Use Cases
+    subgraph Video Streaming Service
         direction TB
-
-        UC1(["Start Video Stream"])
-        UC2(["Stop Video Stream"])
-        UC3(["View Stream Status"])
-        UC4(["List Active Streams"])
-        UC5(["Watch Live Video Feed"])
-        UC6(["Authenticate User"])
-        UC7(["Configure Stream Settings"])
-        UC8(["Monitor Stream Health"])
-        UC9(["Resolve Stream URL"])
-        UC10(["Auto-Reconnect Stream"])
+        subgraph Stream Management
+            UC1[Start Camera Ingest]
+            UC2[Stop Camera Ingest]
+            UC3[Get Stream Status]
+            UC4[List Active Streams]
+            UC5[Probe Stream URL]
+            UC6[Get Real-Time Stats]
+            UC7[Get ICE Servers]
+        end
+        subgraph WebRTC Viewer Negotiation
+            UC8[Connect Signaling WS]
+            UC9[Load Router Capabilities]
+            UC10[Create WebRTC Transport]
+            UC11[Connect Transport DTLS]
+            UC12[Consume Video Track]
+            UC13[Consume Audio Track]
+            UC14[Resume Consumer]
+            UC15[Disconnect Viewer]
+        end
+        subgraph SFU / Infrastructure
+            UC16[Create mediasoup Worker Pool]
+            UC17[Ingest RTSP via FFmpeg]
+            UC18[Produce RTP to Router]
+            UC19[Auto-Reconnect FFmpeg]
+            UC20[Recover Worker on Crash]
+        end
     end
 
-    %% ══════════ Secondary Actors (right) ══════════
-    AuthService(("🔐 Auth\nService"))
-    CameraSource(("📹 Camera\nSource"))
+    %% Owner relationships
+    Owner --> UC1
+    Owner --> UC2
+    Owner --> UC3
+    Owner --> UC4
+    Owner --> UC5
+    Owner --> UC6
+    Owner --> UC7
 
-    %% ══════════ Actor ↔ Use Case Associations ══════════
-    Operator --- UC1
-    Operator --- UC2
-    Operator --- UC3
-    Operator --- UC4
+    %% Viewer relationships
+    Viewer --> UC3
+    Viewer --> UC6
+    Viewer --> UC7
+    Viewer --> UC8
+    Viewer --> UC9
+    Viewer --> UC10
+    Viewer --> UC11
+    Viewer --> UC12
+    Viewer --> UC13
+    Viewer --> UC14
+    Viewer --> UC15
 
-    Viewer --- UC5
-    Viewer --- UC3
-
-    %% ══════════ External Actor Associations ══════════
-    UC6 --- AuthService
-    UC1 --- CameraSource
-    UC5 --- CameraSource
-
-    %% ══════════ «include» relationships ══════════
-    UC1 -.->|"«include»"| UC6
-    UC2 -.->|"«include»"| UC6
-    UC3 -.->|"«include»"| UC6
-    UC4 -.->|"«include»"| UC6
-    UC5 -.->|"«include»"| UC6
-    UC1 -.->|"«include»"| UC9
-
-    %% ══════════ «extend» relationships ══════════
-    UC7 -.->|"«extend»"| UC1
-    UC8 -.->|"«extend»"| UC3
-    UC10 -.->|"«extend»"| UC1
+    %% System relationships
+    System --> UC16
+    System --> UC17
+    System --> UC18
+    System --> UC19
+    System --> UC20
 ```

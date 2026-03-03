@@ -1,12 +1,34 @@
-FROM python:3.11-slim
+FROM node:20-slim
+
 WORKDIR /app
-ENV PYTHONUNBUFFERED=1
 
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential gcc libpq-dev ffmpeg && rm -rf /var/lib/apt/lists/*
+# Install FFmpeg + mediasoup build dependencies (C++ worker compilation)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      ffmpeg \
+      python3 \
+      python3-pip \
+      build-essential \
+      pkg-config \
+    && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+# Install dependencies (mediasoup compiles C++ workers during npm install)
+COPY package.json ./
+RUN npm install --production=false
 
-COPY . .
+# Copy source
+COPY tsconfig.json ./
+COPY src/ src/
+
+# Build TypeScript
+RUN npx tsc
+
+# Remove dev dependencies for smaller image
+# Keep build artifacts (mediasoup worker binaries are in node_modules)
+RUN npm prune --production
+
+# mediasoup uses UDP ports for RTP media
 EXPOSE 8003
-CMD ["sh", "-c", "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port ${PORT:-8003}"]
+EXPOSE 40000-40100/udp
+
+CMD ["node", "dist/main.js"]

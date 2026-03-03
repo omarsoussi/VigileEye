@@ -3,11 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTheme } from '../../contexts/ThemeContext';
 import { GlassCard, AnimatedButton } from '../../components/GlassCard';
-import { streamingApi, CameraWithPermission } from '../../services/api';
+import { streamingApi, zonesApi, tokenStorage, CameraWithPermission, ZoneResponse, ZoneType, ZoneSeverity } from '../../services/api';
+import { ZoneDrawingCanvas } from '../../components/ZoneDrawingCanvas';
 import { useAllCameras } from '../../hooks/useAllCameras';
 import { LiveStreamPlayer } from '../../components/LiveStreamPlayer';
-import { useVideoStream } from '../../hooks/useVideoStream';
-import { 
+import WebRTCPlayer from '../../components/WebRTCPlayer';
+import { useAudioStream } from '../../hooks/useAudioStream';
+import { useWebRTCStream } from '../../hooks/useWebRTCStream';
+import {  
   HiOutlineArrowLeft,
   HiOutlineDotsVertical,
   HiOutlineVideoCamera,
@@ -33,9 +36,11 @@ import {
   HiOutlineFilter,
   HiOutlineTrash,
   HiOutlinePencil,
+  HiOutlineCheck,
 } from 'react-icons/hi';
 import { BsCircleFill, BsRecordCircle, BsGrid3X3Gap, BsList } from 'react-icons/bs';
-import { RiFullscreenLine, RiFullscreenExitLine } from 'react-icons/ri';
+import { RiFullscreenLine, RiFullscreenExitLine, RiShieldCheckLine } from 'react-icons/ri';
+import { BsShieldExclamation } from 'react-icons/bs';
 
 // ─── Custom View Groups (localStorage) ────────────────────────────────
 interface ViewGroup {
@@ -63,7 +68,8 @@ const getCameraDisplayStatus = (
   recordingCameraIds?: ReadonlySet<string>
 ): 'live' | 'offline' | 'recording' => {
   if (!camera.is_active) return 'offline';
-  if (camera.status !== 'online') return 'offline';
+  // Don't gate on camera.status — it's often stale in the DB.
+  // Let the actual stream connection determine reachability.
   if (recordingCameraIds?.has(camera.id)) return 'recording';
   return 'live';
 };
@@ -85,22 +91,25 @@ const CameraThumbnail: React.FC<{
 }> = ({ camera, isOffline, height }) => {
   const { colors, preferences } = useTheme();
   const isDark = preferences.mode === 'dark';
+  const authToken = tokenStorage.getAccessToken() || '';
   
-  const { frameUrl, connect, connectionState, error } = useVideoStream({
-    camera,
-    autoConnect: !isOffline, // Auto-connect only if camera is online
+  const { state } = useWebRTCStream({
+    cameraId: camera.id,
+    authToken,
+    autoConnect: camera.is_active !== false,
   });
 
-  // Show frame if available
-  if (frameUrl && connectionState === 'connected') {
+  // Show image if connected (HTTP streaming uses frameUrl)
+  if (state.frameUrl) {
     return (
       <img
-        src={frameUrl}
+        src={state.frameUrl}
         alt={camera.name}
         style={{
           width: '100%',
           height: '100%',
           objectFit: 'cover',
+          display: 'block',
         }}
       />
     );
@@ -111,30 +120,21 @@ const CameraThumbnail: React.FC<{
     if (isOffline) {
       return { text: 'Offline', icon: <HiOutlineExclamationCircle size={20} style={{ color: colors.textSecondary }} /> };
     }
-    switch (connectionState) {
-      case 'connecting':
-        return { text: 'Connecting...', icon: (
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-          >
-            <HiOutlineRefresh size={24} style={{ color: colors.accent }} />
-          </motion.div>
-        )};
-      case 'error':
-        return { text: error || 'Stream Error', icon: <HiOutlineExclamationCircle size={24} style={{ color: '#ef4444' }} /> };
-      case 'connected':
-        return { text: 'Loading stream...', icon: (
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-          >
-            <HiOutlineRefresh size={20} style={{ color: colors.accent }} />
-          </motion.div>
-        )};
-      default:
-        return { text: 'Tap to connect', icon: <HiOutlineVideoCamera size={28} style={{ opacity: 0.5, color: colors.textSecondary }} /> };
+    if (state.error) {
+      return { text: state.error || 'Stream Error', icon: <HiOutlineExclamationCircle size={24} style={{ color: '#ef4444' }} /> };
     }
+    if (state.isConnected && !state.hasFrames) {
+      return { text: 'No Signal', icon: <HiOutlineVideoCamera size={24} style={{ color: '#f59e0b' }} /> };
+    }
+    // Auto-connecting or waiting for first frame — always show spinner
+    return { text: 'Connecting...', icon: (
+      <motion.div
+        animate={{ rotate: 360 }}
+        transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+      >
+        <HiOutlineRefresh size={24} style={{ color: colors.accent }} />
+      </motion.div>
+    )};
   };
 
   const statusInfo = getStatusInfo();
@@ -1005,18 +1005,37 @@ const CameraDetail: React.FC<{
   const navigate = useNavigate();
   const isDark = preferences.mode === 'dark';
   const [isPlaying, setIsPlaying] = useState(true);
-  const [isMuted, setIsMuted] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showPTZControls, setShowPTZControls] = useState(false);
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Zone state (read-only for display)
+  const [existingZones, setExistingZones] = useState<ZoneResponse[]>([]);
   
   const currentIndex = cameras.findIndex(c => c.id === camera.id);
   const status = getCameraDisplayStatus(camera, recordingCameraIds);
   const isRecording = recordingCameraIds.has(camera.id);
 
-  // Use the video stream hook for snapshot functionality
-  const { frameUrl } = useVideoStream({ camera, autoConnect: true });
+  // Use WebRTC stream hook for video + latency stats
+  const authToken = tokenStorage.getAccessToken() || '';
+  const { videoRef: detailVideoRef, state: streamState } = useWebRTCStream({ 
+    cameraId: camera.id, 
+    authToken, 
+    autoConnect: true 
+  });
+
+  // Audio stream hook
+  const {
+    isMuted: audioMuted,
+    volume: audioVolume,
+    isAvailable: audioAvailable,
+    isPlaying: audioIsPlaying,
+    connect: connectAudio,
+    disconnect: disconnectAudio,
+    toggleMute: toggleAudioMute,
+    setVolume: setAudioVolume,
+  } = useAudioStream({ camera, autoConnect: false });
 
   const handlePrevCamera = () => {
     if (currentIndex > 0) {
@@ -1068,27 +1087,46 @@ const CameraDetail: React.FC<{
     };
   }, []);
 
-  // Snapshot handler
+  // Snapshot handler - capture from WebRTC video element
   const handleSnapshot = () => {
-    if (!frameUrl) {
-      alert('No frame available to capture');
+    if (!detailVideoRef.current || !streamState.isConnected) {
+      alert('No video available to capture');
       return;
     }
     
-    // Create a temporary link to download the current frame
-    const link = document.createElement('a');
-    link.href = frameUrl;
-    link.download = `${camera.name}_snapshot_${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    // Show feedback
-    const feedback = document.createElement('div');
-    feedback.innerText = '📸 Snapshot saved!';
-    feedback.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.8);color:white;padding:20px 40px;border-radius:12px;font-size:18px;z-index:9999;';
-    document.body.appendChild(feedback);
-    setTimeout(() => feedback.remove(), 1500);
+    try {
+      // Capture current video frame to canvas
+      const video = detailVideoRef.current;
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0);
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${camera.name}_snapshot_${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            // Show feedback
+            const feedback = document.createElement('div');
+            feedback.innerText = '📸 Snapshot saved!';
+            feedback.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.8);color:white;padding:20px 40px;border-radius:12px;font-size:18px;z-index:9999;';
+            document.body.appendChild(feedback);
+            setTimeout(() => feedback.remove(), 1500);
+          }
+        }, 'image/jpeg', 0.95);
+      }
+    } catch (err) {
+      console.error('Snapshot error:', err);
+      alert('Failed to capture snapshot');
+    }
   };
 
   // Recording handler
@@ -1121,6 +1159,25 @@ const CameraDetail: React.FC<{
     setShowPTZControls(!showPTZControls);
   };
 
+  // Zone handlers
+  const fetchCameraZones = useCallback(async () => {
+    try {
+      const zones = await zonesApi.listCameraZones(camera.id);
+      setExistingZones(zones);
+    } catch (err) {
+      console.error('Failed to fetch zones:', err);
+    }
+  }, [camera.id]);
+
+  useEffect(() => {
+    fetchCameraZones();
+  }, [fetchCameraZones]);
+
+  // Navigate to zones page to define a new zone for this camera
+  const handleDefineZone = () => {
+    navigate(`/zones?camera=${camera.id}`);
+  };
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -1132,18 +1189,19 @@ const CameraDetail: React.FC<{
         style={{
         position: 'relative',
         width: '100%',
-        height: '60vh',
-        minHeight: '300px',
+        aspectRatio: '16 / 9',
+        maxHeight: '70vh',
       }}>
-        {/* Live Stream Player */}
-        <LiveStreamPlayer
-          camera={camera}
-          autoPlay={isPlaying}
-          showControls={false}
-          showOverlay={false}
-          aspectRatio="auto"
-          style={{ width: '100%', height: '100%', borderRadius: 0 }}
-        />
+        {/* WebRTC Live Stream Player */}
+        <div style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}>
+          <WebRTCPlayer
+            cameraId={camera.id}
+            authToken={tokenStorage.getAccessToken() || ''}
+            autoConnect={true}
+            showControls={false}
+            className="webrtc-fullscreen-player"
+          />
+        </div>
         
         {/* Top Controls */}
         <div style={{
@@ -1363,9 +1421,15 @@ const CameraDetail: React.FC<{
                 active: isRecording,
               },
               { 
-                icon: isMuted ? <HiOutlineVolumeOff size={22} /> : <HiOutlineVolumeUp size={22} />, 
-                label: isMuted ? 'Unmute' : 'Mute', 
-                onClick: () => setIsMuted(!isMuted),
+                icon: audioMuted ? <HiOutlineVolumeOff size={22} /> : <HiOutlineVolumeUp size={22} />, 
+                label: audioMuted ? 'Unmute' : 'Mute', 
+                onClick: () => {
+                  toggleAudioMute();
+                  // Connect audio on first unmute
+                  if (audioMuted && !audioIsPlaying) {
+                    connectAudio();
+                  }
+                },
               },
               { 
                 icon: isFullscreen ? <RiFullscreenExitLine size={22} /> : <RiFullscreenLine size={22} />, 
@@ -1405,6 +1469,36 @@ const CameraDetail: React.FC<{
               </motion.button>
             ))}
           </div>
+
+          {/* Volume Slider */}
+          {!audioMuted && (
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '10px', 
+              padding: '0 20px',
+              marginTop: '8px',
+            }}>
+              <HiOutlineVolumeOff size={16} style={{ color: 'rgba(255,255,255,0.6)' }} />
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={Math.round(audioVolume * 100)}
+                onChange={(e) => setAudioVolume(Number(e.target.value) / 100)}
+                style={{
+                  flex: 1,
+                  height: '4px',
+                  accentColor: '#22c55e',
+                  cursor: 'pointer',
+                }}
+              />
+              <HiOutlineVolumeUp size={16} style={{ color: 'rgba(255,255,255,0.6)' }} />
+              <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', minWidth: '30px', textAlign: 'center' }}>
+                {Math.round(audioVolume * 100)}%
+              </span>
+            </div>
+          )}
         </div>
       </div>
       
@@ -1437,7 +1531,7 @@ const CameraDetail: React.FC<{
         
         <div style={{
           display: 'grid',
-          gridTemplateColumns: `repeat(${camera.permission === 'reader' ? 2 : 4}, 1fr)`,
+          gridTemplateColumns: `repeat(${camera.permission === 'reader' ? 2 : 5}, 1fr)`,
           gap: '12px',
         }}>
           {[
@@ -1448,6 +1542,7 @@ const CameraDetail: React.FC<{
             { icon: <HiOutlineCloudDownload size={20} />, label: 'Download', color: '#22c55e', onClick: handleDownload },
             ...(camera.permission !== 'reader' ? [
               { icon: <HiOutlineShare size={20} />, label: 'Share', color: '#f59e0b', onClick: handleShare },
+              { icon: <RiShieldCheckLine size={20} />, label: 'Zones', color: '#ef4444', onClick: handleDefineZone },
             ] : []),
           ].map((action, index) => (
             <motion.button
@@ -1529,10 +1624,15 @@ const CameraDetail: React.FC<{
           </h4>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {[
-              { label: 'Resolution', value: camera.resolution || 'Unknown' },
-              { label: 'Frame Rate', value: camera.fps ? `${camera.fps} FPS` : 'Unknown' },
+              { label: 'Resolution', value: detailVideoRef.current ? `${detailVideoRef.current.videoWidth}x${detailVideoRef.current.videoHeight}` : (camera.resolution || 'Unknown') },
+              { label: 'FPS', value: streamState.fps > 0 ? `${streamState.fps}` : (camera.fps ? `${camera.fps}` : 'N/A') },
+              { label: 'Latency', value: streamState.latency ? `${streamState.latency}ms` : 'N/A' },
+              { label: 'Viewers', value: streamState.viewerCount > 0 ? `${streamState.viewerCount}` : 'N/A' },
+              { label: 'Audio', value: streamState.hasAudio ? 'Available' : 'No audio' },
               { label: 'Location', value: getCameraLocationString(camera) },
-              { label: 'Status', value: status.charAt(0).toUpperCase() + status.slice(1) },
+              { label: 'Status', value: streamState.hasFrames ? 'Streaming' : streamState.isConnected ? 'Connected (No Signal)' : streamState.isConnecting ? 'Connecting...' : status.charAt(0).toUpperCase() + status.slice(1) },
+              { label: 'Mode', value: streamState.mode === 'ws' ? 'WebSocket' : streamState.mode === 'http' ? 'HTTP Polling' : 'Disconnected' },
+              { label: 'Uptime', value: streamState.uptime ? `${Math.floor(streamState.uptime / 60)}m ${streamState.uptime % 60}s` : 'N/A' },
             ].map((detail, index) => (
               <div key={index} style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: '13px', color: colors.textMuted }}>{detail.label}</span>
@@ -1541,6 +1641,59 @@ const CameraDetail: React.FC<{
             ))}
           </div>
         </GlassCard>
+
+        {/* Existing Zones Summary */}
+        {existingZones.length > 0 && (
+          <GlassCard padding="16px" borderRadius="20px" style={{ marginTop: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <h4 style={{ fontSize: '15px', fontWeight: 600, color: colors.text }}>
+                Detection Zones ({existingZones.length})
+              </h4>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleDefineZone}
+                style={{
+                  padding: '4px 10px', borderRadius: '8px', border: 'none',
+                  background: 'rgba(239,68,68,0.1)', color: '#ef4444',
+                  fontSize: '11px', fontWeight: 600, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '4px',
+                }}
+              >
+                <HiOutlinePlus size={12} /> Add
+              </motion.button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {existingZones.slice(0, 5).map((zone) => (
+                <div key={zone.id} style={{
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  padding: '8px', borderRadius: '10px',
+                  background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)',
+                }}>
+                  <div style={{
+                    width: '8px', height: '8px', borderRadius: '50%',
+                    background: zone.is_active ? '#22c55e' : '#6b7280',
+                  }} />
+                  <span style={{ fontSize: '12px', fontWeight: 500, color: colors.text, flex: 1 }}>
+                    {zone.name}
+                  </span>
+                  <span style={{
+                    fontSize: '10px', padding: '1px 6px', borderRadius: '6px',
+                    background: `${zone.color}20`, color: zone.color, fontWeight: 600,
+                    textTransform: 'capitalize',
+                  }}>
+                    {zone.zone_type.replace('_', ' ')}
+                  </span>
+                </div>
+              ))}
+              {existingZones.length > 5 && (
+                <span style={{ fontSize: '11px', color: colors.textMuted, textAlign: 'center', paddingTop: '4px' }}>
+                  +{existingZones.length - 5} more zones
+                </span>
+              )}
+            </div>
+          </GlassCard>
+        )}
       </div>
     </div>
   );

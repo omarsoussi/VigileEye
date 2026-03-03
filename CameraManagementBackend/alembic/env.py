@@ -1,5 +1,6 @@
 """Alembic Environment Configuration."""
 import os
+import ssl
 import sys
 from logging.config import fileConfig
 
@@ -48,11 +49,17 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    """Run migrations in 'online' mode."""
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
+    """Run migrations in 'online' mode with SSL support."""
+    # Create SSL context for pg8000
+    ssl_context = ssl.create_default_context()
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE
+    
+    # Create engine directly using settings with SSL properly configured
+    connectable = create_engine(
+        settings.database_url,
         poolclass=pool.NullPool,
+        connect_args={"ssl_context": ssl_context}
     )
 
     with connectable.connect() as connection:

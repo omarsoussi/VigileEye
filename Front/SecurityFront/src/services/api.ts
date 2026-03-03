@@ -6,7 +6,7 @@
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
 const MEMBERS_API_BASE_URL = process.env.REACT_APP_MEMBERS_API_URL || 'http://localhost:8001/api/v1';
 const CAMERAS_API_BASE_URL = process.env.REACT_APP_CAMERAS_API_URL || 'http://localhost:8002/api/v1';
-const STREAMING_API_BASE_URL = process.env.REACT_APP_STREAMING_API_URL || 'http://localhost:8003/api/v1';
+const STREAMING_API_BASE_URL = process.env.REACT_APP_STREAMING_API_URL || 'http://localhost:8003';
 const STREAMING_WS_BASE_URL = process.env.REACT_APP_STREAMING_WS_URL || 'ws://localhost:8003/ws';
 
 // Types
@@ -309,6 +309,84 @@ export interface CameraHealthResponse {
 
 // Streaming service types
 export type StreamStatus = 'pending' | 'connecting' | 'active' | 'reconnecting' | 'stopped' | 'error';
+
+// ── Zone types ──────────────────────────────────────────────────────
+export type ZoneType = 'intrusion' | 'motion' | 'loitering' | 'line_cross' | 'crowd' | 'restricted' | 'counting';
+export type ZoneSeverity = 'low' | 'medium' | 'high' | 'critical';
+
+export interface ZonePointRequest {
+  x: number;
+  y: number;
+}
+
+export interface CreateZoneRequest {
+  camera_id: string;
+  name: string;
+  zone_type: ZoneType;
+  severity: ZoneSeverity;
+  points: ZonePointRequest[];
+  color: string;
+  description?: string;
+  sensitivity: number;
+  min_trigger_duration: number;
+  alert_cooldown: number;
+  schedule_enabled?: boolean;
+  schedule_start?: string;
+  schedule_end?: string;
+  schedule_days?: string;
+}
+
+export interface UpdateZoneRequest {
+  name?: string;
+  zone_type?: ZoneType;
+  severity?: ZoneSeverity;
+  points?: ZonePointRequest[];
+  color?: string;
+  description?: string;
+  is_active?: boolean;
+  sensitivity?: number;
+  min_trigger_duration?: number;
+  alert_cooldown?: number;
+  schedule_enabled?: boolean;
+  schedule_start?: string;
+  schedule_end?: string;
+  schedule_days?: string;
+}
+
+export interface ZonePointResponse {
+  x: number;
+  y: number;
+}
+
+export interface ZoneResponse {
+  id: string;
+  camera_id: string;
+  owner_user_id: string;
+  name: string;
+  zone_type: ZoneType;
+  severity: ZoneSeverity;
+  points: ZonePointResponse[];
+  color: string;
+  is_active: boolean;
+  description?: string;
+  sensitivity: number;
+  min_trigger_duration: number;
+  alert_cooldown: number;
+  schedule_enabled: boolean;
+  schedule_start?: string;
+  schedule_end?: string;
+  schedule_days?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ZoneStatsResponse {
+  total_zones: number;
+  active_zones: number;
+  zones_by_type: Record<string, number>;
+  zones_by_severity: Record<string, number>;
+  cameras_with_zones: number;
+}
 
 export interface StreamConfigRequest {
   fps?: number;
@@ -893,13 +971,99 @@ export const camerasApi = {
   },
 };
 
+// ── Zones API ───────────────────────────────────────────────────────
+export const zonesApi = {
+  /** Create a detection zone */
+  createZone: async (data: CreateZoneRequest): Promise<ZoneResponse> => {
+    const response = await authFetch(`${CAMERAS_API_BASE_URL}/zones`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<ZoneResponse>(response);
+  },
+
+  /** List all zones for the current user */
+  listZones: async (): Promise<ZoneResponse[]> => {
+    const response = await authFetch(`${CAMERAS_API_BASE_URL}/zones`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    return handleResponse<ZoneResponse[]>(response);
+  },
+
+  /** Get zone stats */
+  getStats: async (): Promise<ZoneStatsResponse> => {
+    const response = await authFetch(`${CAMERAS_API_BASE_URL}/zones/stats`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    return handleResponse<ZoneStatsResponse>(response);
+  },
+
+  /** List zones for a specific camera */
+  listCameraZones: async (cameraId: string): Promise<ZoneResponse[]> => {
+    const response = await authFetch(`${CAMERAS_API_BASE_URL}/zones/camera/${cameraId}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    return handleResponse<ZoneResponse[]>(response);
+  },
+
+  /** Get a single zone */
+  getZone: async (zoneId: string): Promise<ZoneResponse> => {
+    const response = await authFetch(`${CAMERAS_API_BASE_URL}/zones/${zoneId}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    return handleResponse<ZoneResponse>(response);
+  },
+
+  /** Update a zone */
+  updateZone: async (zoneId: string, data: UpdateZoneRequest): Promise<ZoneResponse> => {
+    const response = await authFetch(`${CAMERAS_API_BASE_URL}/zones/${zoneId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<ZoneResponse>(response);
+  },
+
+  /** Activate a zone */
+  activateZone: async (zoneId: string): Promise<ZoneResponse> => {
+    const response = await authFetch(`${CAMERAS_API_BASE_URL}/zones/${zoneId}/activate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    return handleResponse<ZoneResponse>(response);
+  },
+
+  /** Deactivate a zone */
+  deactivateZone: async (zoneId: string): Promise<ZoneResponse> => {
+    const response = await authFetch(`${CAMERAS_API_BASE_URL}/zones/${zoneId}/deactivate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    return handleResponse<ZoneResponse>(response);
+  },
+
+  /** Delete a zone */
+  deleteZone: async (zoneId: string): Promise<MessageResponse> => {
+    const response = await authFetch(`${CAMERAS_API_BASE_URL}/zones/${zoneId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    return handleResponse<MessageResponse>(response);
+  },
+};
+
 // Video Streaming API
 export const streamingApi = {
   /**
    * Start streaming from a camera
    */
   startStream: async (data: StartStreamRequest): Promise<StreamSessionResponse> => {
-    const response = await authFetch(`${STREAMING_API_BASE_URL}/streams/start`, {
+    const response = await authFetch(`${STREAMING_API_BASE_URL}/api/v1/streams/start`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -914,7 +1078,7 @@ export const streamingApi = {
    * Stop streaming from a camera
    */
   stopStream: async (cameraId: string): Promise<StreamSessionResponse> => {
-    const response = await authFetch(`${STREAMING_API_BASE_URL}/streams/stop`, {
+    const response = await authFetch(`${STREAMING_API_BASE_URL}/api/v1/streams/stop`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -929,7 +1093,7 @@ export const streamingApi = {
    * Get stream status for a camera
    */
   getStreamStatus: async (cameraId: string): Promise<StreamStatusResponse> => {
-    const response = await authFetch(`${STREAMING_API_BASE_URL}/streams/status/${cameraId}`, {
+    const response = await authFetch(`${STREAMING_API_BASE_URL}/api/v1/streams/status/${cameraId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -943,7 +1107,7 @@ export const streamingApi = {
    * List all active streams
    */
   listActiveStreams: async (): Promise<ActiveStreamsResponse> => {
-    const response = await authFetch(`${STREAMING_API_BASE_URL}/streams/active`, {
+    const response = await authFetch(`${STREAMING_API_BASE_URL}/api/v1/streams/active`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
