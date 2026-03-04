@@ -1,9 +1,10 @@
 /**
- * Compatibility wrapper for useWebRTCStream.
+ * Compatibility wrapper for useWHEPStream.
  * Provides the old useVideoStream interface for backward compatibility.
+ * Now uses WHEP (MediaMTX) as the primary streaming method.
  */
 import { useCallback, useMemo, useRef, useEffect, useState } from 'react';
-import { useWebRTCStream } from './useWebRTCStream';
+import { useWHEPStream } from './useWHEPStream';
 import { CameraResponse, tokenStorage } from '../services/api';
 
 export type StreamConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error';
@@ -27,6 +28,7 @@ export interface UseVideoStreamResult {
   error: string | null;
   takeSnapshot: () => Blob | null;
   videoRef: React.RefObject<HTMLVideoElement>;
+mode: 'whep' | 'webrtc' | 'http' | 'none';
 }
 
 export function useVideoStream({
@@ -43,7 +45,7 @@ export function useVideoStream({
   const lastFpsUpdateRef = useRef(Date.now());
   const lastFrameUrlRef = useRef<string | null>(null);
 
-  const { videoRef, state, connect: streamConnect, disconnect: streamDisconnect } = useWebRTCStream({
+  const { videoRef, state, connect: streamConnect, disconnect: streamDisconnect } = useWHEPStream({
     cameraId: camera.id,
     authToken,
     autoConnect,
@@ -106,6 +108,7 @@ export function useVideoStream({
     error: state.error,
     takeSnapshot,
     videoRef,
+    mode: state.mode,
   };
 }
 

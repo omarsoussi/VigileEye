@@ -1,17 +1,19 @@
 /**
- * useWebRTCStream – camera streaming hook.
+ * useWebRTCStream – camera streaming hook using real WebRTC.
  *
- * Primary: WebSocket binary JPEG frames: `ws://.../ws/stream/:cameraId?token=...`
- * Fallback: HTTP latest-frame polling:   `GET http://.../api/v1/streams/frame/:cameraId`
+ * Primary:  WebRTC PeerConnection with HTTP-based SDP signaling (no WebSocket).
+ *           POST /api/v1/webrtc/offer  → SDP answer
+ *           POST /api/v1/webrtc/ice-candidate → trickle ICE
+ * Fallback: HTTP latest-frame polling: GET /api/v1/streams/frame/:cameraId
  *
- * Critical behavior:
- * - Uses the real stored token key: `vigileye-access-token` via tokenStorage.
- * - `isConnected` becomes true on WS open / HTTP OK.
- * - `hasFrames` becomes true only after a non-placeholder frame arrives.
+ * The Go StreamingBackend sends H.264 via pion/webrtc TrackLocalStaticRTP.
+ * The browser renders the MediaStream on a <video> element (videoRef).
+ * For components still using <img> (e.g. LiveThumbnail), frameUrl provides
+ * HTTP-polled JPEG snapshots as a compatible fallback.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { tokenStorage } from '../services/api';
+import { streamingApi, tokenStorage } from '../services/api';
 
 export interface StreamState {
   isConnecting: boolean;
@@ -19,7 +21,7 @@ export interface StreamState {
   hasFrames: boolean;
   error: string | null;
   latency: number | null;
-  mode: 'ws' | 'http' | 'none';
+  mode: 'webrtc' | 'http' | 'none';
   frameUrl: string | null;
   fps: number;
   viewerCount: number;
@@ -35,13 +37,12 @@ interface UseWebRTCStreamProps {
 }
 
 const STREAMING_API_URL = process.env.REACT_APP_STREAMING_API_URL || 'http://localhost:8003';
-const STREAMING_WS_URL = process.env.REACT_APP_STREAMING_WS_URL || 'ws://localhost:8003/ws';
 
-const WS_OPEN_TIMEOUT_MS = 6000;
-const FIRST_FRAME_TIMEOUT_MS = 6000;
-const HTTP_POLL_MS = 200; // stable fallback; avoids hammering
+const WEBRTC_CONNECT_TIMEOUT_MS = 10000;
+const HTTP_POLL_MS = 200;
 const HTTP_MAX_ERRORS = 8;
 const PLACEHOLDER_MAX_BYTES = 500;
+const STATS_POLL_MS = 5000;
 
 const INITIAL_STATE: StreamState = {
   isConnecting: false,
@@ -72,45 +73,52 @@ export const useWebRTCStream = ({ cameraId, authToken, autoConnect = true }: Use
 
   const connIdRef = useRef(0);
   const mountedRef = useRef(true);
-  const wsRef = useRef<WebSocket | null>(null);
+  const pcRef = useRef<RTCPeerConnection | null>(null);
+  const viewerIdRef = useRef<string | null>(null);
   const httpTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const statsTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const frameUrlRef = useRef<string | null>(null);
   const startTimeRef = useRef(0);
 
-  const pendingFrameRef = useRef<Blob | null>(null);
-  const rafRef = useRef<number | null>(null);
+  // ─── Cleanup ───
 
   const cleanup = useCallback(() => {
-    if (wsRef.current) {
-      const ws = wsRef.current;
-      ws.onopen = null;
-      ws.onclose = null;
-      ws.onerror = null;
-      ws.onmessage = null;
+    // Close WebRTC peer connection
+    if (pcRef.current) {
       try {
-        if (ws.readyState <= WebSocket.OPEN) ws.close();
+        pcRef.current.close();
       } catch {
         // ignore
       }
-      wsRef.current = null;
+      pcRef.current = null;
     }
 
+    // Notify backend of disconnect
+    if (viewerIdRef.current && cameraId) {
+      streamingApi.webrtcDisconnect(cameraId, viewerIdRef.current).catch(() => {});
+      viewerIdRef.current = null;
+    }
+
+    // Stop HTTP polling
     if (httpTimerRef.current) {
       clearInterval(httpTimerRef.current);
       httpTimerRef.current = null;
     }
 
+    // Stop stats polling
+    if (statsTimerRef.current) {
+      clearInterval(statsTimerRef.current);
+      statsTimerRef.current = null;
+    }
+
+    // Revoke object URL
     if (frameUrlRef.current) {
       URL.revokeObjectURL(frameUrlRef.current);
       frameUrlRef.current = null;
     }
+  }, [cameraId]);
 
-    pendingFrameRef.current = null;
-    if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
-  }, []);
+  // ─── HTTP Frame Polling Fallback (for thumbnails / no WebRTC support) ───
 
   const startHttpPolling = useCallback(
     (connId: number) => {
@@ -210,7 +218,47 @@ export const useWebRTCStream = ({ cameraId, authToken, autoConnect = true }: Use
     [cameraId, authToken],
   );
 
-  const connect = useCallback(() => {
+  // ─── Stats Polling ───
+
+  const startStatsPolling = useCallback(
+    (connId: number) => {
+      if (statsTimerRef.current) return;
+
+      const tick = async () => {
+        if (!mountedRef.current || connId !== connIdRef.current) {
+          if (statsTimerRef.current) {
+            clearInterval(statsTimerRef.current);
+            statsTimerRef.current = null;
+          }
+          return;
+        }
+
+        try {
+          const info = await streamingApi.getRealTimeInfo(cameraId);
+          if (mountedRef.current && connId === connIdRef.current) {
+            setState((p) => ({
+              ...p,
+              fps: info.current_fps || p.fps,
+              viewerCount: info.viewer_count ?? p.viewerCount,
+              hasAudio: info.has_audio ?? p.hasAudio,
+              streamStatus: info.status || p.streamStatus,
+              uptime: info.uptime ?? p.uptime,
+            }));
+          }
+        } catch {
+          // Stats polling failure is non-critical
+        }
+      };
+
+      tick();
+      statsTimerRef.current = setInterval(tick, STATS_POLL_MS);
+    },
+    [cameraId],
+  );
+
+  // ─── WebRTC Connect ───
+
+  const connect = useCallback(async () => {
     connIdRef.current++;
     const connId = connIdRef.current;
 
@@ -219,149 +267,165 @@ export const useWebRTCStream = ({ cameraId, authToken, autoConnect = true }: Use
 
     const token = resolveToken(authToken);
     if (!token) {
-      setState({
-        ...INITIAL_STATE,
-        error: 'Not authenticated',
-      });
+      setState({ ...INITIAL_STATE, error: 'Not authenticated' });
       return;
     }
 
     startTimeRef.current = Date.now();
-    setState({
-      ...INITIAL_STATE,
-      isConnecting: true,
-      mode: 'ws',
-    });
+    setState({ ...INITIAL_STATE, isConnecting: true, mode: 'webrtc' });
 
-    const wsUrl = `${STREAMING_WS_URL}/stream/${cameraId}?token=${encodeURIComponent(token)}`;
-
-    let ws: WebSocket;
     try {
-      ws = new WebSocket(wsUrl);
-    } catch {
-      startHttpPolling(connId);
-      return;
-    }
-
-    wsRef.current = ws;
-    ws.binaryType = 'arraybuffer';
-
-    const openTimeout = setTimeout(() => {
-      if (connId !== connIdRef.current) return;
-      cleanup();
-      startHttpPolling(connId);
-    }, WS_OPEN_TIMEOUT_MS);
-
-    const firstFrameTimeout = setTimeout(() => {
-      if (connId !== connIdRef.current) return;
-      // Connected transport, but no frames ever arrived
+      // 1. Fetch ICE servers from backend
+      let iceServers: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }];
       try {
-        ws.close();
-      } catch {
-        // ignore
-      }
-      startHttpPolling(connId);
-    }, FIRST_FRAME_TIMEOUT_MS);
-
-    let frameCount = 0;
-
-    ws.onopen = () => {
-      clearTimeout(openTimeout);
-      if (connId !== connIdRef.current || !mountedRef.current) return;
-      setState((p) => ({
-        ...p,
-        isConnecting: false,
-        isConnected: true,
-        hasFrames: false,
-        error: null,
-        mode: 'ws',
-      }));
-    };
-
-    ws.onmessage = (ev: MessageEvent) => {
-      if (connId !== connIdRef.current || !mountedRef.current) return;
-
-      if (typeof ev.data === 'string') {
-        try {
-          const msg = JSON.parse(ev.data);
-          if (msg.type === 'status') {
-            setState((p) => ({
-              ...p,
-              isConnecting: false,
-              isConnected: true,
-              fps: typeof msg.fps === 'number' ? Math.round(msg.fps * 10) / 10 : p.fps,
-              viewerCount: typeof msg.viewer_count === 'number' ? msg.viewer_count : p.viewerCount,
-              hasAudio: typeof msg.has_audio === 'boolean' ? msg.has_audio : p.hasAudio,
-              streamStatus: typeof msg.status === 'string' ? msg.status : p.streamStatus,
-              uptime: typeof msg.uptime === 'number' ? msg.uptime : p.uptime,
-            }));
-          } else if (msg.type === 'error') {
-            setState((p) => ({ ...p, error: msg.message || 'Stream error' }));
-          }
-        } catch {
-          // ignore
+        const iceResp = await streamingApi.getICEServers();
+        if (iceResp.ice_servers?.length) {
+          iceServers = iceResp.ice_servers.map((s) => ({
+            urls: s.urls,
+            username: s.username || undefined,
+            credential: s.credential || undefined,
+          }));
         }
-        return;
+      } catch {
+        // Use default STUN
       }
 
-      // Binary JPEG frame
-      const blob = new Blob([ev.data], { type: 'image/jpeg' });
-      if (blob.size < 200) return;
+      if (connId !== connIdRef.current || !mountedRef.current) return;
 
-      // Drop-frame strategy: keep only the most recent frame and render
-      // at the browser's paint rate to avoid UI backlog/latency.
-      pendingFrameRef.current = blob;
-      if (rafRef.current !== null) return;
+      // 2. Create PeerConnection
+      const pc = new RTCPeerConnection({ iceServers });
+      pcRef.current = pc;
 
-      rafRef.current = requestAnimationFrame(() => {
-        rafRef.current = null;
+      // Add transceiver for receiving video
+      pc.addTransceiver('video', { direction: 'recvonly' });
+
+      // Handle incoming tracks → attach to <video>
+      pc.ontrack = (ev) => {
         if (connId !== connIdRef.current || !mountedRef.current) return;
 
-        const latest = pendingFrameRef.current;
-        pendingFrameRef.current = null;
-        if (!latest || latest.size < 200) return;
+        const stream = ev.streams[0] || new MediaStream([ev.track]);
 
-        clearTimeout(firstFrameTimeout);
-
-        const oldUrl = frameUrlRef.current;
-        const newUrl = URL.createObjectURL(latest);
-        frameUrlRef.current = newUrl;
-        frameCount++;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(() => {});
+        }
 
         setState((p) => ({
           ...p,
-          frameUrl: newUrl,
           isConnecting: false,
           isConnected: true,
           hasFrames: true,
           error: null,
-          mode: 'ws',
-          latency: frameCount === 1 ? Date.now() - startTimeRef.current : p.latency,
+          mode: 'webrtc',
+          latency: Date.now() - startTimeRef.current,
         }));
 
-        if (oldUrl) setTimeout(() => URL.revokeObjectURL(oldUrl), 200);
+        // Start stats polling
+        startStatsPolling(connId);
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        if (connId !== connIdRef.current) return;
+        const iceState = pc.iceConnectionState;
+
+        if (iceState === 'connected' || iceState === 'completed') {
+          setState((p) => ({
+            ...p,
+            isConnecting: false,
+            isConnected: true,
+            error: null,
+          }));
+        } else if (iceState === 'failed' || iceState === 'disconnected') {
+          // Fallback to HTTP polling
+          cleanup();
+          startHttpPolling(connId);
+        } else if (iceState === 'closed') {
+          setState((p) => ({
+            ...p,
+            isConnected: false,
+            hasFrames: false,
+            mode: 'none',
+          }));
+        }
+      };
+
+      // 3. Create SDP offer
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      // 4. Wait for ICE gathering to complete (or timeout)
+      await new Promise<void>((resolve) => {
+        if (pc.iceGatheringState === 'complete') {
+          resolve();
+          return;
+        }
+        const checkState = () => {
+          if (pc.iceGatheringState === 'complete') {
+            pc.removeEventListener('icegatheringstatechange', checkState);
+            resolve();
+          }
+        };
+        pc.addEventListener('icegatheringstatechange', checkState);
+        // Fallback timeout — don't wait forever
+        setTimeout(resolve, 3000);
       });
-    };
 
-    ws.onclose = () => {
-      clearTimeout(openTimeout);
-      clearTimeout(firstFrameTimeout);
-      if (connId !== connIdRef.current) return;
-      wsRef.current = null;
+      if (connId !== connIdRef.current || !mountedRef.current) return;
+
+      // 5. Send offer to backend, get answer
+      const localDesc = pc.localDescription;
+      if (!localDesc) throw new Error('No local description');
+
+      const answerResp = await streamingApi.webrtcOffer({
+        camera_id: cameraId,
+        sdp: localDesc.sdp,
+        type: localDesc.type,
+      });
+
+      if (connId !== connIdRef.current || !mountedRef.current) return;
+
+      viewerIdRef.current = answerResp.viewer_id;
+
+      // 6. Set remote SDP answer
+      await pc.setRemoteDescription({
+        type: answerResp.type as RTCSdpType,
+        sdp: answerResp.sdp,
+      });
+
+      // 7. Connection timeout — if no track arrives, fallback
+      setTimeout(() => {
+        if (connId !== connIdRef.current || !mountedRef.current) return;
+        setState((prev) => {
+          if (!prev.hasFrames && prev.mode === 'webrtc') {
+            cleanup();
+            startHttpPolling(connId);
+            return { ...prev, mode: 'http', isConnecting: true };
+          }
+          return prev;
+        });
+      }, WEBRTC_CONNECT_TIMEOUT_MS);
+
+    } catch (err: any) {
+      if (connId !== connIdRef.current || !mountedRef.current) return;
+
+      console.warn('[useWebRTCStream] WebRTC failed, falling back to HTTP polling:', err);
+      cleanup();
       startHttpPolling(connId);
-    };
+    }
+  }, [authToken, cameraId, cleanup, startHttpPolling, startStatsPolling]);
 
-    ws.onerror = () => {
-      clearTimeout(openTimeout);
-      // onclose will handle fallback
-    };
-  }, [authToken, cameraId, cleanup, startHttpPolling]);
+  // ─── Disconnect ───
 
   const disconnect = useCallback(() => {
     connIdRef.current++;
     cleanup();
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
     setState({ ...INITIAL_STATE });
   }, [cleanup]);
+
+  // ─── Auto-connect lifecycle ───
 
   useEffect(() => {
     mountedRef.current = true;

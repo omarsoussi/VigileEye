@@ -198,6 +198,8 @@ export const LiveStreamPlayer: React.FC<LiveStreamPlayerProps> = ({
     isStreaming,
     error,
     takeSnapshot,
+    videoRef,
+    mode,
   } = useVideoStream({
     camera,
     autoConnect: autoPlay,
@@ -322,7 +324,23 @@ export const LiveStreamPlayer: React.FC<LiveStreamPlayerProps> = ({
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Video Frame */}
-      {frameUrl ? (
+      {/* WebRTC mode: native <video> for MediaStream */}
+      {mode === 'webrtc' && (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+            display: isStreaming ? 'block' : 'none',
+          }}
+        />
+      )}
+      {/* HTTP fallback mode: <img> for JPEG frames */}
+      {mode !== 'webrtc' && frameUrl ? (
         <img
           src={frameUrl}
           alt={camera.name}
@@ -332,7 +350,7 @@ export const LiveStreamPlayer: React.FC<LiveStreamPlayerProps> = ({
             objectFit: 'contain',
           }}
         />
-      ) : (
+      ) : !isStreaming ? (
         <div
           style={{
             width: '100%',

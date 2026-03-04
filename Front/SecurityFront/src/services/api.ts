@@ -7,7 +7,6 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api
 const MEMBERS_API_BASE_URL = process.env.REACT_APP_MEMBERS_API_URL || 'http://localhost:8001/api/v1';
 const CAMERAS_API_BASE_URL = process.env.REACT_APP_CAMERAS_API_URL || 'http://localhost:8002/api/v1';
 const STREAMING_API_BASE_URL = process.env.REACT_APP_STREAMING_API_URL || 'http://localhost:8003';
-const STREAMING_WS_BASE_URL = process.env.REACT_APP_STREAMING_WS_URL || 'ws://localhost:8003/ws';
 
 // Types
 export interface RegisterRequest {
@@ -424,7 +423,50 @@ export interface StreamStatusResponse {
   is_streaming: boolean;
   status: string;
   session?: StreamSessionResponse;
-  websocket_url?: string;
+  signaling_url?: string;
+  whep_endpoint?: string;
+}
+
+// WebRTC signaling types
+export interface WebRTCOfferRequest {
+  camera_id: string;
+  sdp: string;
+  type: string;
+}
+
+export interface WebRTCAnswerResponse {
+  viewer_id: string;
+  sdp: string;
+  type: string;
+}
+
+export interface ICECandidateRequest {
+  camera_id: string;
+  viewer_id: string;
+  candidate: string;
+  sdp_mid?: string;
+  sdp_mline_index?: number;
+}
+
+export interface ICEServerConfig {
+  urls: string;
+  username?: string;
+  credential?: string;
+}
+
+export interface ICEServersResponse {
+  ice_servers: ICEServerConfig[];
+}
+
+export interface RealTimeInfoResponse {
+  camera_id: string;
+  is_streaming: boolean;
+  current_fps: number;
+  viewer_count: number;
+  has_audio: boolean;
+  status: string;
+  uptime: number;
+  bitrate: number;
 }
 
 export interface ActiveStreamsResponse {
@@ -1118,19 +1160,81 @@ export const streamingApi = {
   },
 
   /**
-   * Get WebSocket URL for a camera stream
+   * Send WebRTC SDP offer and get SDP answer
    */
-  getStreamWebSocketUrl: (cameraId: string): string => {
-    const token = tokenStorage.getAccessToken();
-    return `${STREAMING_WS_BASE_URL}/stream/${cameraId}?token=${token}`;
+  webrtcOffer: async (data: WebRTCOfferRequest): Promise<WebRTCAnswerResponse> => {
+    const response = await authFetch(`${STREAMING_API_BASE_URL}/api/v1/webrtc/offer`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<WebRTCAnswerResponse>(response);
   },
 
   /**
-   * Get WebSocket URL for AI frames
+   * Send ICE candidate for trickle ICE
    */
-  getFramesWebSocketUrl: (cameraId: string): string => {
-    const token = tokenStorage.getAccessToken();
-    return `${STREAMING_WS_BASE_URL}/frames/${cameraId}?token=${token}`;
+  sendICECandidate: async (data: ICECandidateRequest): Promise<void> => {
+    await authFetch(`${STREAMING_API_BASE_URL}/api/v1/webrtc/ice-candidate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Disconnect a WebRTC viewer session
+   */
+  webrtcDisconnect: async (cameraId: string, viewerId: string): Promise<void> => {
+    await authFetch(`${STREAMING_API_BASE_URL}/api/v1/webrtc/disconnect`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+      body: JSON.stringify({ camera_id: cameraId, viewer_id: viewerId }),
+    });
+  },
+
+  /**
+   * Get ICE server configuration for WebRTC
+   */
+  getICEServers: async (): Promise<ICEServersResponse> => {
+    const response = await authFetch(`${STREAMING_API_BASE_URL}/api/v1/streams/ice-servers`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+    });
+    return handleResponse<ICEServersResponse>(response);
+  },
+
+  /**
+   * Get real-time streaming info for a camera
+   */
+  getRealTimeInfo: async (cameraId: string): Promise<RealTimeInfoResponse> => {
+    const response = await authFetch(`${STREAMING_API_BASE_URL}/api/v1/streams/realtime/${cameraId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+    });
+    return handleResponse<RealTimeInfoResponse>(response);
+  },
+
+  /**
+   * Get latest JPEG frame for HTTP polling fallback (thumbnails)
+   */
+  getFrameUrl: (cameraId: string): string => {
+    return `${STREAMING_API_BASE_URL}/api/v1/streams/frame/${cameraId}`;
   },
 };
 
