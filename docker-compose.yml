@@ -110,11 +110,18 @@ services:
   mediamtx:
     image: bluenviron/mediamtx:latest
     environment:
-      MTX_PROTOCOLS: tcp
+      # Avoid deprecated 'protocols' parameter; configure RTSP transports instead.
+      MTX_RTSPTRANSPORTS: tcp
       MTX_WEBRTCADDRESS: ":8889"
       MTX_API: "yes"
       MTX_APIADDRESS: ":9997"
       MTX_LOGLEVEL: "info"
+      # Allow the Control API to be called from other containers.
+      # By default, MediaMTX allows API access only from 127.0.0.1/::1.
+      # Docker bridge/container IPs are typically in private ranges (e.g. 172.16/12).
+      MTX_AUTHINTERNALUSERS_1_USER: "any"
+      MTX_AUTHINTERNALUSERS_1_IPS: "127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+      MTX_AUTHINTERNALUSERS_1_PERMISSIONS_0_ACTION: "api"
     ports:
       - "8554:8554"       # RTSP
       - "1935:1935"       # RTMP
@@ -124,7 +131,9 @@ services:
     networks:
       - vigileeye-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9997/v3/paths/list"]
+      # The MediaMTX image is minimal and doesn't include wget/curl/sh.
+      # Use the mediamtx binary itself as a lightweight healthcheck.
+      test: ["CMD", "/mediamtx", "--version"]
       interval: 15s
       timeout: 5s
       retries: 5
