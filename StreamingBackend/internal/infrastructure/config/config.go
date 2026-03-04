@@ -8,8 +8,8 @@ import (
 
 // Config holds all application configuration loaded from environment variables.
 type Config struct {
-	Port    int
-	GoEnv   string
+	Port  int
+	GoEnv string
 
 	// JWT
 	JWTSecret    string
@@ -30,11 +30,12 @@ type Config struct {
 	TURNCredential string
 
 	// Stream defaults
-	DefaultFPS            int
-	DefaultWidth          int
-	DefaultHeight         int
-	MaxReconnectAttempts  int
-	ReconnectDelayMs      int
+	DefaultFPS           int
+	DefaultWidth         int
+	DefaultHeight        int
+	DefaultBitrate       int
+	MaxReconnectAttempts int
+	ReconnectDelayMs     int
 
 	// WebRTC
 	WebRTCPortMin int
@@ -52,8 +53,8 @@ type Config struct {
 // Load reads configuration from environment variables with sensible defaults.
 func Load() *Config {
 	return &Config{
-		Port:    envInt("PORT", 8003),
-		GoEnv:   envStr("GO_ENV", "development"),
+		Port:  envInt("PORT", 8003),
+		GoEnv: envStr("GO_ENV", "development"),
 
 		JWTSecret:    envStr("JWT_SECRET", "your-super-secret-jwt-key-change-in-production-min-32-chars"),
 		JWTAlgorithm: envStr("JWT_ALGORITHM", "HS256"),
@@ -72,6 +73,7 @@ func Load() *Config {
 		DefaultFPS:           envInt("DEFAULT_FPS", 15),
 		DefaultWidth:         envInt("DEFAULT_WIDTH", 1280),
 		DefaultHeight:        envInt("DEFAULT_HEIGHT", 720),
+		DefaultBitrate:       envInt("DEFAULT_BITRATE", 2_000_000),
 		MaxReconnectAttempts: envInt("MAX_RECONNECT_ATTEMPTS", 10),
 		ReconnectDelayMs:     envInt("RECONNECT_DELAY_MS", 3000),
 

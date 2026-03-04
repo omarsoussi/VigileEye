@@ -804,7 +804,7 @@ export const DashboardPageNew: React.FC = () => {
               Camera Status
             </h3>
             <div style={{ height: isMobile ? '160px' : '180px' }}>
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minHeight={120}>
                 <PieChart>
                   <Pie
                     data={[
@@ -870,7 +870,7 @@ export const DashboardPageNew: React.FC = () => {
               Top 5 Cameras (Intrusions)
             </h3>
             <div style={{ height: isMobile ? '160px' : '180px' }}>
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minHeight={120}>
                 <BarChart
                   data={[
                     { name: 'Front Door', intrusions: 24, fill: '#f59e0b' },
@@ -930,7 +930,7 @@ export const DashboardPageNew: React.FC = () => {
               Top 5 Zones (Intrusions)
             </h3>
             <div style={{ height: isMobile ? '160px' : '180px' }}>
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minHeight={120}>
                 <BarChart
                   data={[
                     { name: 'Zone A', intrusions: 32, fill: '#ef4444' },

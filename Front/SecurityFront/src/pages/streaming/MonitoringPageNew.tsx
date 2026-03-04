@@ -9,7 +9,7 @@ import { useAllCameras } from '../../hooks/useAllCameras';
 import { LiveStreamPlayer } from '../../components/LiveStreamPlayer';
 import WebRTCPlayer from '../../components/WebRTCPlayer';
 import { useAudioStream } from '../../hooks/useAudioStream';
-import { useWebRTCStream } from '../../hooks/useWebRTCStream';
+import { WHEPStreamState } from '../../hooks/useWHEPStream';
 import {  
   HiOutlineArrowLeft,
   HiOutlineDotsVertical,
@@ -92,18 +92,109 @@ const CameraThumbnail: React.FC<{
   const { colors, preferences } = useTheme();
   const isDark = preferences.mode === 'dark';
   const authToken = tokenStorage.getAccessToken() || '';
-  
-  const { state } = useWebRTCStream({
-    cameraId: camera.id,
-    authToken,
-    autoConnect: camera.is_active !== false,
-  });
+
+  const [thumbState, setThumbState] = useState<{
+    frameUrl: string | null;
+    isConnecting: boolean;
+    hasFrames: boolean;
+    error: string | null;
+  }>({ frameUrl: null, isConnecting: true, hasFrames: false, error: null });
+
+  useEffect(() => {
+    let intervalId: number | null = null;
+    let cancelled = false;
+    let inFlight = false;
+    let currentObjectUrl: string | null = null;
+
+    const enabled = !isOffline && camera.is_active !== false;
+    if (!enabled) {
+      setThumbState((p) => ({ ...p, isConnecting: false, error: isOffline ? 'Offline' : null }));
+      return;
+    }
+
+    let frameEndpoint: string;
+    try {
+      frameEndpoint = streamingApi.getFrameUrl(camera.id);
+    } catch (e: any) {
+      setThumbState({ frameUrl: null, isConnecting: false, hasFrames: false, error: String(e?.message || 'Streaming backend not configured') });
+      return;
+    }
+
+    const tick = async () => {
+      if (cancelled || inFlight) return;
+      inFlight = true;
+      try {
+        const token = (authToken || '').trim();
+        if (!token) {
+          setThumbState({ frameUrl: null, isConnecting: false, hasFrames: false, error: 'Not authenticated' });
+          return;
+        }
+
+        const res = await fetch(frameEndpoint, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store',
+        });
+
+        if (res.status === 404) {
+          if (currentObjectUrl) {
+            URL.revokeObjectURL(currentObjectUrl);
+            currentObjectUrl = null;
+          }
+          setThumbState((p) => ({ ...p, isConnecting: false, hasFrames: false, error: null, frameUrl: null }));
+          return;
+        }
+        if (!res.ok) {
+          if (currentObjectUrl) {
+            URL.revokeObjectURL(currentObjectUrl);
+            currentObjectUrl = null;
+          }
+          setThumbState((p) => ({ ...p, isConnecting: false, hasFrames: false, error: `HTTP ${res.status}`, frameUrl: null }));
+          return;
+        }
+
+        const isHeaderPlaceholder = res.headers.get('X-VigileEye-Placeholder') === '1';
+        const blob = await res.blob();
+        const isSizePlaceholder = blob.size > 0 && blob.size < 2048;
+        if (isHeaderPlaceholder || isSizePlaceholder) {
+          if (currentObjectUrl) {
+            URL.revokeObjectURL(currentObjectUrl);
+            currentObjectUrl = null;
+          }
+          setThumbState((p) => ({ ...p, isConnecting: false, hasFrames: false, error: null, frameUrl: null }));
+          return;
+        }
+
+        const newUrl = URL.createObjectURL(blob);
+        const oldUrl = currentObjectUrl;
+        currentObjectUrl = newUrl;
+        if (oldUrl) setTimeout(() => URL.revokeObjectURL(oldUrl), 200);
+        setThumbState({ frameUrl: newUrl, isConnecting: false, hasFrames: true, error: null });
+      } catch {
+        if (currentObjectUrl) {
+          URL.revokeObjectURL(currentObjectUrl);
+          currentObjectUrl = null;
+        }
+        setThumbState((p) => ({ ...p, isConnecting: false, hasFrames: false, error: 'Stream error', frameUrl: null }));
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    tick();
+    intervalId = window.setInterval(tick, 1000);
+
+    return () => {
+      cancelled = true;
+      if (intervalId) window.clearInterval(intervalId);
+      if (currentObjectUrl) URL.revokeObjectURL(currentObjectUrl);
+    };
+  }, [authToken, camera.id, camera.is_active, isOffline]);
 
   // Show image if connected (HTTP streaming uses frameUrl)
-  if (state.frameUrl) {
+  if (thumbState.frameUrl) {
     return (
       <img
-        src={state.frameUrl}
+        src={thumbState.frameUrl}
         alt={camera.name}
         style={{
           width: '100%',
@@ -120,10 +211,10 @@ const CameraThumbnail: React.FC<{
     if (isOffline) {
       return { text: 'Offline', icon: <HiOutlineExclamationCircle size={20} style={{ color: colors.textSecondary }} /> };
     }
-    if (state.error) {
-      return { text: state.error || 'Stream Error', icon: <HiOutlineExclamationCircle size={24} style={{ color: '#ef4444' }} /> };
+    if (thumbState.error) {
+      return { text: thumbState.error || 'Stream Error', icon: <HiOutlineExclamationCircle size={24} style={{ color: '#ef4444' }} /> };
     }
-    if (state.isConnected && !state.hasFrames) {
+    if (!thumbState.isConnecting && !thumbState.hasFrames) {
       return { text: 'No Signal', icon: <HiOutlineVideoCamera size={24} style={{ color: '#f59e0b' }} /> };
     }
     // Auto-connecting or waiting for first frame — always show spinner
@@ -1009,6 +1100,11 @@ const CameraDetail: React.FC<{
   const [showPTZControls, setShowPTZControls] = useState(false);
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const detailVideoRef = useRef<HTMLVideoElement>(null);
+
+  const [playerState, setPlayerState] = useState<WHEPStreamState | null>(null);
+
+  const [showZonesOverlay, setShowZonesOverlay] = useState(false);
 
   // Zone state (read-only for display)
   const [existingZones, setExistingZones] = useState<ZoneResponse[]>([]);
@@ -1017,13 +1113,7 @@ const CameraDetail: React.FC<{
   const status = getCameraDisplayStatus(camera, recordingCameraIds);
   const isRecording = recordingCameraIds.has(camera.id);
 
-  // Use WebRTC stream hook for video + latency stats
   const authToken = tokenStorage.getAccessToken() || '';
-  const { videoRef: detailVideoRef, state: streamState } = useWebRTCStream({ 
-    cameraId: camera.id, 
-    authToken, 
-    autoConnect: true 
-  });
 
   // Audio stream hook
   const {
@@ -1089,7 +1179,7 @@ const CameraDetail: React.FC<{
 
   // Snapshot handler - capture from WebRTC video element
   const handleSnapshot = () => {
-    if (!detailVideoRef.current || !streamState.isConnected) {
+    if (!detailVideoRef.current || !playerState?.isConnected) {
       alert('No video available to capture');
       return;
     }
@@ -1197,9 +1287,14 @@ const CameraDetail: React.FC<{
           <WebRTCPlayer
             cameraId={camera.id}
             authToken={tokenStorage.getAccessToken() || ''}
+            streamUrl={camera.stream_url}
             autoConnect={true}
             showControls={false}
             className="webrtc-fullscreen-player"
+            showZones={showZonesOverlay}
+            zones={existingZones}
+            externalVideoRef={detailVideoRef}
+            onStateChange={setPlayerState}
           />
         </div>
         
@@ -1277,6 +1372,37 @@ const CameraDetail: React.FC<{
             <HiOutlineDotsVertical size={20} />
           </motion.button>
         </div>
+
+        {/* Zones toggle */}
+        {existingZones.length > 0 && (
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowZonesOverlay((v) => !v)}
+            style={{
+              position: 'absolute',
+              top: '100px',
+              left: '20px',
+              padding: '8px 12px',
+              borderRadius: '12px',
+              border: '1px solid rgba(255,255,255,0.25)',
+              background: showZonesOverlay ? 'rgba(239, 68, 68, 0.35)' : 'rgba(0,0,0,0.35)',
+              backdropFilter: 'blur(10px)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              color: '#fff',
+              zIndex: 20,
+            }}
+            title={showZonesOverlay ? 'Hide zones' : 'Show zones'}
+          >
+            <RiShieldCheckLine size={18} />
+            <span style={{ fontSize: '12px', fontWeight: 700 }}>
+              {showZonesOverlay ? 'Zones On' : 'Show Zones'}
+            </span>
+          </motion.button>
+        )}
         
         {/* Live Badge */}
         {status !== 'offline' && (
@@ -1625,14 +1751,14 @@ const CameraDetail: React.FC<{
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {[
               { label: 'Resolution', value: detailVideoRef.current ? `${detailVideoRef.current.videoWidth}x${detailVideoRef.current.videoHeight}` : (camera.resolution || 'Unknown') },
-              { label: 'FPS', value: streamState.fps > 0 ? `${streamState.fps}` : (camera.fps ? `${camera.fps}` : 'N/A') },
-              { label: 'Latency', value: streamState.latency ? `${streamState.latency}ms` : 'N/A' },
-              { label: 'Viewers', value: streamState.viewerCount > 0 ? `${streamState.viewerCount}` : 'N/A' },
-              { label: 'Audio', value: streamState.hasAudio ? 'Available' : 'No audio' },
+              { label: 'FPS', value: (playerState?.fps || 0) > 0 ? `${playerState?.fps}` : (camera.fps ? `${camera.fps}` : 'N/A') },
+              { label: 'Latency', value: playerState?.latency ? `${playerState.latency}ms` : 'N/A' },
+              { label: 'Viewers', value: (playerState?.viewerCount || 0) > 0 ? `${playerState?.viewerCount}` : 'N/A' },
+              { label: 'Audio', value: playerState?.hasAudio ? 'Available' : 'No audio' },
               { label: 'Location', value: getCameraLocationString(camera) },
-              { label: 'Status', value: streamState.hasFrames ? 'Streaming' : streamState.isConnected ? 'Connected (No Signal)' : streamState.isConnecting ? 'Connecting...' : status.charAt(0).toUpperCase() + status.slice(1) },
-              { label: 'Mode', value: streamState.mode === 'ws' ? 'WebSocket' : streamState.mode === 'http' ? 'HTTP Polling' : 'Disconnected' },
-              { label: 'Uptime', value: streamState.uptime ? `${Math.floor(streamState.uptime / 60)}m ${streamState.uptime % 60}s` : 'N/A' },
+              { label: 'Status', value: playerState?.hasFrames ? 'Streaming' : playerState?.isConnected ? 'Connected (No Signal)' : playerState?.isConnecting ? 'Connecting...' : status.charAt(0).toUpperCase() + status.slice(1) },
+              { label: 'Mode', value: playerState?.mode === 'whep' ? 'WHEP' : playerState?.mode === 'webrtc' ? 'WebRTC' : playerState?.mode === 'http' ? 'HTTP Polling' : 'Disconnected' },
+              { label: 'Uptime', value: playerState?.uptime ? `${Math.floor(playerState.uptime / 60)}m ${playerState.uptime % 60}s` : 'N/A' },
             ].map((detail, index) => (
               <div key={index} style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: '13px', color: colors.textMuted }}>{detail.label}</span>

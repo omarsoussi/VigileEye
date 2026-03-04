@@ -137,7 +137,7 @@ func corsMiddleware() gin.HandlerFunc {
 		AllowAllOrigins:  true,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
-		ExposeHeaders:    []string{"Content-Length"},
+		ExposeHeaders:    []string{"Content-Length", "X-VigileEye-Placeholder"},
 		AllowCredentials: false,
 		MaxAge:           12 * time.Hour,
 	})

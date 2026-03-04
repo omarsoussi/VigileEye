@@ -34,15 +34,18 @@ interface UseWebRTCStreamProps {
   cameraId: string;
   authToken: string;
   autoConnect?: boolean;
+  /** Optional camera stream URL to proactively start the stream (faster first load) */
+  streamUrl?: string;
 }
 
-const STREAMING_API_URL = process.env.REACT_APP_STREAMING_API_URL || 'http://localhost:8003';
 
-const WEBRTC_CONNECT_TIMEOUT_MS = 10000;
+const WEBRTC_CONNECT_TIMEOUT_MS = 20000;
 const HTTP_POLL_MS = 100;
 const HTTP_MAX_ERRORS = 8;
-const PLACEHOLDER_MAX_BYTES = 500;
+const PLACEHOLDER_MAX_BYTES = 2048;
 const STATS_POLL_MS = 5000;
+
+const PLACEHOLDER_HEADER = 'X-VigileEye-Placeholder';
 
 const OFFER_RETRY_TOTAL_MS = 20000;
 const OFFER_RETRY_DELAY_MS = 500;
@@ -72,7 +75,7 @@ function resolveToken(passed: string): string {
   return tokenStorage.getAccessToken() || '';
 }
 
-export const useWebRTCStream = ({ cameraId, authToken, autoConnect = true }: UseWebRTCStreamProps) => {
+export const useWebRTCStream = ({ cameraId, authToken, autoConnect = true, streamUrl }: UseWebRTCStreamProps) => {
   const [state, setState] = useState<StreamState>({ ...INITIAL_STATE });
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -86,6 +89,21 @@ export const useWebRTCStream = ({ cameraId, authToken, autoConnect = true }: Use
   const statsTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const frameUrlRef = useRef<string | null>(null);
   const startTimeRef = useRef(0);
+
+  const ensureStreamStarted = useCallback(async () => {
+    if (!streamUrl) return;
+    try {
+      const status = await streamingApi.getStreamStatus(cameraId);
+      if (status?.is_streaming) return;
+    } catch {
+      // ignore
+    }
+    try {
+      await streamingApi.startStream({ camera_id: cameraId, stream_url: streamUrl });
+    } catch {
+      // ignore
+    }
+  }, [cameraId, streamUrl]);
 
   // ─── Cleanup ───
 
@@ -131,7 +149,21 @@ export const useWebRTCStream = ({ cameraId, authToken, autoConnect = true }: Use
     (connId: number) => {
       if (httpTimerRef.current) return;
 
-      const url = `${STREAMING_API_URL}/api/v1/streams/frame/${cameraId}`;
+      let url: string;
+      try {
+        url = streamingApi.getFrameUrl(cameraId);
+      } catch (e: any) {
+        setState((p) => ({
+          ...p,
+          isConnecting: false,
+          isConnected: false,
+          hasFrames: false,
+          mode: 'none',
+          frameUrl: null,
+          error: String(e?.message || 'Streaming backend is not configured'),
+        }));
+        return;
+      }
       let errors = 0;
       let inFlight = false;
 
@@ -147,21 +179,21 @@ export const useWebRTCStream = ({ cameraId, authToken, autoConnect = true }: Use
         if (inFlight) return;
         inFlight = true;
 
-        const token = resolveToken(authToken);
-        if (!token) {
-          setState((p) => ({
-            ...p,
-            isConnecting: false,
-            isConnected: false,
-            hasFrames: false,
-            error: 'Not authenticated',
-            mode: 'none',
-            frameUrl: null,
-          }));
-          return;
-        }
-
         try {
+          const token = resolveToken(authToken);
+          if (!token) {
+            setState((p) => ({
+              ...p,
+              isConnecting: false,
+              isConnected: false,
+              hasFrames: false,
+              error: 'Not authenticated',
+              mode: 'none',
+              frameUrl: null,
+            }));
+            return;
+          }
+
           const res = await fetch(url, {
             headers: { Authorization: `Bearer ${token}` },
             cache: 'no-store',
@@ -186,8 +218,11 @@ export const useWebRTCStream = ({ cameraId, authToken, autoConnect = true }: Use
 
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
+          const isHeaderPlaceholder = res.headers.get(PLACEHOLDER_HEADER) === '1';
+
           const blob = await res.blob();
-          const isPlaceholder = blob.size > 0 && blob.size < PLACEHOLDER_MAX_BYTES;
+          const isSizePlaceholder = blob.size > 0 && blob.size < PLACEHOLDER_MAX_BYTES;
+          const isPlaceholder = isHeaderPlaceholder || isSizePlaceholder;
 
           if (isPlaceholder) {
             errors = 0;
@@ -305,6 +340,9 @@ export const useWebRTCStream = ({ cameraId, authToken, autoConnect = true }: Use
     startTimeRef.current = Date.now();
     setState({ ...INITIAL_STATE, isConnecting: true, mode: 'webrtc' });
 
+    // Best-effort: start the stream first to reduce offer 503s during cold start.
+    await ensureStreamStarted();
+
     try {
       // 1. Fetch ICE servers from backend
       let iceServers: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }];
@@ -329,6 +367,9 @@ export const useWebRTCStream = ({ cameraId, authToken, autoConnect = true }: Use
 
       // Add transceiver for receiving video
       pc.addTransceiver('video', { direction: 'recvonly' });
+
+      // Add transceiver for receiving audio (if available)
+      pc.addTransceiver('audio', { direction: 'recvonly' });
 
       // Handle incoming tracks → attach to <video>
       pc.ontrack = (ev) => {
@@ -421,7 +462,7 @@ export const useWebRTCStream = ({ cameraId, authToken, autoConnect = true }: Use
             type: localDesc.type,
           });
           break;
-        } catch (e: any) {
+        } catch (e) {
           if (connId !== connIdRef.current || !mountedRef.current) return;
 
           const msg = String(e?.message || '');
@@ -457,14 +498,14 @@ export const useWebRTCStream = ({ cameraId, authToken, autoConnect = true }: Use
         });
       }, WEBRTC_CONNECT_TIMEOUT_MS);
 
-    } catch (err: any) {
+    } catch (err) {
       if (connId !== connIdRef.current || !mountedRef.current) return;
 
       console.warn('[useWebRTCStream] WebRTC failed, falling back to HTTP polling:', err);
       cleanup();
       startHttpPolling(connId);
     }
-  }, [authToken, cameraId, cleanup, startHttpPolling, startStatsPolling]);
+  }, [authToken, cameraId, cleanup, ensureStreamStarted, startHttpPolling, startStatsPolling]);
 
   // ─── Disconnect ───
 

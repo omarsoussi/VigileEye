@@ -58,6 +58,18 @@ const SEVERITY_META: Record<ZoneSeverity, { label: string; color: string }> = {
   critical: { label: 'Critical', color: '#ef4444' },
 };
 
+function polygonArea(points: { x: number; y: number }[]): number {
+  // Shoelace formula; points are normalized (0..1), so area is in [0..1].
+  if (!points || points.length < 3) return 0;
+  let sum = 0;
+  for (let i = 0; i < points.length; i++) {
+    const p1 = points[i];
+    const p2 = points[(i + 1) % points.length];
+    sum += p1.x * p2.y - p2.x * p1.y;
+  }
+  return sum / 2;
+}
+
 // ── Camera stream wrapper for zone drawing ──────────────────────────
 const CameraStreamForDrawing: React.FC<{
   camera: CameraWithPermission;
@@ -568,6 +580,8 @@ export const ZonesPageNew: React.FC = () => {
             const sevMeta = SEVERITY_META[zone.severity] || SEVERITY_META.medium;
             const cam = cameraMap.get(zone.camera_id);
             const isExpanded = expandedZoneId === zone.id;
+            const areaPct = Math.round(Math.abs(polygonArea(zone.points || [])) * 1000) / 10;
+            const previewPoints = (zone.points || []).map((p) => `${p.x * 100},${p.y * 100}`).join(' ');
 
             return (
               <motion.div
@@ -689,6 +703,61 @@ export const ZonesPageNew: React.FC = () => {
                               </div>
                             ))}
                           </div>
+
+                          {/* Shape preview + metadata */}
+                          {zone.points?.length >= 3 && (
+                            <div style={{
+                              display: 'flex',
+                              alignItems: 'stretch',
+                              gap: '12px',
+                              marginBottom: '16px',
+                              flexWrap: 'wrap',
+                            }}>
+                              <div style={{
+                                width: 140,
+                                height: 100,
+                                borderRadius: '12px',
+                                overflow: 'hidden',
+                                border: `1px solid ${isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)'}`,
+                                background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0,
+                              }}>
+                                <svg viewBox="0 0 100 100" width="100%" height="100%" preserveAspectRatio="none">
+                                  <polygon
+                                    points={previewPoints}
+                                    fill={`${zone.color}22`}
+                                    stroke={zone.is_active ? zone.color : `${zone.color}88`}
+                                    strokeWidth={2}
+                                    strokeDasharray={zone.is_active ? undefined : '6 4'}
+                                  />
+                                </svg>
+                              </div>
+                              <div style={{
+                                flex: 1,
+                                minWidth: 160,
+                                padding: '10px',
+                                borderRadius: '12px',
+                                background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                justifyContent: 'center',
+                                gap: '6px',
+                              }}>
+                                <div style={{ fontSize: '10px', fontWeight: 700, color: colors.textMuted, textTransform: 'uppercase' }}>Shape</div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px' }}>
+                                  <span style={{ fontSize: '13px', color: colors.textSecondary }}>Vertices</span>
+                                  <span style={{ fontSize: '13px', fontWeight: 700, color: colors.text }}>{zone.points.length}</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px' }}>
+                                  <span style={{ fontSize: '13px', color: colors.textSecondary }}>Area</span>
+                                  <span style={{ fontSize: '13px', fontWeight: 700, color: colors.text }}>{areaPct}%</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
 
                           {zone.schedule_enabled && (
                             <div style={{

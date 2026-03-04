@@ -104,7 +104,7 @@ func (f *FFmpegProcess) Start(opts FFmpegOptions) error {
 		}()
 
 		buf := make([]byte, 0, 512*1024) // 512KB initial buffer
-		readBuf := make([]byte, 32*1024)  // 32KB read chunks
+		readBuf := make([]byte, 32*1024) // 32KB read chunks
 
 		for {
 			n, err := stdout.Read(readBuf)
@@ -203,6 +203,25 @@ func indexOf(data, pattern []byte) int {
 	return -1
 }
 
+func needsRealtimePacing(lowerStreamURL string) bool {
+	// HLS and file-like inputs should be paced to 1x realtime.
+	// Otherwise FFmpeg can ingest faster than realtime and make playback appear speeded-up.
+	isFile := !strings.Contains(lowerStreamURL, "://") ||
+		strings.HasPrefix(lowerStreamURL, "file:") ||
+		strings.HasSuffix(lowerStreamURL, ".mp4") ||
+		strings.HasSuffix(lowerStreamURL, ".mkv")
+	if isFile {
+		return true
+	}
+	if strings.HasPrefix(lowerStreamURL, "http://") || strings.HasPrefix(lowerStreamURL, "https://") {
+		// Common HLS patterns.
+		if strings.Contains(lowerStreamURL, ".m3u8") {
+			return true
+		}
+	}
+	return false
+}
+
 func containsError(line string) bool {
 	lower := strings.ToLower(line)
 	return strings.Contains(lower, "error") ||
@@ -225,11 +244,7 @@ func buildFFmpegArgs(opts FFmpegOptions) []string {
 	lower := strings.ToLower(opts.StreamURL)
 
 	// File-like inputs need real-time pacing
-	isFile := !strings.Contains(lower, "://") ||
-		strings.HasPrefix(lower, "file:") ||
-		strings.HasSuffix(lower, ".mp4") ||
-		strings.HasSuffix(lower, ".mkv")
-	if isFile {
+	if needsRealtimePacing(lower) {
 		args = append(args, "-re")
 	}
 
@@ -259,7 +274,8 @@ func buildFFmpegArgs(opts FFmpegOptions) []string {
 }
 
 // BuildRTPArgs builds FFmpeg arguments for RTP output (WebRTC ingest via pion).
-func BuildRTPArgs(cfg *config.Config, streamURL string, rtpPort int, fps, width, height int) []string {
+// It outputs H.264 video RTP (PT=96) and Opus audio RTP (PT=111).
+func BuildRTPArgs(cfg *config.Config, streamURL string, videoRTPPort, audioRTPPort int, fps, width, height int) []string {
 	var args []string
 
 	args = append(args,
@@ -270,9 +286,7 @@ func BuildRTPArgs(cfg *config.Config, streamURL string, rtpPort int, fps, width,
 	)
 
 	lower := strings.ToLower(streamURL)
-	isFile := !strings.Contains(lower, "://") ||
-		strings.HasPrefix(lower, "file:")
-	if isFile {
+	if needsRealtimePacing(lower) {
 		args = append(args, "-re")
 	}
 	if strings.HasPrefix(lower, "rtsp://") {
@@ -284,14 +298,102 @@ func BuildRTPArgs(cfg *config.Config, streamURL string, rtpPort int, fps, width,
 
 	args = append(args, "-i", streamURL)
 
-	// H.264 passthrough → RTP
+	// Video (H.264 passthrough) → RTP
 	args = append(args,
-		"-an",
+		"-map", "0:v:0",
 		"-c:v", "copy",
 		"-f", "rtp",
 		"-payload_type", "96",
 		"-ssrc", "1111",
-		fmt.Sprintf("rtp://127.0.0.1:%d?pkt_size=1200", rtpPort),
+		fmt.Sprintf("rtp://127.0.0.1:%d?pkt_size=1200", videoRTPPort),
+	)
+
+	// Audio (transcode to Opus) → RTP (optional if stream has no audio)
+	args = append(args,
+		"-map", "0:a:0?",
+		"-c:a", "libopus",
+		"-ar", "48000",
+		"-ac", "2",
+		"-application", "lowdelay",
+		"-frame_duration", "20",
+		"-f", "rtp",
+		"-payload_type", "111",
+		"-ssrc", "2222",
+		fmt.Sprintf("rtp://127.0.0.1:%d?pkt_size=1200", audioRTPPort),
+	)
+
+	return args
+}
+
+// BuildTranscodeRTPArgsAV builds FFmpeg args that transcode video to WebRTC-safe H.264
+// (baseline, no B-frames, low-latency) and transcode audio to Opus.
+func BuildTranscodeRTPArgsAV(cfg *config.Config, streamURL string, videoRTPPort, audioRTPPort int, fps, w, h int, bitrateBps int) []string {
+	var args []string
+
+	args = append(args,
+		"-fflags", "+nobuffer+genpts",
+		"-flags", "low_delay",
+		"-max_delay", "0",
+		"-analyzeduration", "500000",
+		"-probesize", "500000",
+	)
+
+	lower := strings.ToLower(streamURL)
+	if needsRealtimePacing(lower) {
+		args = append(args, "-re")
+	}
+	if strings.HasPrefix(lower, "rtsp://") {
+		args = append(args, "-rtsp_transport", "tcp", "-stimeout", "5000000")
+	}
+	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
+		args = append(args, "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "5")
+	}
+
+	args = append(args, "-i", streamURL)
+
+	bitrateK := bitrateBps / 1000
+	if bitrateK <= 0 {
+		bitrateK = 2000
+	}
+	maxrateK := int(float64(bitrateK) * 1.25)
+	bufsizeK := bitrateK * 2
+
+	// Video → RTP (H.264 baseline, no B-frames)
+	args = append(args,
+		"-map", "0:v:0",
+		"-c:v", "libx264",
+		"-preset", "ultrafast",
+		"-tune", "zerolatency",
+		"-profile:v", "baseline",
+		"-level", "3.1",
+		"-pix_fmt", "yuv420p",
+		"-bf", "0",
+		"-sc_threshold", "0",
+		"-g", fmt.Sprintf("%d", fps*2),
+		"-keyint_min", fmt.Sprintf("%d", fps*2),
+		"-r", fmt.Sprintf("%d", fps),
+		"-vf", fmt.Sprintf("fps=%d,scale=%d:%d:flags=fast_bilinear", fps, w, h),
+		"-b:v", fmt.Sprintf("%dk", bitrateK),
+		"-maxrate", fmt.Sprintf("%dk", maxrateK),
+		"-bufsize", fmt.Sprintf("%dk", bufsizeK),
+		"-f", "rtp",
+		"-payload_type", "96",
+		"-ssrc", "1111",
+		fmt.Sprintf("rtp://127.0.0.1:%d?pkt_size=1200", videoRTPPort),
+	)
+
+	// Audio (Opus) → RTP (optional if stream has no audio)
+	args = append(args,
+		"-map", "0:a:0?",
+		"-c:a", "libopus",
+		"-ar", "48000",
+		"-ac", "2",
+		"-application", "lowdelay",
+		"-frame_duration", "20",
+		"-f", "rtp",
+		"-payload_type", "111",
+		"-ssrc", "2222",
+		fmt.Sprintf("rtp://127.0.0.1:%d?pkt_size=1200", audioRTPPort),
 	)
 
 	return args
@@ -341,6 +443,8 @@ type ProbeResult struct {
 	HasVideo        bool   `json:"has_video"`
 	HasAudio        bool   `json:"has_audio"`
 	VideoCodec      string `json:"video_codec,omitempty"`
+	VideoProfile    string `json:"video_profile,omitempty"`
+	HasBFrames      bool   `json:"has_b_frames"`
 	AudioCodec      string `json:"audio_codec,omitempty"`
 	AudioSampleRate int    `json:"audio_sample_rate,omitempty"`
 	AudioChannels   int    `json:"audio_channels,omitempty"`
@@ -378,6 +482,8 @@ func ProbeStream(ffprobePath, streamURL string) (*ProbeResult, error) {
 	type streamInfo struct {
 		CodecType  string `json:"codec_type"`
 		CodecName  string `json:"codec_name"`
+		Profile    string `json:"profile"`
+		HasBFrames int    `json:"has_b_frames"`
 		Width      int    `json:"width"`
 		Height     int    `json:"height"`
 		RFrameRate string `json:"r_frame_rate"`
@@ -398,6 +504,10 @@ func ProbeStream(ffprobePath, streamURL string) (*ProbeResult, error) {
 		if s.CodecType == "video" {
 			result.HasVideo = true
 			result.VideoCodec = s.CodecName
+			result.VideoProfile = s.Profile
+			if s.HasBFrames > 0 {
+				result.HasBFrames = true
+			}
 			result.Width = s.Width
 			result.Height = s.Height
 			result.FPS = parseFrameRate(s.RFrameRate)

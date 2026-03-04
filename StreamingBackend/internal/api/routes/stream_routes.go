@@ -1,7 +1,9 @@
 package routes
 
 import (
+	"encoding/base64"
 	"net/http"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pion/webrtc/v4"
@@ -15,6 +17,27 @@ import (
 	"github.com/vigileye/streaming-backend/internal/infrastructure/streaming"
 	"github.com/vigileye/streaming-backend/internal/infrastructure/config"
 )
+
+const placeholderHeaderName = "X-VigileEye-Placeholder"
+
+var (
+	placeholderJPEGOnce sync.Once
+	placeholderJPEG     []byte
+)
+
+func getPlaceholderJPEG() []byte {
+	placeholderJPEGOnce.Do(func() {
+		// 1x1 JPEG placeholder (small, valid image).
+		const b64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/wAALCAABAAEBAREA/8QAFQABAQAAAAAAAAAAAAAAAAAAAAf/xAAVAQEBAAAAAAAAAAAAAAAAAAABAv/aAAwDAQACEAMQAAAByAAAP//EABQQAQAAAAAAAAAAAAAAAAAAACD/2gAIAQEAAT8Aqf/EABQRAQAAAAAAAAAAAAAAAAAAACD/2gAIAQIBAT8Aqf/EABQRAQAAAAAAAAAAAAAAAAAAACD/2gAIAQMBAT8Aqf/Z"
+		decoded, err := base64.StdEncoding.DecodeString(b64)
+		if err != nil {
+			placeholderJPEG = []byte{}
+			return
+		}
+		placeholderJPEG = decoded
+	})
+	return placeholderJPEG
+}
 
 // StreamHandler bundles all stream-related HTTP handlers.
 type StreamHandler struct {
@@ -213,12 +236,16 @@ func (h *StreamHandler) GetLatestFrame(c *gin.Context) {
 
 	frame := h.streamManager.GetLatestFrame(cameraID)
 	if frame == nil {
-		c.JSON(http.StatusNotFound, dto.ErrorResponse{
-			Detail: dto.ErrorDetail{Message: "No frame available", ErrorCode: "FRAME_NOT_FOUND"},
-		})
+		// During startup (or when camera is temporarily offline), avoid returning 404.
+		// Browsers log 404s loudly for <img> and frequent polling.
+		c.Header(placeholderHeaderName, "1")
+		c.Header("Cache-Control", "no-store")
+		c.Data(http.StatusOK, "image/jpeg", getPlaceholderJPEG())
 		return
 	}
 
+	c.Header(placeholderHeaderName, "0")
+	c.Header("Cache-Control", "no-store")
 	c.Data(http.StatusOK, "image/jpeg", frame)
 }
 

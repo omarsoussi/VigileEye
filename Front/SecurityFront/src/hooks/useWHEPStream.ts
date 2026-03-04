@@ -20,13 +20,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { streamingApi, tokenStorage } from '../services/api';
 
 const MEDIAMTX_WHEP_URL = process.env.REACT_APP_MEDIAMTX_WHEP_URL || 'http://localhost:8889';
-const STREAMING_API_URL = process.env.REACT_APP_STREAMING_API_URL || 'http://localhost:8003';
 
 const WHEP_CONNECT_TIMEOUT_MS = 10000;
 const HTTP_POLL_MS = 100;
 const HTTP_MAX_ERRORS = 8;
-const PLACEHOLDER_MAX_BYTES = 500;
+const PLACEHOLDER_MAX_BYTES = 2048;
 const STATS_POLL_MS = 5000;
+
+const PLACEHOLDER_HEADER = 'X-VigileEye-Placeholder';
 
 const OFFER_RETRY_TOTAL_MS = 20000;
 const OFFER_RETRY_DELAY_MS = 500;
@@ -56,6 +57,8 @@ interface UseWHEPStreamProps {
   autoConnect?: boolean;
   /** Override the WHEP base URL (for testing or custom deployments) */
   whepBaseUrl?: string;
+  /** Optional camera stream URL to proactively start the stream (faster first load) */
+  streamUrl?: string;
 }
 
 const INITIAL_STATE: WHEPStreamState = {
@@ -84,6 +87,7 @@ export const useWHEPStream = ({
   authToken,
   autoConnect = true,
   whepBaseUrl,
+  streamUrl,
 }: UseWHEPStreamProps) => {
   const [state, setState] = useState<WHEPStreamState>({ ...INITIAL_STATE });
 
@@ -100,6 +104,33 @@ export const useWHEPStream = ({
   const startTimeRef = useRef(0);
 
   const whepBase = whepBaseUrl || MEDIAMTX_WHEP_URL;
+
+  const resolveWHEPEndpoint = useCallback(async (): Promise<string | null> => {
+    try {
+      const status = await streamingApi.getStreamStatus(cameraId);
+      const endpoint = (status?.whep_endpoint || '').trim();
+      if (endpoint) return endpoint;
+      return null;
+    } catch {
+      // If we can't fetch status, fall back to legacy behavior.
+      return `${whepBase}/${cameraId}/whep`;
+    }
+  }, [cameraId, whepBase]);
+
+  const ensureStreamStarted = useCallback(async () => {
+    if (!streamUrl) return;
+    try {
+      const status = await streamingApi.getStreamStatus(cameraId);
+      if (status?.is_streaming) return;
+    } catch {
+      // ignore
+    }
+    try {
+      await streamingApi.startStream({ camera_id: cameraId, stream_url: streamUrl });
+    } catch {
+      // ignore
+    }
+  }, [cameraId, streamUrl]);
 
   // ─── Cleanup ───
 
@@ -142,7 +173,21 @@ export const useWHEPStream = ({
     (connId: number) => {
       if (httpTimerRef.current) return;
 
-      const url = `${STREAMING_API_URL}/api/v1/streams/frame/${cameraId}`;
+      let url: string;
+      try {
+        url = streamingApi.getFrameUrl(cameraId);
+      } catch (e: any) {
+        setState((p) => ({
+          ...p,
+          isConnecting: false,
+          isConnected: false,
+          hasFrames: false,
+          mode: 'none',
+          frameUrl: null,
+          error: String(e?.message || 'Streaming backend is not configured'),
+        }));
+        return;
+      }
       let errors = 0;
       let inFlight = false;
 
@@ -155,16 +200,24 @@ export const useWHEPStream = ({
           return;
         }
 
-        const token = resolveToken(authToken);
-        if (!token) {
-          setState((p) => ({ ...p, isConnecting: false, isConnected: false, error: 'Not authenticated', mode: 'none' }));
-          return;
-        }
-
         if (inFlight) return;
         inFlight = true;
 
         try {
+          const token = resolveToken(authToken);
+          if (!token) {
+            setState((p) => ({
+              ...p,
+              isConnecting: false,
+              isConnected: false,
+              hasFrames: false,
+              error: 'Not authenticated',
+              mode: 'none',
+              frameUrl: null,
+            }));
+            return;
+          }
+
           const res = await fetch(url, {
             headers: { Authorization: `Bearer ${token}` },
             cache: 'no-store',
@@ -179,8 +232,10 @@ export const useWHEPStream = ({
 
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
+          const isHeaderPlaceholder = res.headers.get(PLACEHOLDER_HEADER) === '1';
           const blob = await res.blob();
-          if (blob.size > 0 && blob.size < PLACEHOLDER_MAX_BYTES) {
+          const isSizePlaceholder = blob.size > 0 && blob.size < PLACEHOLDER_MAX_BYTES;
+          if (isHeaderPlaceholder || isSizePlaceholder) {
             errors = 0;
             setState((p) => ({ ...p, isConnecting: false, isConnected: true, hasFrames: false, error: null, mode: 'http', streamStatus: 'no_signal' }));
             return;
@@ -249,10 +304,8 @@ export const useWHEPStream = ({
 
   // ─── WHEP Connect ───
 
-  const connectWHEP = useCallback(async (connId: number): Promise<boolean> => {
+  const connectWHEP = useCallback(async (connId: number, whepUrl: string): Promise<boolean> => {
     try {
-      const whepUrl = `${whepBase}/${cameraId}/whep`;
-
       // Create PeerConnection (STUN only for WHEP — MediaMTX handles the rest)
       const pc = new RTCPeerConnection({
         iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
@@ -385,7 +438,7 @@ export const useWHEPStream = ({
       console.warn('[useWHEPStream] WHEP failed:', err);
       return false;
     }
-  }, [whepBase, cameraId, cleanup, startHttpPolling, startStatsPolling]);
+  }, [cleanup, startHttpPolling, startStatsPolling]);
 
   // ─── Fallback: Backend-Proxied WebRTC ───
 
@@ -409,6 +462,8 @@ export const useWHEPStream = ({
       pcRef.current = pc;
 
       pc.addTransceiver('video', { direction: 'recvonly' });
+
+      pc.addTransceiver('audio', { direction: 'recvonly' });
 
       pc.ontrack = (ev) => {
         if (connId !== connIdRef.current || !mountedRef.current) return;
@@ -490,11 +545,18 @@ export const useWHEPStream = ({
     }
 
     startTimeRef.current = Date.now();
-    setState({ ...INITIAL_STATE, isConnecting: true, mode: 'whep' });
+    setState({ ...INITIAL_STATE, isConnecting: true, mode: 'none' });
 
-    // Try WHEP first (direct to MediaMTX)
-    const whepOk = await connectWHEP(connId);
-    if (whepOk) return;
+    // Best-effort: start the stream first to reduce WHEP 404/offer 503 during cold start.
+    await ensureStreamStarted();
+
+    // Try WHEP first only when the backend explicitly advertises it.
+    const whepEndpoint = await resolveWHEPEndpoint();
+    if (whepEndpoint) {
+      setState((p) => ({ ...p, mode: 'whep' }));
+      const whepOk = await connectWHEP(connId, whepEndpoint);
+      if (whepOk) return;
+    }
 
     if (connId !== connIdRef.current || !mountedRef.current) return;
 
@@ -507,7 +569,7 @@ export const useWHEPStream = ({
 
     // Last resort: HTTP polling
     startHttpPolling(connId);
-  }, [authToken, cleanup, connectWHEP, connectViaBackend, startHttpPolling]);
+  }, [authToken, cleanup, connectWHEP, connectViaBackend, ensureStreamStarted, resolveWHEPEndpoint, startHttpPolling]);
 
   // ─── Disconnect ───
 

@@ -1,6 +1,7 @@
 package streaming
 
 import (
+	"strings"
 	"sync"
 	"time"
 
@@ -23,11 +24,11 @@ var _ services.StreamService = (*StreamManager)(nil)
 type StreamManager struct {
 	mu sync.RWMutex
 
-	cfg      *config.Config
-	repo     repositories.StreamSessionRepository
+	cfg  *config.Config
+	repo repositories.StreamSessionRepository
 
 	// Legacy pion-based ingests (used when MediaMTX is disabled)
-	ingests  map[string]*CameraIngest
+	ingests map[string]*CameraIngest
 
 	// MediaMTX client (nil when MediaMTX is disabled)
 	mediaMTX *MediaMTXClient
@@ -40,21 +41,23 @@ type StreamManager struct {
 	whepMu       sync.RWMutex
 
 	// JPEG frames for HTTP polling fallback
-	jpegProcesses map[string]*FFmpegProcess
-	latestFrames  map[string][]byte
-	frameMu       sync.RWMutex
+	jpegProcesses  map[string]*FFmpegProcess
+	jpegIdleTimers map[string]*time.Timer
+	latestFrames   map[string][]byte
+	frameMu        sync.RWMutex
 }
 
 // NewStreamManager creates a new stream manager.
 func NewStreamManager(cfg *config.Config, repo repositories.StreamSessionRepository) *StreamManager {
 	sm := &StreamManager{
-		cfg:           cfg,
-		repo:          repo,
-		ingests:       make(map[string]*CameraIngest),
-		whepSessions:  make(map[string]string),
-		jpegProcesses: make(map[string]*FFmpegProcess),
-		latestFrames:  make(map[string][]byte),
-		useMediaMTX:   make(map[string]bool),
+		cfg:            cfg,
+		repo:           repo,
+		ingests:        make(map[string]*CameraIngest),
+		whepSessions:   make(map[string]string),
+		jpegProcesses:  make(map[string]*FFmpegProcess),
+		jpegIdleTimers: make(map[string]*time.Timer),
+		latestFrames:   make(map[string][]byte),
+		useMediaMTX:    make(map[string]bool),
 	}
 
 	if cfg.MediaMTXEnabled {
@@ -135,6 +138,40 @@ func (sm *StreamManager) StartStream(cameraID, ownerUserID, streamURL string, cf
 	if sm.cfg != nil && sm.cfg.DefaultFPS > 0 && streamCfg.FPS < sm.cfg.DefaultFPS {
 		streamCfg.FPS = sm.cfg.DefaultFPS
 	}
+	// Enforce defaults for resolution/bitrate when unset or too low.
+	if sm.cfg != nil {
+		if sm.cfg.DefaultWidth > 0 && streamCfg.Width < sm.cfg.DefaultWidth {
+			streamCfg.Width = sm.cfg.DefaultWidth
+		}
+		if sm.cfg.DefaultHeight > 0 && streamCfg.Height < sm.cfg.DefaultHeight {
+			streamCfg.Height = sm.cfg.DefaultHeight
+		}
+		if sm.cfg.DefaultBitrate > 0 && streamCfg.Bitrate < sm.cfg.DefaultBitrate {
+			streamCfg.Bitrate = sm.cfg.DefaultBitrate
+		}
+	}
+
+	// Decide whether we must transcode to WebRTC-safe H.264.
+	// WebRTC interoperability is best with (constrained) baseline and no B-frames.
+	needsTranscode := false
+	if sm.cfg != nil {
+		probe, _ := ProbeStream(sm.cfg.FFprobePath, streamURL)
+		if probe != nil && probe.Reachable && probe.HasVideo {
+			vc := strings.ToLower(strings.TrimSpace(probe.VideoCodec))
+			profile := strings.ToLower(strings.TrimSpace(probe.VideoProfile))
+			if vc != "h264" || probe.HasBFrames {
+				needsTranscode = true
+			} else if profile != "" && !strings.Contains(profile, "baseline") {
+				needsTranscode = true
+			}
+		}
+	}
+
+	lowerURL := strings.ToLower(streamURL)
+	if (strings.HasPrefix(lowerURL, "http://") || strings.HasPrefix(lowerURL, "https://")) && strings.Contains(lowerURL, ".m3u8") {
+		// HLS inputs can be ingested faster-than-realtime without pacing; transcoding enforces stable 1x timing.
+		needsTranscode = true
+	}
 
 	session := entities.NewStreamSession(
 		uuid.New().String(),
@@ -145,7 +182,7 @@ func (sm *StreamManager) StartStream(cameraID, ownerUserID, streamURL string, cf
 	)
 	sm.repo.Save(session)
 
-	if sm.IsMediaMTXEnabled() {
+	if sm.IsMediaMTXEnabled() && !needsTranscode {
 		// ─── MediaMTX path ───
 		addedToMediaMTX := false
 		if err := sm.mediaMTX.AddPath(cameraID, streamURL); err != nil {
@@ -155,7 +192,7 @@ func (sm *StreamManager) StartStream(cameraID, ownerUserID, streamURL string, cf
 			session.ErrorMessage = "MediaMTX disabled for this stream: " + err.Error()
 			sm.repo.Save(session)
 
-			ingest := NewCameraIngest(cameraID, streamURL, streamCfg.FPS, streamCfg.Width, streamCfg.Height, sm.cfg)
+			ingest := NewCameraIngest(cameraID, streamURL, streamCfg.FPS, streamCfg.Width, streamCfg.Height, streamCfg.Bitrate, needsTranscode, sm.cfg)
 			if err2 := ingest.Start(); err2 != nil {
 				log.Warn().Err(err2).Str("camera_id", cameraID).Msg("Legacy WebRTC ingest failed, running JPEG-only")
 			} else {
@@ -172,7 +209,7 @@ func (sm *StreamManager) StartStream(cameraID, ownerUserID, streamURL string, cf
 	} else {
 		// ─── Legacy: FFmpeg → RTP → pion ───
 		sm.useMediaMTX[cameraID] = false
-		ingest := NewCameraIngest(cameraID, streamURL, streamCfg.FPS, streamCfg.Width, streamCfg.Height, sm.cfg)
+		ingest := NewCameraIngest(cameraID, streamURL, streamCfg.FPS, streamCfg.Width, streamCfg.Height, streamCfg.Bitrate, needsTranscode, sm.cfg)
 		if err := ingest.Start(); err != nil {
 			log.Warn().Err(err).Str("camera_id", cameraID).Msg("WebRTC ingest failed, running JPEG-only")
 		} else {
@@ -181,7 +218,7 @@ func (sm *StreamManager) StartStream(cameraID, ownerUserID, streamURL string, cf
 	}
 
 	// Start JPEG extraction for HTTP polling fallback (both modes)
-	sm.startJPEGExtraction(cameraID, streamURL, streamCfg)
+	// NOTE: JPEG extraction is started lazily on-demand by the HTTP frame endpoint.
 
 	session.Activate()
 	sm.repo.Save(session)
@@ -244,8 +281,8 @@ func (sm *StreamManager) StopAll() {
 		for _, session := range sm.repo.GetAll() {
 			if sm.useMediaMTX[session.CameraID] {
 				if err := sm.mediaMTX.RemovePath(session.CameraID); err != nil {
-				log.Warn().Err(err).Str("camera_id", session.CameraID).Msg("Failed to remove MediaMTX path")
-			}
+					log.Warn().Err(err).Str("camera_id", session.CameraID).Msg("Failed to remove MediaMTX path")
+				}
 			}
 		}
 	}
@@ -364,9 +401,85 @@ func (sm *StreamManager) GetICEServers() []services.ICEServer {
 
 // GetLatestFrame returns the latest JPEG frame for HTTP polling.
 func (sm *StreamManager) GetLatestFrame(cameraID string) []byte {
+	// Lazily start (or keep alive) JPEG extraction only when someone is actually
+	// requesting frames. This avoids double-pulling the source stream (MediaMTX + FFmpeg)
+	// and drastically reduces CPU/bandwidth, which otherwise causes lag.
+	sm.ensureJPEGExtractionForHTTP(cameraID)
+
 	sm.frameMu.RLock()
 	defer sm.frameMu.RUnlock()
 	return sm.latestFrames[cameraID]
+}
+
+const jpegIdleTimeout = 30 * time.Second
+
+func (sm *StreamManager) resetJPEGIdleTimerLocked(cameraID string) {
+	if t, ok := sm.jpegIdleTimers[cameraID]; ok && t != nil {
+		t.Reset(jpegIdleTimeout)
+		return
+	}
+
+	sm.jpegIdleTimers[cameraID] = time.AfterFunc(jpegIdleTimeout, func() {
+		// Stop extraction after a period of no HTTP frame requests.
+		sm.mu.Lock()
+		defer sm.mu.Unlock()
+		sm.stopJPEGExtractionLocked(cameraID)
+		if t2, ok := sm.jpegIdleTimers[cameraID]; ok && t2 != nil {
+			t2.Stop()
+		}
+		delete(sm.jpegIdleTimers, cameraID)
+	})
+}
+
+func (sm *StreamManager) ensureJPEGExtractionForHTTP(cameraID string) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	// Keep alive / start only for active sessions.
+	session, ok := sm.repo.Get(cameraID)
+	if !ok || session == nil || !session.IsActive() {
+		return
+	}
+
+	sm.resetJPEGIdleTimerLocked(cameraID)
+
+	if _, ok := sm.jpegProcesses[cameraID]; ok {
+		return
+	}
+
+	jpegCfg := session.Config
+
+	// If this camera is using MediaMTX, the primary viewing path is WHEP/WebRTC.
+	// In that case, HTTP JPEG frames are typically used only for thumbnails.
+	// Keep them very cheap so they don't steal CPU/bandwidth and cause lag.
+	if sm.useMediaMTX[cameraID] {
+		jpegCfg.FPS = 2
+		jpegCfg.Width = 640
+		jpegCfg.Height = 360
+	} else {
+		// Legacy/no-MediaMTX: HTTP frames may be used as the primary fallback.
+		if jpegCfg.FPS <= 0 {
+			jpegCfg.FPS = 10
+		}
+		if jpegCfg.FPS > 10 {
+			jpegCfg.FPS = 10
+		}
+		// Cap resolution to 854x480 to reduce CPU while still being usable.
+		if jpegCfg.Width <= 0 {
+			jpegCfg.Width = 854
+		}
+		if jpegCfg.Height <= 0 {
+			jpegCfg.Height = 480
+		}
+		if jpegCfg.Width > 854 {
+			jpegCfg.Width = 854
+		}
+		if jpegCfg.Height > 480 {
+			jpegCfg.Height = 480
+		}
+	}
+
+	sm.startJPEGExtractionLocked(cameraID, session.StreamURL, jpegCfg)
 }
 
 // ─── WebRTC Signaling ───
@@ -387,7 +500,7 @@ func (sm *StreamManager) negotiateViaWHEP(cameraID, viewerID string, offer webrt
 	// Without this, MediaMTX can legitimately return 404 "no stream is available" for a short time
 	// right after adding/updating the path config.
 	if sm.mediaMTX != nil {
-		ready, err := sm.mediaMTX.WaitPathReady(cameraID, 2*time.Second)
+		ready, err := sm.mediaMTX.WaitPathReady(cameraID, 8*time.Second)
 		if err != nil {
 			return nil, domainerrors.NewStreamConnectionError(cameraID, "MediaMTX path readiness check failed: "+err.Error())
 		}
@@ -510,7 +623,7 @@ func (sm *StreamManager) cleanWHEPSessionsForCamera(cameraID string) {
 
 // ─── JPEG Extraction (HTTP polling fallback) ───
 
-func (sm *StreamManager) startJPEGExtraction(cameraID, streamURL string, cfg entities.StreamConfig) {
+func (sm *StreamManager) startJPEGExtractionLocked(cameraID, streamURL string, cfg entities.StreamConfig) {
 	if _, ok := sm.jpegProcesses[cameraID]; ok {
 		return
 	}
@@ -529,7 +642,9 @@ func (sm *StreamManager) startJPEGExtraction(cameraID, streamURL string, cfg ent
 
 	ffmpeg.OnClose = func(code int) {
 		log.Info().Str("camera_id", cameraID).Int("exit_code", code).Msg("JPEG FFmpeg exited")
+		sm.mu.Lock()
 		delete(sm.jpegProcesses, cameraID)
+		sm.mu.Unlock()
 
 		// Auto-reconnect
 		if session, ok := sm.repo.Get(cameraID); ok && session.IsActive() && session.ReconnectAttempts < sm.cfg.MaxReconnectAttempts {
@@ -538,7 +653,7 @@ func (sm *StreamManager) startJPEGExtraction(cameraID, streamURL string, cfg ent
 				sm.mu.Lock()
 				defer sm.mu.Unlock()
 				if _, stillActive := sm.repo.Get(cameraID); stillActive {
-					sm.startJPEGExtraction(cameraID, streamURL, cfg)
+					sm.startJPEGExtractionLocked(cameraID, streamURL, cfg)
 				}
 			})
 		}
@@ -558,7 +673,7 @@ func (sm *StreamManager) startJPEGExtraction(cameraID, streamURL string, cfg ent
 	sm.jpegProcesses[cameraID] = ffmpeg
 }
 
-func (sm *StreamManager) stopJPEGExtraction(cameraID string) {
+func (sm *StreamManager) stopJPEGExtractionLocked(cameraID string) {
 	if ffmpeg, ok := sm.jpegProcesses[cameraID]; ok {
 		ffmpeg.Stop()
 		delete(sm.jpegProcesses, cameraID)
@@ -566,4 +681,14 @@ func (sm *StreamManager) stopJPEGExtraction(cameraID string) {
 	sm.frameMu.Lock()
 	delete(sm.latestFrames, cameraID)
 	sm.frameMu.Unlock()
+}
+
+func (sm *StreamManager) stopJPEGExtraction(cameraID string) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	sm.stopJPEGExtractionLocked(cameraID)
+	if t, ok := sm.jpegIdleTimers[cameraID]; ok && t != nil {
+		t.Stop()
+	}
+	delete(sm.jpegIdleTimers, cameraID)
 }

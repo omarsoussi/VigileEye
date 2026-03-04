@@ -6,7 +6,14 @@
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
 const MEMBERS_API_BASE_URL = process.env.REACT_APP_MEMBERS_API_URL || 'http://localhost:8001/api/v1';
 const CAMERAS_API_BASE_URL = process.env.REACT_APP_CAMERAS_API_URL || 'http://localhost:8002/api/v1';
-const STREAMING_API_BASE_URL = process.env.REACT_APP_STREAMING_API_URL || 'http://localhost:8003';
+const STREAMING_API_BASE_URL = process.env.REACT_APP_STREAMING_API_URL;
+
+const requireStreamingBaseUrl = (): string => {
+  if (!STREAMING_API_BASE_URL) {
+    throw new Error('Streaming backend URL is not configured (REACT_APP_STREAMING_API_URL)');
+  }
+  return STREAMING_API_BASE_URL;
+};
 
 // Types
 export interface RegisterRequest {
@@ -1105,7 +1112,7 @@ export const streamingApi = {
    * Start streaming from a camera
    */
   startStream: async (data: StartStreamRequest): Promise<StreamSessionResponse> => {
-    const response = await authFetch(`${STREAMING_API_BASE_URL}/api/v1/streams/start`, {
+    const response = await authFetch(`${requireStreamingBaseUrl()}/api/v1/streams/start`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1120,7 +1127,7 @@ export const streamingApi = {
    * Stop streaming from a camera
    */
   stopStream: async (cameraId: string): Promise<StreamSessionResponse> => {
-    const response = await authFetch(`${STREAMING_API_BASE_URL}/api/v1/streams/stop`, {
+    const response = await authFetch(`${requireStreamingBaseUrl()}/api/v1/streams/stop`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1135,7 +1142,7 @@ export const streamingApi = {
    * Get stream status for a camera
    */
   getStreamStatus: async (cameraId: string): Promise<StreamStatusResponse> => {
-    const response = await authFetch(`${STREAMING_API_BASE_URL}/api/v1/streams/status/${cameraId}`, {
+    const response = await authFetch(`${requireStreamingBaseUrl()}/api/v1/streams/status/${cameraId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -1149,7 +1156,7 @@ export const streamingApi = {
    * List all active streams
    */
   listActiveStreams: async (): Promise<ActiveStreamsResponse> => {
-    const response = await authFetch(`${STREAMING_API_BASE_URL}/api/v1/streams/active`, {
+    const response = await authFetch(`${requireStreamingBaseUrl()}/api/v1/streams/active`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -1163,7 +1170,7 @@ export const streamingApi = {
    * Send WebRTC SDP offer and get SDP answer
    */
   webrtcOffer: async (data: WebRTCOfferRequest): Promise<WebRTCAnswerResponse> => {
-    const response = await authFetch(`${STREAMING_API_BASE_URL}/api/v1/webrtc/offer`, {
+    const response = await authFetch(`${requireStreamingBaseUrl()}/api/v1/webrtc/offer`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1178,7 +1185,7 @@ export const streamingApi = {
    * Send ICE candidate for trickle ICE
    */
   sendICECandidate: async (data: ICECandidateRequest): Promise<void> => {
-    await authFetch(`${STREAMING_API_BASE_URL}/api/v1/webrtc/ice-candidate`, {
+    await authFetch(`${requireStreamingBaseUrl()}/api/v1/webrtc/ice-candidate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1192,7 +1199,7 @@ export const streamingApi = {
    * Disconnect a WebRTC viewer session
    */
   webrtcDisconnect: async (cameraId: string, viewerId: string): Promise<void> => {
-    await authFetch(`${STREAMING_API_BASE_URL}/api/v1/webrtc/disconnect`, {
+    await authFetch(`${requireStreamingBaseUrl()}/api/v1/webrtc/disconnect`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1206,7 +1213,7 @@ export const streamingApi = {
    * Get ICE server configuration for WebRTC
    */
   getICEServers: async (): Promise<ICEServersResponse> => {
-    const response = await authFetch(`${STREAMING_API_BASE_URL}/api/v1/streams/ice-servers`, {
+    const response = await authFetch(`${requireStreamingBaseUrl()}/api/v1/streams/ice-servers`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -1220,7 +1227,7 @@ export const streamingApi = {
    * Get real-time streaming info for a camera
    */
   getRealTimeInfo: async (cameraId: string): Promise<RealTimeInfoResponse> => {
-    const response = await authFetch(`${STREAMING_API_BASE_URL}/api/v1/streams/realtime/${cameraId}`, {
+    const response = await authFetch(`${requireStreamingBaseUrl()}/api/v1/streams/realtime/${cameraId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -1234,7 +1241,7 @@ export const streamingApi = {
    * Get latest JPEG frame for HTTP polling fallback (thumbnails)
    */
   getFrameUrl: (cameraId: string): string => {
-    return `${STREAMING_API_BASE_URL}/api/v1/streams/frame/${cameraId}`;
+    return `${requireStreamingBaseUrl()}/api/v1/streams/frame/${cameraId}`;
   },
 };
 

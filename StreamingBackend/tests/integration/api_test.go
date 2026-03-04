@@ -264,7 +264,10 @@ func TestGetLatestFrame_NoFrame(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer "+token)
 	router.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusNotFound, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "image/jpeg", w.Header().Get("Content-Type"))
+	assert.Equal(t, "1", w.Header().Get("X-VigileEye-Placeholder"))
+	assert.True(t, len(w.Body.Bytes()) > 0)
 }
 
 func TestGetRealTimeInfo_NoStream(t *testing.T) {

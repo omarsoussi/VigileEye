@@ -71,6 +71,7 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         position: 'relative', 
         zIndex: 1,
         minHeight: '100vh',
+        paddingBottom: 'calc(85px + env(safe-area-inset-bottom, 0px))',
       }}>
         {children}
       </div>

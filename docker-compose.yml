@@ -114,8 +114,11 @@ services:
     image: vigileeye-mediamtx
     environment:
       # Avoid deprecated 'protocols' parameter; configure RTSP transports instead.
-      MTX_RTSPTRANSPORTS: tcp
+      MTX_RTSPTRANSPORTS: udp,tcp
       MTX_WEBRTCADDRESS: ":8889"
+      # When running behind Docker port-mapping, browsers need ICE candidates
+      # that resolve to the host (not the container's internal IP).
+      MTX_WEBRTCADDITIONALHOSTS: "127.0.0.1,localhost"
       MTX_API: "yes"
       MTX_APIADDRESS: ":9997"
       MTX_LOGLEVEL: "info"
@@ -130,6 +133,7 @@ services:
       - "1935:1935"       # RTMP
       - "8888:8888"       # HLS
       - "8889:8889"       # WebRTC (WHEP/WHIP)
+      - "8189:8189/udp"   # WebRTC ICE/UDP (required for browsers)
       - "9997:9997"       # REST API
     networks:
       - vigileeye-network
@@ -165,11 +169,16 @@ services:
       CAMERA_SERVICE_URL: "http://cameramanagement:8002"
       FFMPEG_PATH: "ffmpeg"
       STUN_SERVER: "stun:stun.l.google.com:19302"
+      DEFAULT_FPS: "30"
+      DEFAULT_WIDTH: "1280"
+      DEFAULT_HEIGHT: "720"
+      DEFAULT_BITRATE: "4000000"
       WEBRTC_PORT_MIN: "50000"
       WEBRTC_PORT_MAX: "50100"
       MEDIAMTX_ENABLED: "true"
       MEDIAMTX_API_URL: "http://mediamtx:9997"
-      MEDIAMTX_WHEP_URL: "http://mediamtx:8889"
+      # This URL is returned to browsers as the WHEP endpoint, so it must be reachable from the host.
+      MEDIAMTX_WHEP_URL: "http://localhost:8889"
     ports:
       - "8003:8003"
       - "50000-50100:50000-50100/udp"

@@ -25,18 +25,26 @@ type CameraIngest struct {
 	FPS       int
 	Width     int
 	Height    int
+	Bitrate   int
+
+	// When true, force FFmpeg to transcode to WebRTC-safe H.264 (baseline, no B-frames)
+	TranscodeVideo bool
 
 	// RTP listener (receives RTP from FFmpeg)
 	rtpConn    *net.UDPConn
 	rtpPort    int
+	audioConn  *net.UDPConn
+	audioPort  int
 	ffmpegCmd  *exec.Cmd
 	ffmpegStop context.CancelFunc
 
 	// pion video track that all viewers subscribe to
 	videoTrack *webrtc.TrackLocalStaticRTP
+	// pion audio track that all viewers subscribe to
+	audioTrack *webrtc.TrackLocalStaticRTP
 
 	// Viewer peer connections
-	viewers map[string]*ViewerPeer
+	viewers     map[string]*ViewerPeer
 	viewerCount atomic.Int32
 
 	// Stats
@@ -57,15 +65,17 @@ type ViewerPeer struct {
 }
 
 // NewCameraIngest creates a new camera ingest pipeline.
-func NewCameraIngest(cameraID, streamURL string, fps, width, height int, cfg *config.Config) *CameraIngest {
+func NewCameraIngest(cameraID, streamURL string, fps, width, height, bitrate int, transcodeVideo bool, cfg *config.Config) *CameraIngest {
 	return &CameraIngest{
-		CameraID:  cameraID,
-		StreamURL: streamURL,
-		FPS:       fps,
-		Width:     width,
-		Height:    height,
-		viewers:   make(map[string]*ViewerPeer),
-		cfg:       cfg,
+		CameraID:       cameraID,
+		StreamURL:      streamURL,
+		FPS:            fps,
+		Width:          width,
+		Height:         height,
+		Bitrate:        bitrate,
+		TranscodeVideo: transcodeVideo,
+		viewers:        make(map[string]*ViewerPeer),
+		cfg:            cfg,
 	}
 }
 
@@ -91,7 +101,19 @@ func (ci *CameraIngest) Start() error {
 	}
 	ci.videoTrack = videoTrack
 
-	// Open UDP listener for RTP from FFmpeg
+	// Create the audio track (Opus). If the source has no audio, the track will
+	// simply be silent.
+	audioTrack, err := webrtc.NewTrackLocalStaticRTP(
+		webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus},
+		fmt.Sprintf("audio-%s", ci.CameraID),
+		fmt.Sprintf("stream-%s", ci.CameraID),
+	)
+	if err != nil {
+		return fmt.Errorf("create audio track: %w", err)
+	}
+	ci.audioTrack = audioTrack
+
+	// Open UDP listener for video RTP from FFmpeg
 	addr, err := net.ResolveUDPAddr("udp", "127.0.0.1:0")
 	if err != nil {
 		return fmt.Errorf("resolve udp: %w", err)
@@ -104,15 +126,29 @@ func (ci *CameraIngest) Start() error {
 	ci.rtpConn = conn
 	ci.rtpPort = conn.LocalAddr().(*net.UDPAddr).Port
 
+	// Open UDP listener for audio RTP from FFmpeg
+	audioAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:0")
+	if err != nil {
+		return fmt.Errorf("resolve udp (audio): %w", err)
+	}
+	audioConn, err := net.ListenUDP("udp", audioAddr)
+	if err != nil {
+		return fmt.Errorf("listen udp (audio): %w", err)
+	}
+	ci.audioConn = audioConn
+	ci.audioPort = audioConn.LocalAddr().(*net.UDPAddr).Port
+
 	log.Info().
 		Str("camera_id", ci.CameraID).
 		Int("rtp_port", ci.rtpPort).
+		Int("audio_rtp_port", ci.audioPort).
 		Msg("RTP listener started")
 
-	// Start RTP→Track forwarding goroutine
+	// Start RTP→Track forwarding goroutines
 	ci.running.Store(true)
 	ci.lastFPSCalc = time.Now()
-	go ci.forwardRTP()
+	go ci.forwardVideoRTP()
+	go ci.forwardAudioRTP()
 
 	// Start FFmpeg
 	if err := ci.startFFmpeg(); err != nil {
@@ -129,6 +165,11 @@ func (ci *CameraIngest) Start() error {
 // forwardRTP reads RTP packets from the UDP connection and writes them to the
 // pion video track for fan-out to all viewers.
 func (ci *CameraIngest) forwardRTP() {
+	ci.forwardVideoRTP()
+}
+
+// forwardVideoRTP reads video RTP packets and writes them to the pion video track.
+func (ci *CameraIngest) forwardVideoRTP() {
 	buf := make([]byte, 1500) // MTU-sized buffer
 
 	for ci.running.Load() {
@@ -152,6 +193,33 @@ func (ci *CameraIngest) forwardRTP() {
 			if _, err := ci.videoTrack.Write(buf[:n]); err != nil {
 				if ci.running.Load() {
 					log.Warn().Err(err).Str("camera_id", ci.CameraID).Msg("Track write error")
+				}
+			}
+		}
+	}
+}
+
+// forwardAudioRTP reads audio RTP packets and writes them to the pion audio track.
+func (ci *CameraIngest) forwardAudioRTP() {
+	buf := make([]byte, 1500)
+
+	for ci.running.Load() {
+		_ = ci.audioConn.SetReadDeadline(time.Now().Add(5 * time.Second))
+		n, err := ci.audioConn.Read(buf)
+		if err != nil {
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				continue
+			}
+			if ci.running.Load() {
+				log.Warn().Err(err).Str("camera_id", ci.CameraID).Msg("Audio RTP read error")
+			}
+			break
+		}
+
+		if n > 0 {
+			if _, err := ci.audioTrack.Write(buf[:n]); err != nil {
+				if ci.running.Load() {
+					log.Warn().Err(err).Str("camera_id", ci.CameraID).Msg("Audio track write error")
 				}
 			}
 		}
@@ -185,7 +253,12 @@ func (ci *CameraIngest) startFFmpeg() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	ci.ffmpegStop = cancel
 
-	args := BuildRTPArgs(ci.cfg, ci.StreamURL, ci.rtpPort, ci.FPS, ci.Width, ci.Height)
+	var args []string
+	if ci.TranscodeVideo {
+		args = BuildTranscodeRTPArgsAV(ci.cfg, ci.StreamURL, ci.rtpPort, ci.audioPort, ci.FPS, ci.Width, ci.Height, ci.Bitrate)
+	} else {
+		args = BuildRTPArgs(ci.cfg, ci.StreamURL, ci.rtpPort, ci.audioPort, ci.FPS, ci.Width, ci.Height)
+	}
 	cmd := exec.CommandContext(ctx, ci.cfg.FFmpegPath, args...)
 
 	log.Info().
@@ -268,6 +341,9 @@ func (ci *CameraIngest) Stop() {
 	if ci.rtpConn != nil {
 		_ = ci.rtpConn.Close()
 	}
+	if ci.audioConn != nil {
+		_ = ci.audioConn.Close()
+	}
 
 	// Close all viewer peer connections
 	ci.mu.Lock()
@@ -295,6 +371,18 @@ func (ci *CameraIngest) AddViewer(viewerID string, offer webrtc.SessionDescripti
 		return nil, fmt.Errorf("register codec: %w", err)
 	}
 
+	// Register Opus for audio (WebRTC standard)
+	if err := m.RegisterCodec(webrtc.RTPCodecParameters{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:  webrtc.MimeTypeOpus,
+			ClockRate: 48000,
+			Channels:  2,
+		},
+		PayloadType: 111,
+	}, webrtc.RTPCodecTypeAudio); err != nil {
+		return nil, fmt.Errorf("register audio codec: %w", err)
+	}
+
 	// Create interceptor registry for RTCP feedback (PLI, NACK, etc.)
 	i := &interceptor.Registry{}
 	if err := webrtc.RegisterDefaultInterceptors(m, i); err != nil {
@@ -316,7 +404,7 @@ func (ci *CameraIngest) AddViewer(viewerID string, offer webrtc.SessionDescripti
 	}
 
 	pc, err := api.NewPeerConnection(webrtc.Configuration{
-		ICEServers: iceServers,
+		ICEServers:   iceServers,
 		SDPSemantics: webrtc.SDPSemanticsUnifiedPlan,
 	})
 	if err != nil {
@@ -330,11 +418,27 @@ func (ci *CameraIngest) AddViewer(viewerID string, offer webrtc.SessionDescripti
 		return nil, fmt.Errorf("add track: %w", err)
 	}
 
+	// Add the audio track to the peer connection
+	audioSender, err := pc.AddTrack(ci.audioTrack)
+	if err != nil {
+		_ = pc.Close()
+		return nil, fmt.Errorf("add audio track: %w", err)
+	}
+
 	// Read RTCP packets (PLI, NACK, etc.) — required for pion
 	go func() {
 		buf := make([]byte, 1500)
 		for {
 			if _, _, err := rtpSender.Read(buf); err != nil {
+				return
+			}
+		}
+	}()
+
+	go func() {
+		buf := make([]byte, 1500)
+		for {
+			if _, _, err := audioSender.Read(buf); err != nil {
 				return
 			}
 		}

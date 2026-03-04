@@ -83,6 +83,38 @@ func hasAnySuffix(s string, suffixes ...string) bool {
 	return false
 }
 
+func parseHLSAttributeList(s string) map[string]string {
+	out := make(map[string]string)
+	parts := strings.Split(s, ",")
+	for _, raw := range parts {
+		p := strings.TrimSpace(raw)
+		if p == "" {
+			continue
+		}
+		kv := strings.SplitN(p, "=", 2)
+		if len(kv) != 2 {
+			continue
+		}
+		k := strings.TrimSpace(kv[0])
+		v := strings.TrimSpace(kv[1])
+		v = strings.Trim(v, "\"")
+		if k != "" {
+			out[k] = v
+		}
+	}
+	return out
+}
+
+func parseIntSafe(s string) int {
+	if s == "" {
+		return 0
+	}
+	// The playlist uses plain integers for BANDWIDTH fields.
+	var n int
+	_, _ = fmt.Sscanf(s, "%d", &n)
+	return n
+}
+
 // normalizeHLSSourceURL tries to resolve HLS master playlists to a concrete variant.
 // If the content isn't a master playlist (or the request fails), it returns the original URL.
 func (c *MediaMTXClient) normalizeHLSSourceURL(sourceURL string) (string, error) {
@@ -116,6 +148,13 @@ func (c *MediaMTXClient) normalizeHLSSourceURL(sourceURL string) (string, error)
 
 	lines := strings.Split(string(body), "\n")
 	isMaster := false
+
+	type variant struct {
+		bandwidth int
+		uri       string
+	}
+	variants := make([]variant, 0, 8)
+
 	for idx, raw := range lines {
 		line := strings.TrimSpace(raw)
 		if line == "" {
@@ -123,27 +162,47 @@ func (c *MediaMTXClient) normalizeHLSSourceURL(sourceURL string) (string, error)
 		}
 		if strings.HasPrefix(line, "#EXT-X-STREAM-INF") {
 			isMaster = true
+			attrsRaw := ""
+			if parts := strings.SplitN(line, ":", 2); len(parts) == 2 {
+				attrsRaw = strings.TrimSpace(parts[1])
+			}
+			attrs := parseHLSAttributeList(attrsRaw)
+			bw := parseIntSafe(attrs["AVERAGE-BANDWIDTH"])
+			if bw == 0 {
+				bw = parseIntSafe(attrs["BANDWIDTH"])
+			}
+
 			// Next non-empty, non-comment line should be the variant URI.
 			for j := idx + 1; j < len(lines); j++ {
 				candidate := strings.TrimSpace(lines[j])
 				if candidate == "" || strings.HasPrefix(candidate, "#") {
 					continue
 				}
-				baseParsed, perr := url.Parse(sourceURL)
-				if perr != nil {
-					return sourceURL, perr
-				}
-				refParsed, rerr := url.Parse(candidate)
-				if rerr != nil {
-					return sourceURL, rerr
-				}
-				resolved := baseParsed.ResolveReference(refParsed).String()
-				if resolved != "" {
-					log.Info().Str("source", sourceURL).Str("variant", resolved).Msg("Resolved HLS master playlist to variant")
-					return resolved, nil
-				}
+				variants = append(variants, variant{bandwidth: bw, uri: candidate})
 				break
 			}
+		}
+	}
+
+	if len(variants) > 0 {
+		best := variants[0]
+		for _, v := range variants[1:] {
+			if v.bandwidth > best.bandwidth {
+				best = v
+			}
+		}
+		baseParsed, perr := url.Parse(sourceURL)
+		if perr != nil {
+			return sourceURL, perr
+		}
+		refParsed, rerr := url.Parse(best.uri)
+		if rerr != nil {
+			return sourceURL, rerr
+		}
+		resolved := baseParsed.ResolveReference(refParsed).String()
+		if resolved != "" {
+			log.Info().Str("source", sourceURL).Str("variant", resolved).Int("bandwidth", best.bandwidth).Msg("Resolved HLS master playlist to highest-bandwidth variant")
+			return resolved, nil
 		}
 	}
 
