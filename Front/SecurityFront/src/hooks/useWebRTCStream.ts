@@ -39,10 +39,17 @@ interface UseWebRTCStreamProps {
 const STREAMING_API_URL = process.env.REACT_APP_STREAMING_API_URL || 'http://localhost:8003';
 
 const WEBRTC_CONNECT_TIMEOUT_MS = 10000;
-const HTTP_POLL_MS = 200;
+const HTTP_POLL_MS = 100;
 const HTTP_MAX_ERRORS = 8;
 const PLACEHOLDER_MAX_BYTES = 500;
 const STATS_POLL_MS = 5000;
+
+const OFFER_RETRY_TOTAL_MS = 20000;
+const OFFER_RETRY_DELAY_MS = 500;
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
 
 const INITIAL_STATE: StreamState = {
   isConnecting: false,
@@ -126,6 +133,7 @@ export const useWebRTCStream = ({ cameraId, authToken, autoConnect = true }: Use
 
       const url = `${STREAMING_API_URL}/api/v1/streams/frame/${cameraId}`;
       let errors = 0;
+      let inFlight = false;
 
       const tick = async () => {
         if (!mountedRef.current || connId !== connIdRef.current) {
@@ -135,6 +143,9 @@ export const useWebRTCStream = ({ cameraId, authToken, autoConnect = true }: Use
           }
           return;
         }
+
+        if (inFlight) return;
+        inFlight = true;
 
         const token = resolveToken(authToken);
         if (!token) {
@@ -155,6 +166,24 @@ export const useWebRTCStream = ({ cameraId, authToken, autoConnect = true }: Use
             headers: { Authorization: `Bearer ${token}` },
             cache: 'no-store',
           });
+
+          // During startup, the backend can legitimately return 404 until FFmpeg produces the first frame.
+          // Treat that as "warming up" instead of an error.
+          if (res.status === 404) {
+            errors = 0;
+            setState((p) => ({
+              ...p,
+              isConnecting: false,
+              isConnected: true,
+              hasFrames: false,
+              error: null,
+              mode: 'http',
+              streamStatus: p.streamStatus || 'connecting',
+              frameUrl: null,
+            }));
+            return;
+          }
+
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
           const blob = await res.blob();
@@ -209,6 +238,8 @@ export const useWebRTCStream = ({ cameraId, authToken, autoConnect = true }: Use
               frameUrl: null,
             }));
           }
+        } finally {
+          inFlight = false;
         }
       };
 
@@ -376,11 +407,32 @@ export const useWebRTCStream = ({ cameraId, authToken, autoConnect = true }: Use
       const localDesc = pc.localDescription;
       if (!localDesc) throw new Error('No local description');
 
-      const answerResp = await streamingApi.webrtcOffer({
-        camera_id: cameraId,
-        sdp: localDesc.sdp,
-        type: localDesc.type,
-      });
+      const startRetry = Date.now();
+      let answerResp: any = null;
+      // Retry a bit when the backend says the MediaMTX stream isn't ready yet.
+      // This avoids immediately falling back to low-FPS HTTP polling during startup.
+      // Note: streamingApi throws an ApiError-like object { message, error_code }.
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        try {
+          answerResp = await streamingApi.webrtcOffer({
+            camera_id: cameraId,
+            sdp: localDesc.sdp,
+            type: localDesc.type,
+          });
+          break;
+        } catch (e: any) {
+          if (connId !== connIdRef.current || !mountedRef.current) return;
+
+          const msg = String(e?.message || '');
+          const code = String(e?.error_code || '');
+          const retryable = code === 'STREAM_CONNECTION_ERROR' && msg.toLowerCase().includes('not ready');
+          if (!retryable || Date.now() - startRetry > OFFER_RETRY_TOTAL_MS) {
+            throw e;
+          }
+          await sleep(OFFER_RETRY_DELAY_MS);
+        }
+      }
 
       if (connId !== connIdRef.current || !mountedRef.current) return;
 

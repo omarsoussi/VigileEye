@@ -23,10 +23,17 @@ const MEDIAMTX_WHEP_URL = process.env.REACT_APP_MEDIAMTX_WHEP_URL || 'http://loc
 const STREAMING_API_URL = process.env.REACT_APP_STREAMING_API_URL || 'http://localhost:8003';
 
 const WHEP_CONNECT_TIMEOUT_MS = 10000;
-const HTTP_POLL_MS = 200;
+const HTTP_POLL_MS = 100;
 const HTTP_MAX_ERRORS = 8;
 const PLACEHOLDER_MAX_BYTES = 500;
 const STATS_POLL_MS = 5000;
+
+const OFFER_RETRY_TOTAL_MS = 20000;
+const OFFER_RETRY_DELAY_MS = 500;
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
 
 export interface WHEPStreamState {
   isConnecting: boolean;
@@ -137,6 +144,7 @@ export const useWHEPStream = ({
 
       const url = `${STREAMING_API_URL}/api/v1/streams/frame/${cameraId}`;
       let errors = 0;
+      let inFlight = false;
 
       const tick = async () => {
         if (!mountedRef.current || connId !== connIdRef.current) {
@@ -153,11 +161,22 @@ export const useWHEPStream = ({
           return;
         }
 
+        if (inFlight) return;
+        inFlight = true;
+
         try {
           const res = await fetch(url, {
             headers: { Authorization: `Bearer ${token}` },
             cache: 'no-store',
           });
+          // During startup, the backend can legitimately return 404 until FFmpeg produces the first frame.
+          // Treat that as "warming up" instead of an error.
+          if (res.status === 404) {
+            errors = 0;
+            setState((p) => ({ ...p, isConnecting: false, isConnected: true, hasFrames: false, error: null, mode: 'http', streamStatus: p.streamStatus || 'connecting' }));
+            return;
+          }
+
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
           const blob = await res.blob();
@@ -185,6 +204,8 @@ export const useWHEPStream = ({
             if (httpTimerRef.current) { clearInterval(httpTimerRef.current); httpTimerRef.current = null; }
             setState((p) => ({ ...p, isConnecting: false, isConnected: false, hasFrames: false, error: 'Stream unavailable', mode: 'none', frameUrl: null }));
           }
+        } finally {
+          inFlight = false;
         }
       };
 
@@ -296,17 +317,28 @@ export const useWHEPStream = ({
       const localDesc = pc.localDescription;
       if (!localDesc) throw new Error('No local description');
 
-      // Send SDP offer to WHEP endpoint
-      const resp = await fetch(whepUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/sdp' },
-        body: localDesc.sdp,
-      });
+      // Send SDP offer to WHEP endpoint (retry briefly on 404 "no stream" during startup)
+      const whepStart = Date.now();
+      let resp: Response | null = null;
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        resp = await fetch(whepUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/sdp' },
+          body: localDesc.sdp,
+        });
 
-      if (!resp.ok) {
-        const body = await resp.text();
-        throw new Error(`WHEP ${resp.status}: ${body}`);
+        if (resp.ok) break;
+
+        const body = await resp.text().catch(() => '');
+        const retryable = resp.status === 404 && body.toLowerCase().includes('no stream');
+        if (!retryable || Date.now() - whepStart > OFFER_RETRY_TOTAL_MS) {
+          throw new Error(`WHEP ${resp.status}: ${body}`);
+        }
+        await sleep(OFFER_RETRY_DELAY_MS);
       }
+
+      if (!resp) throw new Error('WHEP request failed');
 
       const answerSdp = await resp.text();
 

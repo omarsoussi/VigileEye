@@ -108,7 +108,10 @@ services:
 
   # ───────────────── MediaMTX – Media Server (RTSP/WebRTC/HLS) ──────────
   mediamtx:
-    image: bluenviron/mediamtx:latest
+    build:
+      context: ./mediamtx
+      dockerfile: Dockerfile
+    image: vigileeye-mediamtx
     environment:
       # Avoid deprecated 'protocols' parameter; configure RTSP transports instead.
       MTX_RTSPTRANSPORTS: tcp

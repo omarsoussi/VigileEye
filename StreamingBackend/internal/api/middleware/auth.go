@@ -19,6 +19,13 @@ const (
 // AuthMiddleware creates a Gin middleware that validates JWT tokens.
 func AuthMiddleware(authService services.AuthService) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// Allow browser CORS preflight requests to pass without auth.
+		// CORS headers are set by the global CORS middleware.
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, dto.ErrorResponse{

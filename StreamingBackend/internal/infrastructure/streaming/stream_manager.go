@@ -31,6 +31,9 @@ type StreamManager struct {
 
 	// MediaMTX client (nil when MediaMTX is disabled)
 	mediaMTX *MediaMTXClient
+	// Per-camera toggle: whether this camera is actually using MediaMTX/WHEP.
+	// This allows falling back to the legacy pipeline for sources that MediaMTX can't ingest.
+	useMediaMTX map[string]bool
 
 	// WHEP session URLs: viewerID → MediaMTX session URL
 	whepSessions map[string]string
@@ -51,6 +54,7 @@ func NewStreamManager(cfg *config.Config, repo repositories.StreamSessionReposit
 		whepSessions:  make(map[string]string),
 		jpegProcesses: make(map[string]*FFmpegProcess),
 		latestFrames:  make(map[string][]byte),
+		useMediaMTX:   make(map[string]bool),
 	}
 
 	if cfg.MediaMTXEnabled {
@@ -78,6 +82,22 @@ func (sm *StreamManager) GetMediaMTXClient() *MediaMTXClient {
 // IsMediaMTXEnabled returns whether MediaMTX mode is active.
 func (sm *StreamManager) IsMediaMTXEnabled() bool {
 	return sm.cfg.MediaMTXEnabled && sm.mediaMTX != nil
+}
+
+// IsCameraUsingMediaMTX returns true if this camera is using MediaMTX/WHEP.
+func (sm *StreamManager) IsCameraUsingMediaMTX(cameraID string) bool {
+	if !sm.IsMediaMTXEnabled() {
+		return false
+	}
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+	return sm.useMediaMTX[cameraID]
+}
+
+func (sm *StreamManager) cameraUsesMediaMTX(cameraID string) bool {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+	return sm.IsMediaMTXEnabled() && sm.useMediaMTX[cameraID]
 }
 
 // StartStream begins streaming a camera.
@@ -111,6 +131,11 @@ func (sm *StreamManager) StartStream(cameraID, ownerUserID, streamURL string, cf
 		}
 	}
 
+	// Enforce a reasonable minimum FPS so the stream doesn't feel laggy.
+	if sm.cfg != nil && sm.cfg.DefaultFPS > 0 && streamCfg.FPS < sm.cfg.DefaultFPS {
+		streamCfg.FPS = sm.cfg.DefaultFPS
+	}
+
 	session := entities.NewStreamSession(
 		uuid.New().String(),
 		cameraID,
@@ -122,15 +147,31 @@ func (sm *StreamManager) StartStream(cameraID, ownerUserID, streamURL string, cf
 
 	if sm.IsMediaMTXEnabled() {
 		// ─── MediaMTX path ───
+		addedToMediaMTX := false
 		if err := sm.mediaMTX.AddPath(cameraID, streamURL); err != nil {
-			log.Error().Err(err).Str("camera_id", cameraID).Msg("Failed to add MediaMTX path")
-			session.SetError("MediaMTX path creation failed: " + err.Error())
+			// Fall back to the legacy pipeline when MediaMTX can't ingest the source.
+			// This prevents hard failures for common sources like HTTP MP4 URLs.
+			log.Warn().Err(err).Str("camera_id", cameraID).Msg("MediaMTX path creation failed, falling back to legacy pipeline")
+			session.ErrorMessage = "MediaMTX disabled for this stream: " + err.Error()
 			sm.repo.Save(session)
-			return nil, domainerrors.NewIngestFailedError(cameraID, err.Error())
+
+			ingest := NewCameraIngest(cameraID, streamURL, streamCfg.FPS, streamCfg.Width, streamCfg.Height, sm.cfg)
+			if err2 := ingest.Start(); err2 != nil {
+				log.Warn().Err(err2).Str("camera_id", cameraID).Msg("Legacy WebRTC ingest failed, running JPEG-only")
+			} else {
+				sm.ingests[cameraID] = ingest
+			}
+			sm.useMediaMTX[cameraID] = false
+		} else {
+			addedToMediaMTX = true
 		}
-		log.Info().Str("camera_id", cameraID).Str("source", streamURL).Msg("MediaMTX path registered")
+		if addedToMediaMTX {
+			sm.useMediaMTX[cameraID] = true
+			log.Info().Str("camera_id", cameraID).Str("source", streamURL).Msg("MediaMTX path registered")
+		}
 	} else {
 		// ─── Legacy: FFmpeg → RTP → pion ───
+		sm.useMediaMTX[cameraID] = false
 		ingest := NewCameraIngest(cameraID, streamURL, streamCfg.FPS, streamCfg.Width, streamCfg.Height, sm.cfg)
 		if err := ingest.Start(); err != nil {
 			log.Warn().Err(err).Str("camera_id", cameraID).Msg("WebRTC ingest failed, running JPEG-only")
@@ -165,17 +206,17 @@ func (sm *StreamManager) StopStream(cameraID string) (*entities.StreamSession, e
 		return nil, domainerrors.NewStreamNotFoundError(cameraID)
 	}
 
-	if sm.IsMediaMTXEnabled() {
+	if sm.cameraUsesMediaMTX(cameraID) {
 		// Remove path from MediaMTX
 		if err := sm.mediaMTX.RemovePath(cameraID); err != nil {
 			log.Warn().Err(err).Str("camera_id", cameraID).Msg("Failed to remove MediaMTX path")
 		}
-	} else {
-		// Stop legacy WebRTC ingest
-		if ingest, ok := sm.ingests[cameraID]; ok {
-			ingest.Stop()
-			delete(sm.ingests, cameraID)
-		}
+	}
+
+	// Stop legacy WebRTC ingest (may be running even when MediaMTX is enabled)
+	if ingest, ok := sm.ingests[cameraID]; ok {
+		ingest.Stop()
+		delete(sm.ingests, cameraID)
 	}
 
 	// Stop JPEG extraction
@@ -187,6 +228,7 @@ func (sm *StreamManager) StopStream(cameraID string) (*entities.StreamSession, e
 	session.Stop()
 	sm.repo.Save(session)
 	sm.repo.Remove(cameraID)
+	delete(sm.useMediaMTX, cameraID)
 
 	log.Info().Str("camera_id", cameraID).Msg("Stream stopped")
 	return session, nil
@@ -200,19 +242,25 @@ func (sm *StreamManager) StopAll() {
 	if sm.IsMediaMTXEnabled() {
 		// Remove all paths from MediaMTX
 		for _, session := range sm.repo.GetAll() {
-			if err := sm.mediaMTX.RemovePath(session.CameraID); err != nil {
+			if sm.useMediaMTX[session.CameraID] {
+				if err := sm.mediaMTX.RemovePath(session.CameraID); err != nil {
 				log.Warn().Err(err).Str("camera_id", session.CameraID).Msg("Failed to remove MediaMTX path")
 			}
+			}
 		}
-	} else {
-		for cameraID, ingest := range sm.ingests {
-			ingest.Stop()
-			delete(sm.ingests, cameraID)
-		}
+	}
+
+	for cameraID, ingest := range sm.ingests {
+		ingest.Stop()
+		delete(sm.ingests, cameraID)
 	}
 
 	for cameraID := range sm.jpegProcesses {
 		sm.stopJPEGExtraction(cameraID)
+	}
+
+	for cameraID := range sm.useMediaMTX {
+		delete(sm.useMediaMTX, cameraID)
 	}
 
 	log.Info().Msg("All streams stopped")
@@ -262,7 +310,7 @@ func (sm *StreamManager) GetRealTimeInfo(cameraID string) *services.RealTimeInfo
 		ViewerCount: session.ViewerCount,
 	}
 
-	if sm.IsMediaMTXEnabled() {
+	if sm.cameraUsesMediaMTX(cameraID) {
 		// Get stats from MediaMTX
 		pathStatus, err := sm.mediaMTX.GetPathStatus(cameraID)
 		if err == nil && pathStatus != nil {
@@ -327,7 +375,7 @@ func (sm *StreamManager) GetLatestFrame(cameraID string) []byte {
 // With MediaMTX: proxies the SDP offer/answer via WHEP.
 // Without MediaMTX: uses pion PeerConnection directly.
 func (sm *StreamManager) NegotiateWebRTC(cameraID, viewerID string, offer webrtc.SessionDescription) (*webrtc.SessionDescription, error) {
-	if sm.IsMediaMTXEnabled() {
+	if sm.cameraUsesMediaMTX(cameraID) {
 		return sm.negotiateViaWHEP(cameraID, viewerID, offer)
 	}
 	return sm.negotiateViaLegacy(cameraID, viewerID, offer)
@@ -335,6 +383,19 @@ func (sm *StreamManager) NegotiateWebRTC(cameraID, viewerID string, offer webrtc
 
 // negotiateViaWHEP proxies WebRTC signaling through MediaMTX WHEP.
 func (sm *StreamManager) negotiateViaWHEP(cameraID, viewerID string, offer webrtc.SessionDescription) (*webrtc.SessionDescription, error) {
+	// Ensure the path is actually producing media before attempting WHEP.
+	// Without this, MediaMTX can legitimately return 404 "no stream is available" for a short time
+	// right after adding/updating the path config.
+	if sm.mediaMTX != nil {
+		ready, err := sm.mediaMTX.WaitPathReady(cameraID, 2*time.Second)
+		if err != nil {
+			return nil, domainerrors.NewStreamConnectionError(cameraID, "MediaMTX path readiness check failed: "+err.Error())
+		}
+		if !ready {
+			return nil, domainerrors.NewStreamConnectionError(cameraID, "MediaMTX stream is not ready yet")
+		}
+	}
+
 	// Use the WHEP-specific URL if configured, otherwise fall back to API URL
 	whepClient := NewMediaMTXClient(sm.cfg.MediaMTXWHEPURL)
 

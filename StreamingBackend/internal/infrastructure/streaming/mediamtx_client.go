@@ -69,9 +69,128 @@ type MediaMTXPathList struct {
 	Items     []MediaMTXPathStatus `json:"items"`
 }
 
+func isHTTPURL(u string) bool {
+	lower := strings.ToLower(u)
+	return strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://")
+}
+
+func hasAnySuffix(s string, suffixes ...string) bool {
+	for _, suf := range suffixes {
+		if strings.HasSuffix(s, suf) {
+			return true
+		}
+	}
+	return false
+}
+
+// normalizeHLSSourceURL tries to resolve HLS master playlists to a concrete variant.
+// If the content isn't a master playlist (or the request fails), it returns the original URL.
+func (c *MediaMTXClient) normalizeHLSSourceURL(sourceURL string) (string, error) {
+	lower := strings.ToLower(sourceURL)
+	if !isHTTPURL(lower) || !strings.HasSuffix(lower, ".m3u8") {
+		return sourceURL, nil
+	}
+
+	req, err := http.NewRequest("GET", sourceURL, nil)
+	if err != nil {
+		return sourceURL, err
+	}
+	req.Header.Set("Accept", "application/vnd.apple.mpegurl, application/x-mpegurl, */*")
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return sourceURL, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return sourceURL, fmt.Errorf("fetch HLS playlist failed (status %d)", resp.StatusCode)
+	}
+
+	// Avoid reading unbounded data.
+	const maxBytes = 256 * 1024
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBytes))
+	if err != nil {
+		return sourceURL, err
+	}
+
+	lines := strings.Split(string(body), "\n")
+	isMaster := false
+	for idx, raw := range lines {
+		line := strings.TrimSpace(raw)
+		if line == "" {
+			continue
+		}
+		if strings.HasPrefix(line, "#EXT-X-STREAM-INF") {
+			isMaster = true
+			// Next non-empty, non-comment line should be the variant URI.
+			for j := idx + 1; j < len(lines); j++ {
+				candidate := strings.TrimSpace(lines[j])
+				if candidate == "" || strings.HasPrefix(candidate, "#") {
+					continue
+				}
+				baseParsed, perr := url.Parse(sourceURL)
+				if perr != nil {
+					return sourceURL, perr
+				}
+				refParsed, rerr := url.Parse(candidate)
+				if rerr != nil {
+					return sourceURL, rerr
+				}
+				resolved := baseParsed.ResolveReference(refParsed).String()
+				if resolved != "" {
+					log.Info().Str("source", sourceURL).Str("variant", resolved).Msg("Resolved HLS master playlist to variant")
+					return resolved, nil
+				}
+				break
+			}
+		}
+	}
+
+	if isMaster {
+		// It looked like a master playlist but we couldn't resolve a variant.
+		return sourceURL, fmt.Errorf("failed to resolve HLS master playlist variant")
+	}
+	return sourceURL, nil
+}
+
+// WaitPathReady waits until a path becomes ready (i.e. MediaMTX is receiving media).
+// Returns (true, nil) when ready, (false, nil) on timeout.
+func (c *MediaMTXClient) WaitPathReady(pathName string, timeout time.Duration) (bool, error) {
+	deadline := time.Now().Add(timeout)
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		status, err := c.GetPathStatus(pathName)
+		if err != nil {
+			return false, err
+		}
+		if status != nil && status.Ready {
+			return true, nil
+		}
+		if time.Now().After(deadline) {
+			return false, nil
+		}
+		<-ticker.C
+	}
+}
+
 // AddPath adds or updates a stream path in MediaMTX.
 // The path name is the cameraID, source is the RTSP/HTTP stream URL.
 func (c *MediaMTXClient) AddPath(pathName, sourceURL string) error {
+	// MediaMTX's built-in HTTP ingest is HLS-focused. A direct MP4 file URL
+	// (while playable by ffmpeg) can cause MediaMTX to hang/time out.
+	if isHTTPURL(sourceURL) && hasAnySuffix(strings.ToLower(sourceURL), ".mp4", ".mov", ".m4v") {
+		return fmt.Errorf("unsupported HTTP source for MediaMTX (expected HLS .m3u8 or RTSP): %s", sourceURL)
+	}
+
+	// Some public test streams provide a master playlist. Resolving to a concrete
+	// variant reduces ambiguity and can improve ingest reliability.
+	if normalized, err := c.normalizeHLSSourceURL(sourceURL); err == nil && normalized != "" {
+		sourceURL = normalized
+	}
+
 	onDemand := false
 	record := false
 	cfg := MediaMTXPathConfig{

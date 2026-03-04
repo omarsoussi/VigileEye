@@ -449,6 +449,10 @@ func handleError(c *gin.Context, err error) {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Detail: dto.ErrorDetail{Message: e.Message, ErrorCode: e.Code},
 		})
+	case *domainerrors.StreamConnectionError:
+		c.JSON(http.StatusServiceUnavailable, dto.ErrorResponse{
+			Detail: dto.ErrorDetail{Message: e.Message, ErrorCode: e.Code},
+		})
 	case *domainerrors.IngestFailedError:
 		c.JSON(http.StatusBadGateway, dto.ErrorResponse{
 			Detail: dto.ErrorDetail{Message: e.Message, ErrorCode: e.Code},

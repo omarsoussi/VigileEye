@@ -48,8 +48,10 @@ func (uc *GetStreamStatusUseCase) Execute(cameraID string) *StreamStatusResult {
 		signalingURL = "/api/v1/webrtc/offer"
 
 		if uc.streamManager.IsMediaMTXEnabled() {
-			// Provide direct WHEP endpoint for frontend
-			whepEndpoint = fmt.Sprintf("%s/%s/whep", uc.cfg.MediaMTXWHEPURL, cameraID)
+			if uc.streamManager.IsCameraUsingMediaMTX(cameraID) {
+				// Provide direct WHEP endpoint for frontend
+				whepEndpoint = fmt.Sprintf("%s/%s/whep", uc.cfg.MediaMTXWHEPURL, cameraID)
+			}
 		}
 	}
 
