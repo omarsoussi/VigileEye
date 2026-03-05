@@ -1392,8 +1392,8 @@ export const SettingsPageNew: React.FC = () => {
             icon={<HiOutlineDatabase size={18} />}
             iconColor="#8b5cf6"
             label="Storage"
-            value="12.4 GB"
-            onClick={() => {}}
+            value="Manage"
+            onClick={() => navigate('/storage')}
             isLast
           />
         </SettingsSection>

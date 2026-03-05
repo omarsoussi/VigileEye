@@ -207,6 +207,53 @@ services:
           memory: 256M
     restart: unless-stopped
 
+  # ───────────────── Storage Backend – Go (port 8004) ──────────
+  storagebackend:
+    build:
+      context: ./StorageBackend
+      dockerfile: Dockerfile
+    env_file:
+      - ./StorageBackend/.env
+    environment:
+      PORT: "8004"
+      LOG_LEVEL: "info"
+      JWT_SECRET: *jwt-secret
+      CAMERA_SERVICE_URL: "http://cameramanagement:8002"
+      MEDIAMTX_RTSP_URL: "rtsp://mediamtx:8554"
+      FFMPEG_PATH: "ffmpeg"
+      STORAGE_MODE: "local"
+      LOCAL_STORAGE_PATH: "/app/data/recordings"
+      SEGMENT_DURATION_MINUTES: "5"
+      DATABASE_URL: "postgres://neondb_owner:npg_JlMpDFoa34rL@ep-restless-firefly-agyxskdr-pooler.c-2.eu-central-1.aws.neon.tech/CMstorage"
+    ports:
+      - "8004:8004"
+    volumes:
+      - records:/app/data/recordings
+    networks:
+      - vigileeye-network
+    depends_on:
+      backend:
+        condition: service_healthy
+      cameramanagement:
+        condition: service_healthy
+      mediamtx:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8004/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    restart: unless-stopped
+
   # ───────────────── React Frontend (port 3000) ───────────────
   front:
     build:
@@ -217,6 +264,7 @@ services:
         REACT_APP_MEMBERS_API_URL: "http://localhost:8001/api/v1"
         REACT_APP_CAMERAS_API_URL: "http://localhost:8002/api/v1"
         REACT_APP_STREAMING_API_URL: "http://localhost:8003"
+        REACT_APP_STORAGE_API_URL: "http://localhost:8004"
         REACT_APP_MEDIAMTX_WHEP_URL: "http://localhost:8889"
     ports:
       - "3000:3000"
@@ -233,4 +281,10 @@ services:
         condition: service_healthy
       mediamtx:
         condition: service_healthy
+      storagebackend:
+        condition: service_healthy
     restart: unless-stopped
+
+volumes:
+  records:
+    driver: local

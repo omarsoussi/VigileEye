@@ -30,3 +30,6 @@ export { MonitoringPageNew } from './streaming';
 
 // Members
 export { MembersPageNew } from './members';
+
+// Storage
+export { StoragePageNew } from './storage';

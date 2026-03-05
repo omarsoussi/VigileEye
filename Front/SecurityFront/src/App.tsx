@@ -26,6 +26,8 @@ import {
   MonitoringPageNew,
   // Members
   MembersPageNew,
+  // Storage
+  StoragePageNew,
 } from './pages';
 
 // Protected Route Component
@@ -162,6 +164,13 @@ const AppRoutes: React.FC = () => {
         <ProtectedRoute>
           <AppLayout>
             <CameraManagementPage />
+          </AppLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/storage" element={
+        <ProtectedRoute>
+          <AppLayout>
+            <StoragePageNew />
           </AppLayout>
         </ProtectedRoute>
       } />

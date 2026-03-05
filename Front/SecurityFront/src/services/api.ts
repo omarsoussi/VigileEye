@@ -7,6 +7,14 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api
 const MEMBERS_API_BASE_URL = process.env.REACT_APP_MEMBERS_API_URL || 'http://localhost:8001/api/v1';
 const CAMERAS_API_BASE_URL = process.env.REACT_APP_CAMERAS_API_URL || 'http://localhost:8002/api/v1';
 const STREAMING_API_BASE_URL = process.env.REACT_APP_STREAMING_API_URL;
+const STORAGE_API_BASE_URL = process.env.REACT_APP_STORAGE_API_URL || 'http://localhost:8004';
+
+const requireStorageBaseUrl = (): string => {
+  if (!STORAGE_API_BASE_URL) {
+    throw new Error('Storage backend URL is not configured (REACT_APP_STORAGE_API_URL)');
+  }
+  return STORAGE_API_BASE_URL;
+};
 
 const requireStreamingBaseUrl = (): string => {
   if (!STREAMING_API_BASE_URL) {
@@ -1331,5 +1339,241 @@ export interface CameraWithPermission extends CameraResponse {
   /** true if this camera is shared to the current user (not owned) */
   isShared: boolean;
 }
+
+// ═══════════════════════════════════════════════
+// Storage Service Types & API
+// ═══════════════════════════════════════════════
+
+export interface StorageRecordingResponse {
+  id: string;
+  camera_id: string;
+  owner_user_id: string;
+  file_name: string;
+  file_path: string;
+  file_size: number;
+  duration_secs: number;
+  resolution: string;
+  bitrate: number;
+  format: string;
+  thumbnail_path: string;
+  storage_mode: string;
+  status: string;
+  started_at: string;
+  ended_at?: string;
+  created_at: string;
+}
+
+export interface StorageConfigResponse {
+  id: string;
+  camera_id: string;
+  enabled: boolean;
+  storage_mode: string;
+  retention_days: number;
+  quota_gb: number;
+  bitrate: number;
+  resolution: string;
+  segment_minutes: number;
+  subscription: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StorageMetricsResponse {
+  camera_id: string;
+  owner_user_id: string;
+  total_files: number;
+  total_size_bytes: number;
+  total_size_gb: number;
+  quota_gb: number;
+  usage_percent: number;
+  oldest_file?: string;
+  newest_file?: string;
+}
+
+export interface StartRecordingRequest {
+  camera_id: string;
+  storage_mode?: string;
+}
+
+export interface StopRecordingRequest {
+  camera_id: string;
+}
+
+export interface UpdateStorageConfigRequest {
+  camera_id?: string;
+  enabled?: boolean;
+  storage_mode?: string;
+  retention_days?: number;
+  quota_gb?: number;
+  bitrate?: number;
+  resolution?: string;
+  segment_minutes?: number;
+}
+
+export interface ActiveRecordingsResponse {
+  recordings: StorageRecordingResponse[];
+  count: number;
+}
+
+export interface RecordingsListResponse {
+  recordings: StorageRecordingResponse[];
+  count: number;
+}
+
+export interface StorageConfigsListResponse {
+  configs: StorageConfigResponse[];
+}
+
+export interface DownloadTokenResponse {
+  url: string;
+  expires_at: string;
+}
+
+// Storage API
+export const storageApi = {
+  /** Start recording for a camera */
+  startRecording: async (data: StartRecordingRequest): Promise<StorageRecordingResponse> => {
+    const response = await authFetch(`${requireStorageBaseUrl()}/api/v1/storage/recordings/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<StorageRecordingResponse>(response);
+  },
+
+  /** Stop recording for a camera */
+  stopRecording: async (data: StopRecordingRequest): Promise<StorageRecordingResponse> => {
+    const response = await authFetch(`${requireStorageBaseUrl()}/api/v1/storage/recordings/stop`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<StorageRecordingResponse>(response);
+  },
+
+  /** Get recordings for a camera */
+  getRecordings: async (cameraId: string): Promise<RecordingsListResponse> => {
+    const response = await authFetch(`${requireStorageBaseUrl()}/api/v1/storage/recordings?camera_id=${cameraId}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    return handleResponse<RecordingsListResponse>(response);
+  },
+
+  /** Get all recordings for current user */
+  getUserRecordings: async (): Promise<RecordingsListResponse> => {
+    const response = await authFetch(`${requireStorageBaseUrl()}/api/v1/storage/recordings`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    return handleResponse<RecordingsListResponse>(response);
+  },
+
+  /** Get active recordings */
+  getActiveRecordings: async (): Promise<ActiveRecordingsResponse> => {
+    const response = await authFetch(`${requireStorageBaseUrl()}/api/v1/storage/recordings/active`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    return handleResponse<ActiveRecordingsResponse>(response);
+  },
+
+  /** Delete a recording */
+  deleteRecording: async (recordingId: string): Promise<MessageResponse> => {
+    const response = await authFetch(`${requireStorageBaseUrl()}/api/v1/storage/recordings/${recordingId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    return handleResponse<MessageResponse>(response);
+  },
+
+  /** Download a recording file (authenticated) */
+  downloadRecording: async (recordingId: string, fileName?: string): Promise<void> => {
+    const response = await authFetch(`${requireStorageBaseUrl()}/api/v1/storage/download/${recordingId}`, {
+      method: 'GET',
+      headers: { ...authHeaders() },
+    });
+    if (!response.ok) throw new Error('Download failed');
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName || `recording-${recordingId}.mp4`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  },
+
+  /** Stream a recording file */
+  getStreamUrl: (recordingId: string): string => {
+    return `${requireStorageBaseUrl()}/api/v1/storage/stream/${recordingId}`;
+  },
+
+  /** Get a short-lived stream token for video playback */
+  getStreamToken: async (recordingId: string): Promise<DownloadTokenResponse> => {
+    const response = await authFetch(`${requireStorageBaseUrl()}/api/v1/storage/stream-token/${recordingId}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    return handleResponse<DownloadTokenResponse>(response);
+  },
+
+  /** Get the playback URL with token for a recording (for <video> element) */
+  getPlaybackUrl: async (recordingId: string): Promise<string> => {
+    const response = await authFetch(`${requireStorageBaseUrl()}/api/v1/storage/stream-token/${recordingId}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    const resp = await handleResponse<DownloadTokenResponse>(response);
+    return `${requireStorageBaseUrl()}${resp.url}`;
+  },
+
+  /** Get storage config for a camera */
+  getConfig: async (cameraId: string): Promise<StorageConfigResponse> => {
+    const response = await authFetch(`${requireStorageBaseUrl()}/api/v1/storage/settings/${cameraId}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    return handleResponse<StorageConfigResponse>(response);
+  },
+
+  /** Update storage config for a camera */
+  updateConfig: async (cameraId: string, data: UpdateStorageConfigRequest): Promise<StorageConfigResponse> => {
+    const response = await authFetch(`${requireStorageBaseUrl()}/api/v1/storage/settings/${cameraId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<StorageConfigResponse>(response);
+  },
+
+  /** List all storage configs */
+  listConfigs: async (): Promise<StorageConfigsListResponse> => {
+    const response = await authFetch(`${requireStorageBaseUrl()}/api/v1/storage/settings`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    return handleResponse<StorageConfigsListResponse>(response);
+  },
+
+  /** Get storage metrics for a camera */
+  getCameraMetrics: async (cameraId: string): Promise<StorageMetricsResponse> => {
+    const response = await authFetch(`${requireStorageBaseUrl()}/api/v1/storage/metrics/${cameraId}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    return handleResponse<StorageMetricsResponse>(response);
+  },
+
+  /** Get total storage metrics for user */
+  getUserMetrics: async (): Promise<StorageMetricsResponse> => {
+    const response = await authFetch(`${requireStorageBaseUrl()}/api/v1/storage/metrics`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    return handleResponse<StorageMetricsResponse>(response);
+  },
+};
 
 export default authApi;
