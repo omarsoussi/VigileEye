@@ -3,75 +3,76 @@ classDiagram
     direction TB
 
     %% Domain Layer
-    subgraph "Domain Layer"
-        class Recording {
-            +string ID
-            +string CameraID
-            +RecordingStatus Status
-            +StorageMode StorageMode
-            +time.Time CreatedAt
-            +time.Time UpdatedAt
-        }
+    class Recording {
+        +string ID
+        +string CameraID
+        +RecordingStatus Status
+        +StorageMode StorageMode
+        +time.Time CreatedAt
+        +time.Time UpdatedAt
+        +Complete(filePath, size, duration)
+        +MarkDeleted()
+    }
 
-        class CameraStorageConfig {
-            +string CameraID
-            +StorageMode StorageMode
-            +int RetentionDays
-            +float64 QuotaGB
-        }
+    class CameraStorageConfig {
+        +string CameraID
+        +StorageMode StorageMode
+        +int RetentionDays
+        +float64 QuotaGB
+        +bool AutoRecord
+        +Update(mode, retention, quota, auto)
+    }
 
-        class RecordingStatus {
-            <<enumeration>>
-            recording
-            completed
-            failed
-        }
+    class RecordingStatus {
+        <<enumeration>>
+        recording
+        completed
+        failed
+        deleted
+    }
 
-        class StorageMode {
-            <<enumeration>>
-            local
-            cloud
-        }
+    class StorageMode {
+        <<enumeration>>
+        local
+        minio
+        azure
+    }
 
-        class Camera {
-            +string ID
-            +string OwnerUserID
-            +bool IsOnline
-        }
-    end
+    class Camera {
+        +string ID
+        +string OwnerUserID
+        +bool IsOnline
+    }
 
     %% Application Layer
-    subgraph "Application Layer"
-        class StartRecordingUseCase {
-            -RecordingRepository recordingRepo
-            -CameraService cameraService
-            +Execute(userID, cameraID) Recording
-        }
+    class StartRecordingUseCase {
+        -RecordingRepository recordingRepo
+        -CameraService cameraService
+        +Execute(userID, cameraID) Recording
+    }
 
-        class StopRecordingUseCase {
-            -RecordingRepository recordingRepo
-            +Execute(userID, cameraID)
-        }
+    class StopRecordingUseCase {
+        -RecordingRepository recordingRepo
+        +Execute(userID, cameraID)
+    }
 
-        class ListRecordingsUseCase {
-            -RecordingRepository recordingRepo
-            +ByCamera(cameraID) []Recording
-        }
-    end
+    class ListRecordingsUseCase {
+        -RecordingRepository recordingRepo
+        +ByCamera(cameraID) []Recording
+    }
 
     %% Infrastructure Layer
-    subgraph "Infrastructure Layer"
-        class RecordingRepository {
-            <<interface>>
-            +GetByID(id) Recording
-            +Save(recording Recording)
-        }
+    class RecordingRepository {
+        <<interface>>
+        +GetByID(id) Recording
+        +Save(recording Recording)
+        +Delete(id)
+    }
 
-        class CameraService {
-            <<interface>>
-            +GetCamera(cameraID) Camera
-        }
-    end
+    class CameraService {
+        <<interface>>
+        +GetCamera(cameraID) Camera
+    }
 
     %% Relationships
     Recording "1" --> "1" Camera : belongs to
@@ -80,3 +81,4 @@ classDiagram
     StartRecordingUseCase --> CameraService : uses
     StopRecordingUseCase --> RecordingRepository : uses
     ListRecordingsUseCase --> RecordingRepository : uses
+```
