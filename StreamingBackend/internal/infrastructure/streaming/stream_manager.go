@@ -500,7 +500,7 @@ func (sm *StreamManager) negotiateViaWHEP(cameraID, viewerID string, offer webrt
 	// Without this, MediaMTX can legitimately return 404 "no stream is available" for a short time
 	// right after adding/updating the path config.
 	if sm.mediaMTX != nil {
-		ready, err := sm.mediaMTX.WaitPathReady(cameraID, 8*time.Second)
+		ready, err := sm.mediaMTX.WaitPathReady(cameraID, 4*time.Second)
 		if err != nil {
 			return nil, domainerrors.NewStreamConnectionError(cameraID, "MediaMTX path readiness check failed: "+err.Error())
 		}

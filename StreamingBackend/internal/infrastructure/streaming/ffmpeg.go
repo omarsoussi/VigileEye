@@ -234,11 +234,11 @@ func buildFFmpegArgs(opts FFmpegOptions) []string {
 
 	// Low-latency input tuning
 	args = append(args,
-		"-fflags", "+nobuffer+genpts",
+		"-fflags", "+nobuffer+genpts+discardcorrupt",
 		"-flags", "low_delay",
 		"-max_delay", "0",
-		"-analyzeduration", "500000",
-		"-probesize", "500000",
+		"-analyzeduration", "100000",
+		"-probesize", "100000",
 	)
 
 	lower := strings.ToLower(opts.StreamURL)
@@ -279,10 +279,11 @@ func BuildRTPArgs(cfg *config.Config, streamURL string, videoRTPPort, audioRTPPo
 	var args []string
 
 	args = append(args,
-		"-fflags", "+nobuffer+genpts",
+		"-fflags", "+nobuffer+genpts+discardcorrupt",
 		"-flags", "low_delay",
-		"-analyzeduration", "500000",
-		"-probesize", "500000",
+		"-max_delay", "0",
+		"-analyzeduration", "100000",
+		"-probesize", "100000",
 	)
 
 	lower := strings.ToLower(streamURL)
@@ -331,11 +332,11 @@ func BuildTranscodeRTPArgsAV(cfg *config.Config, streamURL string, videoRTPPort,
 	var args []string
 
 	args = append(args,
-		"-fflags", "+nobuffer+genpts",
+		"-fflags", "+nobuffer+genpts+discardcorrupt",
 		"-flags", "low_delay",
 		"-max_delay", "0",
-		"-analyzeduration", "500000",
-		"-probesize", "500000",
+		"-analyzeduration", "100000",
+		"-probesize", "100000",
 	)
 
 	lower := strings.ToLower(streamURL)
@@ -356,7 +357,7 @@ func BuildTranscodeRTPArgsAV(cfg *config.Config, streamURL string, videoRTPPort,
 		bitrateK = 2000
 	}
 	maxrateK := int(float64(bitrateK) * 1.25)
-	bufsizeK := bitrateK * 2
+	bufsizeK := bitrateK / 2 // Small buffer for low latency
 
 	// Video → RTP (H.264 baseline, no B-frames)
 	args = append(args,

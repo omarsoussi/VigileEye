@@ -192,6 +192,7 @@ const WebRTCPlayer: React.FC<WebRTCPlayerProps> = ({
             }}
             autoPlay
             playsInline
+            muted
             className="video-stream"
             style={{
               width: '100%',

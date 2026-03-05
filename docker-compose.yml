@@ -122,6 +122,9 @@ services:
       MTX_API: "yes"
       MTX_APIADDRESS: ":9997"
       MTX_LOGLEVEL: "info"
+      # Low-latency tuning
+      MTX_READBUFFERCOUNT: "256"
+      MTX_WEBRTCICETCPMUX: "no"
       # Allow the Control API to be called from other containers.
       # By default, MediaMTX allows API access only from 127.0.0.1/::1.
       # Docker bridge/container IPs are typically in private ranges (e.g. 172.16/12).

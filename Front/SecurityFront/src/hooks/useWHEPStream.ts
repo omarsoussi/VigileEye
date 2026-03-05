@@ -21,7 +21,7 @@ import { streamingApi, tokenStorage } from '../services/api';
 
 const MEDIAMTX_WHEP_URL = process.env.REACT_APP_MEDIAMTX_WHEP_URL || 'http://localhost:8889';
 
-const WHEP_CONNECT_TIMEOUT_MS = 10000;
+const WHEP_CONNECT_TIMEOUT_MS = 5000;
 const HTTP_POLL_MS = 100;
 const HTTP_MAX_ERRORS = 8;
 const PLACEHOLDER_MAX_BYTES = 2048;
@@ -29,8 +29,8 @@ const STATS_POLL_MS = 5000;
 
 const PLACEHOLDER_HEADER = 'X-VigileEye-Placeholder';
 
-const OFFER_RETRY_TOTAL_MS = 20000;
-const OFFER_RETRY_DELAY_MS = 500;
+const OFFER_RETRY_TOTAL_MS = 8000;
+const OFFER_RETRY_DELAY_MS = 300;
 
 function sleep(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -110,12 +110,37 @@ export const useWHEPStream = ({
       const status = await streamingApi.getStreamStatus(cameraId);
       const endpoint = (status?.whep_endpoint || '').trim();
       if (endpoint) return endpoint;
-      return null;
+      // Stream exists but no whep_endpoint → fall back to constructed URL
+      return `${whepBase}/${cameraId}/whep`;
     } catch {
-      // If we can't fetch status, fall back to legacy behavior.
+      // If we can't fetch status, fall back to constructed URL.
       return `${whepBase}/${cameraId}/whep`;
     }
   }, [cameraId, whepBase]);
+
+  // Combined: ensure stream started + resolve WHEP in one step
+  const ensureStreamAndResolveWHEP = useCallback(async (): Promise<string | null> => {
+    let whepEndpoint: string | null = null;
+
+    // First try to get status (tells us if stream is running + WHEP endpoint)
+    try {
+      const status = await streamingApi.getStreamStatus(cameraId);
+      const endpoint = (status?.whep_endpoint || '').trim();
+      whepEndpoint = endpoint || `${whepBase}/${cameraId}/whep`;
+
+      if (status?.is_streaming) return whepEndpoint;
+    } catch {
+      whepEndpoint = `${whepBase}/${cameraId}/whep`;
+    }
+
+    // Stream not started → start it
+    if (streamUrl) {
+      try {
+        await streamingApi.startStream({ camera_id: cameraId, stream_url: streamUrl });
+      } catch { /* ignore – might already be started */ }
+    }
+    return whepEndpoint;
+  }, [cameraId, streamUrl, whepBase]);
 
   const ensureStreamStarted = useCallback(async () => {
     if (!streamUrl) return;
@@ -352,7 +377,7 @@ export const useWHEPStream = ({
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-      // Wait for ICE gathering (short timeout)
+      // Wait for ICE gathering (short timeout — local candidates only, no relay)
       await new Promise<void>((resolve) => {
         if (pc.iceGatheringState === 'complete') { resolve(); return; }
         const check = () => {
@@ -362,7 +387,7 @@ export const useWHEPStream = ({
           }
         };
         pc.addEventListener('icegatheringstatechange', check);
-        setTimeout(resolve, 2000);
+        setTimeout(resolve, 800);
       });
 
       if (connId !== connIdRef.current || !mountedRef.current) return false;
@@ -501,7 +526,7 @@ export const useWHEPStream = ({
           }
         };
         pc.addEventListener('icegatheringstatechange', check);
-        setTimeout(resolve, 3000);
+        setTimeout(resolve, 1000);
       });
 
       if (connId !== connIdRef.current || !mountedRef.current) return false;
@@ -547,11 +572,9 @@ export const useWHEPStream = ({
     startTimeRef.current = Date.now();
     setState({ ...INITIAL_STATE, isConnecting: true, mode: 'none' });
 
-    // Best-effort: start the stream first to reduce WHEP 404/offer 503 during cold start.
-    await ensureStreamStarted();
+    // Combined: ensure stream is started and resolve WHEP endpoint in one pass (saves an API round-trip).
+    const whepEndpoint = await ensureStreamAndResolveWHEP();
 
-    // Try WHEP first only when the backend explicitly advertises it.
-    const whepEndpoint = await resolveWHEPEndpoint();
     if (whepEndpoint) {
       setState((p) => ({ ...p, mode: 'whep' }));
       const whepOk = await connectWHEP(connId, whepEndpoint);
@@ -569,7 +592,7 @@ export const useWHEPStream = ({
 
     // Last resort: HTTP polling
     startHttpPolling(connId);
-  }, [authToken, cleanup, connectWHEP, connectViaBackend, ensureStreamStarted, resolveWHEPEndpoint, startHttpPolling]);
+  }, [authToken, cleanup, connectWHEP, connectViaBackend, ensureStreamAndResolveWHEP, startHttpPolling]);
 
   // ─── Disconnect ───
 
@@ -589,7 +612,8 @@ export const useWHEPStream = ({
 
     const token = resolveToken(authToken);
     if (autoConnect && cameraId && token) {
-      const delay = 50 + Math.random() * 250;
+      // Minimal jitter to avoid thundering herd, but connect fast
+      const delay = 10 + Math.random() * 50;
       const t = setTimeout(() => {
         if (mountedRef.current) connect();
       }, delay);

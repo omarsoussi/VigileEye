@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTheme } from '../../contexts/ThemeContext';
 import { GlassCard, AnimatedButton } from '../../components/GlassCard';
-import { streamingApi, zonesApi, tokenStorage, CameraWithPermission, ZoneResponse, ZoneType, ZoneSeverity } from '../../services/api';
+import { streamingApi, storageApi, zonesApi, tokenStorage, CameraWithPermission, ZoneResponse, ZoneType, ZoneSeverity, StorageRecordingResponse } from '../../services/api';
 import { ZoneDrawingCanvas } from '../../components/ZoneDrawingCanvas';
 import { useAllCameras } from '../../hooks/useAllCameras';
 import { LiveStreamPlayer } from '../../components/LiveStreamPlayer';
@@ -1108,6 +1108,17 @@ const CameraDetail: React.FC<{
 
   // Zone state (read-only for display)
   const [existingZones, setExistingZones] = useState<ZoneResponse[]>([]);
+
+  // Browse Records state
+  const [showRecordsBrowser, setShowRecordsBrowser] = useState(false);
+  const [recordings, setRecordings] = useState<StorageRecordingResponse[]>([]);
+  const [recordingsLoading, setRecordingsLoading] = useState(false);
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
+  const [filterTimeFrom, setFilterTimeFrom] = useState('');
+  const [filterTimeTo, setFilterTimeTo] = useState('');
+  const [playbackUrl, setPlaybackUrl] = useState<string | null>(null);
+  const [playbackRecordingId, setPlaybackRecordingId] = useState<string | null>(null);
   
   const currentIndex = cameras.findIndex(c => c.id === camera.id);
   const status = getCameraDisplayStatus(camera, recordingCameraIds);
@@ -1234,10 +1245,119 @@ const CameraDetail: React.FC<{
     navigate(`/members?share=${camera.id}`);
   };
 
-  // Download handler
+  // Download handler - opens the records browser
   const handleDownload = () => {
-    // This would typically show a modal to select recording timeframe
-    alert(`Download feature: Select recordings for "${camera.name}" to download.`);
+    setShowRecordsBrowser(true);
+    fetchRecordings();
+  };
+
+  // Browse Records handler
+  const handleBrowseRecords = () => {
+    setShowRecordsBrowser(true);
+    fetchRecordings();
+  };
+
+  const fetchRecordings = async () => {
+    setRecordingsLoading(true);
+    try {
+      const res = await storageApi.getRecordings(camera.id);
+      setRecordings(res.recordings || []);
+    } catch (err) {
+      console.error('Failed to fetch recordings:', err);
+      setRecordings([]);
+    } finally {
+      setRecordingsLoading(false);
+    }
+  };
+
+  const filteredRecordings = useMemo(() => {
+    return recordings.filter(rec => {
+      const startedAt = new Date(rec.started_at);
+      // Date from filter
+      if (filterDateFrom) {
+        const from = new Date(filterDateFrom);
+        from.setHours(0, 0, 0, 0);
+        if (startedAt < from) return false;
+      }
+      // Date to filter
+      if (filterDateTo) {
+        const to = new Date(filterDateTo);
+        to.setHours(23, 59, 59, 999);
+        if (startedAt > to) return false;
+      }
+      // Time from filter
+      if (filterTimeFrom) {
+        const [h, m] = filterTimeFrom.split(':').map(Number);
+        const recMinutes = startedAt.getHours() * 60 + startedAt.getMinutes();
+        if (recMinutes < h * 60 + m) return false;
+      }
+      // Time to filter
+      if (filterTimeTo) {
+        const [h, m] = filterTimeTo.split(':').map(Number);
+        const recMinutes = startedAt.getHours() * 60 + startedAt.getMinutes();
+        if (recMinutes > h * 60 + m) return false;
+      }
+      return true;
+    }).sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
+  }, [recordings, filterDateFrom, filterDateTo, filterTimeFrom, filterTimeTo]);
+
+  const handlePlayRecording = async (recordingId: string) => {
+    try {
+      const url = await storageApi.getPlaybackUrl(recordingId);
+      setPlaybackUrl(url);
+      setPlaybackRecordingId(recordingId);
+    } catch (err) {
+      console.error('Failed to get playback URL:', err);
+      alert('Failed to play recording');
+    }
+  };
+
+  const handleDownloadRecording = async (recordingId: string, fileName: string) => {
+    try {
+      await storageApi.downloadRecording(recordingId, fileName);
+    } catch (err) {
+      console.error('Failed to download recording:', err);
+      alert('Failed to download recording');
+    }
+  };
+
+  const handleDeleteRecording = async (recordingId: string) => {
+    if (!window.confirm('Are you sure you want to delete this recording?')) return;
+    try {
+      await storageApi.deleteRecording(recordingId);
+      setRecordings(prev => prev.filter(r => r.id !== recordingId));
+      if (playbackRecordingId === recordingId) {
+        setPlaybackUrl(null);
+        setPlaybackRecordingId(null);
+      }
+    } catch (err) {
+      console.error('Failed to delete recording:', err);
+      alert('Failed to delete recording');
+    }
+  };
+
+  const formatDuration = (secs: number) => {
+    if (secs <= 0) return 'Recording...';
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = Math.floor(secs % 60);
+    if (h > 0) return `${h}h ${m}m ${s}s`;
+    if (m > 0) return `${m}m ${s}s`;
+    return `${s}s`;
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes <= 0) return '—';
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  };
+
+  const clearFilters = () => {
+    setFilterDateFrom('');
+    setFilterDateTo('');
+    setFilterTimeFrom('');
+    setFilterTimeTo('');
   };
 
   // PTZ handler
@@ -1657,7 +1777,7 @@ const CameraDetail: React.FC<{
         
         <div style={{
           display: 'grid',
-          gridTemplateColumns: `repeat(${camera.permission === 'reader' ? 2 : 5}, 1fr)`,
+          gridTemplateColumns: `repeat(${camera.permission === 'reader' ? 3 : 3}, 1fr)`,
           gap: '12px',
         }}>
           {[
@@ -1665,6 +1785,7 @@ const CameraDetail: React.FC<{
             ...(camera.permission !== 'reader' ? [
               { icon: <HiOutlineAdjustments size={20} />, label: 'Settings', color: '#8b5cf6', onClick: handleSettings },
             ] : []),
+            { icon: <HiOutlineFolder size={20} />, label: 'Records', color: '#06b6d4', onClick: handleBrowseRecords },
             { icon: <HiOutlineCloudDownload size={20} />, label: 'Download', color: '#22c55e', onClick: handleDownload },
             ...(camera.permission !== 'reader' ? [
               { icon: <HiOutlineShare size={20} />, label: 'Share', color: '#f59e0b', onClick: handleShare },
@@ -1821,6 +1942,341 @@ const CameraDetail: React.FC<{
           </GlassCard>
         )}
       </div>
+
+      {/* ─── Records Browser Modal ─── */}
+      <AnimatePresence>
+        {showRecordsBrowser && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: 'fixed',
+              top: 0, left: 0, right: 0, bottom: 0,
+              background: 'rgba(0,0,0,0.7)',
+              backdropFilter: 'blur(8px)',
+              zIndex: 1000,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px',
+            }}
+            onClick={() => { setShowRecordsBrowser(false); setPlaybackUrl(null); setPlaybackRecordingId(null); }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 30 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: isDark ? '#111827' : '#ffffff',
+                borderRadius: '20px',
+                width: '100%',
+                maxWidth: '700px',
+                maxHeight: '85vh',
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+                boxShadow: '0 25px 60px rgba(0,0,0,0.4)',
+                border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+              }}
+            >
+              {/* Header */}
+              <div style={{
+                padding: '20px 24px',
+                borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}>
+                <div>
+                  <h3 style={{ fontSize: '18px', fontWeight: 700, color: colors.text, margin: 0 }}>
+                    Browse Recordings
+                  </h3>
+                  <p style={{ fontSize: '13px', color: colors.textMuted, margin: '4px 0 0' }}>
+                    {camera.name} — {filteredRecordings.length} recording{filteredRecordings.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => { setShowRecordsBrowser(false); setPlaybackUrl(null); setPlaybackRecordingId(null); }}
+                  style={{
+                    width: '36px', height: '36px', borderRadius: '50%',
+                    background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                    border: 'none', cursor: 'pointer', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', color: colors.text,
+                  }}
+                >
+                  <HiOutlineX size={18} />
+                </motion.button>
+              </div>
+
+              {/* Filters */}
+              <div style={{
+                padding: '16px 24px',
+                borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)'}`,
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '12px',
+                alignItems: 'flex-end',
+              }}>
+                <div style={{ flex: '1 1 140px', minWidth: '130px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 600, color: colors.textMuted, display: 'block', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Date From
+                  </label>
+                  <input
+                    type="date"
+                    value={filterDateFrom}
+                    onChange={(e) => setFilterDateFrom(e.target.value)}
+                    style={{
+                      width: '100%', padding: '8px 10px', borderRadius: '10px',
+                      border: `1px solid ${isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)'}`,
+                      background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)',
+                      color: colors.text, fontSize: '13px', outline: 'none',
+                    }}
+                  />
+                </div>
+                <div style={{ flex: '1 1 140px', minWidth: '130px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 600, color: colors.textMuted, display: 'block', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Date To
+                  </label>
+                  <input
+                    type="date"
+                    value={filterDateTo}
+                    onChange={(e) => setFilterDateTo(e.target.value)}
+                    style={{
+                      width: '100%', padding: '8px 10px', borderRadius: '10px',
+                      border: `1px solid ${isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)'}`,
+                      background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)',
+                      color: colors.text, fontSize: '13px', outline: 'none',
+                    }}
+                  />
+                </div>
+                <div style={{ flex: '1 1 110px', minWidth: '100px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 600, color: colors.textMuted, display: 'block', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Time From
+                  </label>
+                  <input
+                    type="time"
+                    value={filterTimeFrom}
+                    onChange={(e) => setFilterTimeFrom(e.target.value)}
+                    style={{
+                      width: '100%', padding: '8px 10px', borderRadius: '10px',
+                      border: `1px solid ${isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)'}`,
+                      background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)',
+                      color: colors.text, fontSize: '13px', outline: 'none',
+                    }}
+                  />
+                </div>
+                <div style={{ flex: '1 1 110px', minWidth: '100px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 600, color: colors.textMuted, display: 'block', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Time To
+                  </label>
+                  <input
+                    type="time"
+                    value={filterTimeTo}
+                    onChange={(e) => setFilterTimeTo(e.target.value)}
+                    style={{
+                      width: '100%', padding: '8px 10px', borderRadius: '10px',
+                      border: `1px solid ${isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)'}`,
+                      background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)',
+                      color: colors.text, fontSize: '13px', outline: 'none',
+                    }}
+                  />
+                </div>
+                {(filterDateFrom || filterDateTo || filterTimeFrom || filterTimeTo) && (
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={clearFilters}
+                    style={{
+                      padding: '8px 14px', borderRadius: '10px',
+                      background: 'rgba(239,68,68,0.1)', color: '#ef4444',
+                      border: 'none', cursor: 'pointer', fontSize: '12px',
+                      fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px',
+                    }}
+                  >
+                    <HiOutlineX size={14} /> Clear
+                  </motion.button>
+                )}
+              </div>
+
+              {/* Playback area */}
+              <AnimatePresence>
+                {playbackUrl && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    style={{ overflow: 'hidden', borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)'}` }}
+                  >
+                    <div style={{ padding: '16px 24px', position: 'relative' }}>
+                      <video
+                        src={playbackUrl}
+                        controls
+                        autoPlay
+                        style={{
+                          width: '100%', borderRadius: '12px',
+                          background: '#000', maxHeight: '300px',
+                        }}
+                      />
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => { setPlaybackUrl(null); setPlaybackRecordingId(null); }}
+                        style={{
+                          position: 'absolute', top: '24px', right: '32px',
+                          width: '30px', height: '30px', borderRadius: '50%',
+                          background: 'rgba(0,0,0,0.6)', border: 'none',
+                          cursor: 'pointer', display: 'flex',
+                          alignItems: 'center', justifyContent: 'center', color: '#fff',
+                        }}
+                      >
+                        <HiOutlineX size={16} />
+                      </motion.button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Recordings list */}
+              <div style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: '8px 24px 24px',
+              }}>
+                {recordingsLoading ? (
+                  <div style={{ textAlign: 'center', padding: '40px 0', color: colors.textMuted }}>
+                    <div style={{
+                      width: '32px', height: '32px', border: '3px solid rgba(59,130,246,0.2)',
+                      borderTopColor: '#3b82f6', borderRadius: '50%',
+                      animation: 'spin 1s linear infinite', margin: '0 auto 12px',
+                    }} />
+                    Loading recordings...
+                    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                  </div>
+                ) : filteredRecordings.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px 0', color: colors.textMuted }}>
+                    <HiOutlineFolder size={40} style={{ opacity: 0.3, marginBottom: '12px' }} />
+                    <p style={{ fontSize: '14px', fontWeight: 500 }}>No recordings found</p>
+                    <p style={{ fontSize: '12px' }}>
+                      {recordings.length > 0 ? 'Try adjusting your filters' : 'Start recording to see files here'}
+                    </p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {filteredRecordings.map((rec) => {
+                      const isActive = rec.status === 'recording';
+                      const isPlayingThis = playbackRecordingId === rec.id;
+                      return (
+                        <motion.div
+                          key={rec.id}
+                          whileHover={{ scale: 1.01 }}
+                          style={{
+                            padding: '14px 16px',
+                            borderRadius: '14px',
+                            background: isPlayingThis
+                              ? (isDark ? 'rgba(59,130,246,0.15)' : 'rgba(59,130,246,0.08)')
+                              : (isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)'),
+                            border: `1px solid ${isPlayingThis ? 'rgba(59,130,246,0.3)' : 'transparent'}`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '14px',
+                          }}
+                        >
+                          {/* Status indicator */}
+                          <div style={{
+                            width: '10px', height: '10px', borderRadius: '50%', flexShrink: 0,
+                            background: isActive ? '#ef4444' : '#22c55e',
+                            boxShadow: isActive ? '0 0 8px rgba(239,68,68,0.5)' : 'none',
+                            animation: isActive ? 'pulse 1.5s ease-in-out infinite' : 'none',
+                          }} />
+
+                          {/* Info */}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '13px', fontWeight: 600, color: colors.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {new Date(rec.started_at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                              {' '}
+                              {new Date(rec.started_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                            </div>
+                            <div style={{ fontSize: '11px', color: colors.textMuted, marginTop: '2px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                              <span>{formatDuration(rec.duration_secs)}</span>
+                              <span>{formatFileSize(rec.file_size)}</span>
+                              {rec.resolution && <span>{rec.resolution}</span>}
+                              <span style={{
+                                padding: '0 6px', borderRadius: '4px',
+                                background: isActive ? 'rgba(239,68,68,0.15)' : 'rgba(34,197,94,0.15)',
+                                color: isActive ? '#ef4444' : '#22c55e',
+                                fontWeight: 600, fontSize: '10px',
+                              }}>
+                                {isActive ? 'RECORDING' : 'COMPLETE'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Actions */}
+                          <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                            {!isActive && (
+                              <>
+                                <motion.button
+                                  whileHover={{ scale: 1.1 }}
+                                  whileTap={{ scale: 0.9 }}
+                                  onClick={() => handlePlayRecording(rec.id)}
+                                  title="Play"
+                                  style={{
+                                    width: '32px', height: '32px', borderRadius: '8px',
+                                    background: isPlayingThis ? '#3b82f6' : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)'),
+                                    border: 'none', cursor: 'pointer', display: 'flex',
+                                    alignItems: 'center', justifyContent: 'center',
+                                    color: isPlayingThis ? '#fff' : '#3b82f6',
+                                  }}
+                                >
+                                  <HiOutlinePlay size={16} />
+                                </motion.button>
+                                <motion.button
+                                  whileHover={{ scale: 1.1 }}
+                                  whileTap={{ scale: 0.9 }}
+                                  onClick={() => handleDownloadRecording(rec.id, rec.file_name)}
+                                  title="Download"
+                                  style={{
+                                    width: '32px', height: '32px', borderRadius: '8px',
+                                    background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+                                    border: 'none', cursor: 'pointer', display: 'flex',
+                                    alignItems: 'center', justifyContent: 'center', color: '#22c55e',
+                                  }}
+                                >
+                                  <HiOutlineCloudDownload size={16} />
+                                </motion.button>
+                              </>
+                            )}
+                            {camera.permission !== 'reader' && (
+                              <motion.button
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => handleDeleteRecording(rec.id)}
+                                title="Delete"
+                                style={{
+                                  width: '32px', height: '32px', borderRadius: '8px',
+                                  background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+                                  border: 'none', cursor: 'pointer', display: 'flex',
+                                  alignItems: 'center', justifyContent: 'center', color: '#ef4444',
+                                }}
+                              >
+                                <HiOutlineTrash size={16} />
+                              </motion.button>
+                            )}
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -1830,10 +2286,10 @@ export const MonitoringPageNew: React.FC = () => {
   const [selectedCamera, setSelectedCamera] = useState<CameraWithPermission | null>(null);
   const [recordingCameraIds, setRecordingCameraIds] = useState<ReadonlySet<string>>(new Set());
 
-  // Fetch active streams on mount
+  // Fetch active recordings on mount (from StorageBackend)
   useEffect(() => {
-    streamingApi.listActiveStreams()
-      .then(res => setRecordingCameraIds(new Set(res.streams.map(s => s.camera_id))))
+    storageApi.getActiveRecordings()
+      .then(res => setRecordingCameraIds(new Set(res.recordings.map(r => r.camera_id))))
       .catch(() => {});
   }, []);
 
@@ -1847,30 +2303,35 @@ export const MonitoringPageNew: React.FC = () => {
 
   const handleToggleRecording = async (cameraId: string) => {
     const isCurrentlyRecording = recordingCameraIds.has(cameraId);
-    const camera = cameras.find(c => c.id === cameraId);
     
     try {
       if (isCurrentlyRecording) {
-        await streamingApi.stopStream(cameraId);
+        await storageApi.stopRecording({ camera_id: cameraId });
         setRecordingCameraIds(prev => {
           const next = new Set(prev);
           next.delete(cameraId);
           return next;
         });
       } else {
-        if (!camera) throw new Error('Camera not found');
-        await streamingApi.startStream({
-          camera_id: cameraId,
-          stream_url: camera.stream_url,
-          config: { fps: camera.fps || 15 },
-        });
+        await storageApi.startRecording({ camera_id: cameraId });
         setRecordingCameraIds(prev => {
           const next = new Set(Array.from(prev));
           next.add(cameraId);
           return next;
         });
       }
-    } catch (err) {
+    } catch (err: any) {
+      // Handle 409 "already recording" gracefully
+      if (err?.message?.includes('409') || err?.message?.toLowerCase().includes('already')) {
+        if (!isCurrentlyRecording) {
+          setRecordingCameraIds(prev => {
+            const next = new Set(Array.from(prev));
+            next.add(cameraId);
+            return next;
+          });
+        }
+        return;
+      }
       console.error('Failed to toggle recording:', err);
       alert(`Failed to ${isCurrentlyRecording ? 'stop' : 'start'} recording: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
