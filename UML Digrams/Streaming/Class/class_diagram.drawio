@@ -1,0 +1,139 @@
+<mxfile host="app.diagrams.net" modified="2026-03-06T00:00:00.000Z" agent="5.0" version="22.1.2" type="device">
+  <diagram name="Figure 4.2 - Class Diagram - Video Streaming Service" id="stream-class">
+    <mxGraphModel dx="1800" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1400" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="Figure 4.2: Class Diagram – Video Streaming Service" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=16;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="550" y="10" width="460" height="30" as="geometry"/></mxCell>
+
+        <!-- ========== DOMAIN LAYER ========== -->
+        <mxCell id="domain_label" value="Domain Layer" style="text;html=1;fontSize=14;fontStyle=5;fillColor=none;strokeColor=none;fontColor=#2e5a88;" vertex="1" parent="1"><mxGeometry x="20" y="50" width="130" height="25" as="geometry"/></mxCell>
+
+        <!-- Camera -->
+        <mxCell id="c_camera" value="Camera" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="30" y="85" width="220" height="150" as="geometry"/></mxCell>
+        <mxCell id="c_camera_a" value="- id : string&#xa;- owner_id : string&#xa;- name : string&#xa;- rtsp_url : string&#xa;- status : CameraStatus" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="c_camera"><mxGeometry y="26" width="220" height="84" as="geometry"/></mxCell>
+        <mxCell id="c_camera_ln" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;strokeColor=#6c8ebf;" vertex="1" parent="c_camera"><mxGeometry y="110" width="220" height="8" as="geometry"/></mxCell>
+        <mxCell id="c_camera_m" value="+ IsActive() : bool" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="c_camera"><mxGeometry y="118" width="220" height="30" as="geometry"/></mxCell>
+
+        <!-- StreamSession -->
+        <mxCell id="c_ss" value="StreamSession" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="300" y="85" width="260" height="230" as="geometry"/></mxCell>
+        <mxCell id="c_ss_a" value="- id : string&#xa;- camera_id : string&#xa;- status : StreamStatus&#xa;- stream_url : string&#xa;- started_at : time.Time&#xa;- stopped_at : *time.Time&#xa;- viewer_count : int&#xa;- error_message : string" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="c_ss"><mxGeometry y="26" width="260" height="124" as="geometry"/></mxCell>
+        <mxCell id="c_ss_ln" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;strokeColor=#6c8ebf;" vertex="1" parent="c_ss"><mxGeometry y="150" width="260" height="8" as="geometry"/></mxCell>
+        <mxCell id="c_ss_m" value="+ Activate(url string)&#xa;+ Stop()&#xa;+ SetError(msg string)&#xa;+ IncrementViewers()&#xa;+ DecrementViewers()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="c_ss"><mxGeometry y="158" width="260" height="70" as="geometry"/></mxCell>
+
+        <!-- StreamConfig -->
+        <mxCell id="c_sc" value="StreamConfig" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="30" y="280" width="220" height="120" as="geometry"/></mxCell>
+        <mxCell id="c_sc_a" value="- max_viewers : int&#xa;- timeout_seconds : int&#xa;- codec : string&#xa;- resolution : string" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="c_sc"><mxGeometry y="26" width="220" height="64" as="geometry"/></mxCell>
+        <mxCell id="c_sc_ln" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;strokeColor=#6c8ebf;" vertex="1" parent="c_sc"><mxGeometry y="90" width="220" height="8" as="geometry"/></mxCell>
+        <mxCell id="c_sc_m" value="" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="c_sc"><mxGeometry y="98" width="220" height="20" as="geometry"/></mxCell>
+
+        <!-- ViewerSession -->
+        <mxCell id="c_vs" value="ViewerSession" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="610" y="85" width="240" height="200" as="geometry"/></mxCell>
+        <mxCell id="c_vs_a" value="- id : string&#xa;- stream_session_id : string&#xa;- user_id : string&#xa;- state : ViewerState&#xa;- sdp_offer : string&#xa;- sdp_answer : string&#xa;- connected_at : time.Time" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="c_vs"><mxGeometry y="26" width="240" height="110" as="geometry"/></mxCell>
+        <mxCell id="c_vs_ln" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;strokeColor=#6c8ebf;" vertex="1" parent="c_vs"><mxGeometry y="136" width="240" height="8" as="geometry"/></mxCell>
+        <mxCell id="c_vs_m" value="+ SetAnswer(answer string)&#xa;+ MarkConnected()&#xa;+ Disconnect()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="c_vs"><mxGeometry y="144" width="240" height="54" as="geometry"/></mxCell>
+
+        <!-- Enums -->
+        <mxCell id="e_status" value="&amp;lt;&amp;lt;enum&amp;gt;&amp;gt;&#xa;StreamStatus" style="swimlane;fontStyle=1;align=center;startSize=40;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="610" y="320" width="140" height="110" as="geometry"/></mxCell>
+        <mxCell id="e_status_v" value="Pending&#xa;Active&#xa;Stopped&#xa;Error" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="e_status"><mxGeometry y="40" width="140" height="68" as="geometry"/></mxCell>
+
+        <mxCell id="e_vstate" value="&amp;lt;&amp;lt;enum&amp;gt;&amp;gt;&#xa;ViewerState" style="swimlane;fontStyle=1;align=center;startSize=40;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="780" y="320" width="140" height="110" as="geometry"/></mxCell>
+        <mxCell id="e_vstate_v" value="Negotiating&#xa;Connected&#xa;Disconnected" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="e_vstate"><mxGeometry y="40" width="140" height="68" as="geometry"/></mxCell>
+
+        <!-- DomainError hierarchy -->
+        <mxCell id="c_de" value="DomainError" style="swimlane;fontStyle=3;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="30" y="440" width="200" height="70" as="geometry"/></mxCell>
+        <mxCell id="c_de_a" value="- message : string&#xa;- code : string" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="c_de"><mxGeometry y="26" width="200" height="42" as="geometry"/></mxCell>
+
+        <mxCell id="c_snf" value="StreamNotFoundError" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="30" y="540" width="170" height="45" as="geometry"/></mxCell>
+        <mxCell id="c_cne" value="CameraNotFoundError" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="220" y="540" width="170" height="45" as="geometry"/></mxCell>
+        <mxCell id="c_sae" value="StreamAlreadyActiveError" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="410" y="540" width="190" height="45" as="geometry"/></mxCell>
+
+        <mxCell id="inh1" style="endArrow=block;endSize=16;endFill=0;html=1;rounded=0;" edge="1" source="c_snf" target="c_de" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="inh2" style="endArrow=block;endSize=16;endFill=0;html=1;rounded=0;" edge="1" source="c_cne" target="c_de" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="inh3" style="endArrow=block;endSize=16;endFill=0;html=1;rounded=0;" edge="1" source="c_sae" target="c_de" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- ========== APPLICATION LAYER ========== -->
+        <mxCell id="app_label" value="Application Layer" style="text;html=1;fontSize=14;fontStyle=5;fillColor=none;strokeColor=none;fontColor=#8c6d1f;" vertex="1" parent="1"><mxGeometry x="20" y="620" width="150" height="25" as="geometry"/></mxCell>
+
+        <mxCell id="uc_start" value="StartStreamUseCase" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="30" y="660" width="210" height="80" as="geometry"/></mxCell>
+        <mxCell id="uc_start_m" value="+ Execute(req StartStreamRequest)&#xa;    : StartStreamResponse" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="uc_start"><mxGeometry y="26" width="210" height="52" as="geometry"/></mxCell>
+
+        <mxCell id="uc_stop" value="StopStreamUseCase" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="270" y="660" width="210" height="80" as="geometry"/></mxCell>
+        <mxCell id="uc_stop_m" value="+ Execute(cameraID string) : error" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="uc_stop"><mxGeometry y="26" width="210" height="52" as="geometry"/></mxCell>
+
+        <mxCell id="uc_status" value="GetStreamStatusUseCase" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="510" y="660" width="220" height="80" as="geometry"/></mxCell>
+        <mxCell id="uc_status_m" value="+ Execute(cameraID string)&#xa;    : StreamStatusResponse" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="uc_status"><mxGeometry y="26" width="220" height="52" as="geometry"/></mxCell>
+
+        <mxCell id="uc_list" value="ListActiveStreamsUseCase" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="760" y="660" width="230" height="80" as="geometry"/></mxCell>
+        <mxCell id="uc_list_m" value="+ Execute(userID string)&#xa;    : []StreamSummary" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="uc_list"><mxGeometry y="26" width="230" height="52" as="geometry"/></mxCell>
+
+        <mxCell id="uc_nego" value="NegotiateViewerUseCase" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="30" y="770" width="230" height="80" as="geometry"/></mxCell>
+        <mxCell id="uc_nego_m" value="+ Execute(req NegotiateRequest)&#xa;    : NegotiateResponse" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="uc_nego"><mxGeometry y="26" width="230" height="52" as="geometry"/></mxCell>
+
+        <!-- DTOs -->
+        <mxCell id="dto1" value="&amp;lt;&amp;lt;DTO&amp;gt;&amp;gt;&#xa;StartStreamRequest" style="swimlane;fontStyle=1;align=center;startSize=40;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="300" y="770" width="190" height="100" as="geometry"/></mxCell>
+        <mxCell id="dto1_a" value="+ CameraID : string&#xa;+ UserID : string" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="dto1"><mxGeometry y="40" width="190" height="58" as="geometry"/></mxCell>
+
+        <mxCell id="dto2" value="&amp;lt;&amp;lt;DTO&amp;gt;&amp;gt;&#xa;StartStreamResponse" style="swimlane;fontStyle=1;align=center;startSize=40;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="520" y="770" width="200" height="110" as="geometry"/></mxCell>
+        <mxCell id="dto2_a" value="+ SessionID : string&#xa;+ StreamURL : string&#xa;+ Status : StreamStatus" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="dto2"><mxGeometry y="40" width="200" height="68" as="geometry"/></mxCell>
+
+        <mxCell id="dto3" value="&amp;lt;&amp;lt;DTO&amp;gt;&amp;gt;&#xa;NegotiateRequest" style="swimlane;fontStyle=1;align=center;startSize=40;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="750" y="770" width="190" height="110" as="geometry"/></mxCell>
+        <mxCell id="dto3_a" value="+ CameraID : string&#xa;+ UserID : string&#xa;+ SDPOffer : string" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="dto3"><mxGeometry y="40" width="190" height="68" as="geometry"/></mxCell>
+
+        <!-- ========== INFRASTRUCTURE LAYER ========== -->
+        <mxCell id="infra_label" value="Infrastructure Layer" style="text;html=1;fontSize=14;fontStyle=5;fillColor=none;strokeColor=none;fontColor=#3a7728;" vertex="1" parent="1"><mxGeometry x="20" y="920" width="160" height="25" as="geometry"/></mxCell>
+
+        <!-- Interfaces -->
+        <mxCell id="i_ssr" value="&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&#xa;StreamSessionRepository" style="swimlane;fontStyle=3;align=center;startSize=40;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="30" y="960" width="250" height="120" as="geometry"/></mxCell>
+        <mxCell id="i_ssr_m" value="+ Save(session) : error&#xa;+ FindByCamera(cameraID) : *StreamSession&#xa;+ FindActive() : []StreamSession&#xa;+ Delete(id) : error" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="i_ssr"><mxGeometry y="40" width="250" height="78" as="geometry"/></mxCell>
+
+        <mxCell id="i_vsr" value="&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&#xa;ViewerSessionRepository" style="swimlane;fontStyle=3;align=center;startSize=40;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="310" y="960" width="250" height="120" as="geometry"/></mxCell>
+        <mxCell id="i_vsr_m" value="+ Save(session) : error&#xa;+ FindByStream(streamID) : []ViewerSession&#xa;+ Delete(id) : error" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="i_vsr"><mxGeometry y="40" width="250" height="78" as="geometry"/></mxCell>
+
+        <mxCell id="i_ss" value="&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&#xa;StreamService" style="swimlane;fontStyle=3;align=center;startSize=40;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="590" y="960" width="230" height="120" as="geometry"/></mxCell>
+        <mxCell id="i_ss_m" value="+ AddPath(name, source) : error&#xa;+ RemovePath(name) : error&#xa;+ ProbeURL(url) : ProbeResult&#xa;+ WHEPOffer(path, offer) : string" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="i_ss"><mxGeometry y="40" width="230" height="78" as="geometry"/></mxCell>
+
+        <mxCell id="i_cs" value="&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&#xa;CameraService" style="swimlane;fontStyle=3;align=center;startSize=40;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="850" y="960" width="220" height="100" as="geometry"/></mxCell>
+        <mxCell id="i_cs_m" value="+ GetCamera(id, token) : Camera&#xa;+ ValidateOwnership(cameraID, userID) : bool" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="i_cs"><mxGeometry y="40" width="220" height="58" as="geometry"/></mxCell>
+
+        <mxCell id="i_auth" value="&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&#xa;AuthService" style="swimlane;fontStyle=3;align=center;startSize=40;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="1100" y="960" width="200" height="100" as="geometry"/></mxCell>
+        <mxCell id="i_auth_m" value="+ ValidateToken(token) : Claims&#xa;+ ExtractUserID(token) : string" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="i_auth"><mxGeometry y="40" width="200" height="58" as="geometry"/></mxCell>
+
+        <!-- Concrete classes -->
+        <mxCell id="impl_sm" value="StreamManager" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="30" y="1130" width="250" height="90" as="geometry"/></mxCell>
+        <mxCell id="impl_sm_a" value="- sessions : map[string]*StreamSession&#xa;- mu : sync.RWMutex" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="impl_sm"><mxGeometry y="26" width="250" height="62" as="geometry"/></mxCell>
+
+        <mxCell id="impl_mtx" value="MediaMTXClient" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="310" y="1130" width="250" height="90" as="geometry"/></mxCell>
+        <mxCell id="impl_mtx_a" value="- baseURL : string&#xa;- httpClient : *http.Client" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="impl_mtx"><mxGeometry y="26" width="250" height="62" as="geometry"/></mxCell>
+
+        <mxCell id="impl_ff" value="FFmpegProcess" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="590" y="1130" width="220" height="90" as="geometry"/></mxCell>
+        <mxCell id="impl_ff_a" value="- cmd : *exec.Cmd&#xa;- outputPath : string" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="impl_ff"><mxGeometry y="26" width="220" height="62" as="geometry"/></mxCell>
+
+        <mxCell id="impl_hcs" value="HTTPCameraService" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="840" y="1130" width="230" height="90" as="geometry"/></mxCell>
+        <mxCell id="impl_hcs_a" value="- baseURL : string&#xa;- httpClient : *http.Client" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="impl_hcs"><mxGeometry y="26" width="230" height="62" as="geometry"/></mxCell>
+
+        <mxCell id="impl_jwt" value="JWTAuthService" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="1100" y="1130" width="200" height="80" as="geometry"/></mxCell>
+        <mxCell id="impl_jwt_a" value="- secretKey : string" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="impl_jwt"><mxGeometry y="26" width="200" height="52" as="geometry"/></mxCell>
+
+        <mxCell id="impl_inmem_ss" value="InMemoryStreamSessionRepo" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="30" y="1260" width="230" height="70" as="geometry"/></mxCell>
+        <mxCell id="impl_inmem_ss_a" value="- store : map[string]*StreamSession" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="impl_inmem_ss"><mxGeometry y="26" width="230" height="42" as="geometry"/></mxCell>
+
+        <mxCell id="impl_inmem_vs" value="InMemoryViewerSessionRepo" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="290" y="1260" width="230" height="70" as="geometry"/></mxCell>
+        <mxCell id="impl_inmem_vs_a" value="- store : map[string]*ViewerSession" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="impl_inmem_vs"><mxGeometry y="26" width="230" height="42" as="geometry"/></mxCell>
+
+        <!-- Implementation arrows -->
+        <mxCell id="real1" style="endArrow=block;endSize=16;endFill=0;dashed=1;html=1;rounded=0;" edge="1" source="impl_inmem_ss" target="i_ssr" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="real2" style="endArrow=block;endSize=16;endFill=0;dashed=1;html=1;rounded=0;" edge="1" source="impl_inmem_vs" target="i_vsr" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="real3" style="endArrow=block;endSize=16;endFill=0;dashed=1;html=1;rounded=0;" edge="1" source="impl_mtx" target="i_ss" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="real4" style="endArrow=block;endSize=16;endFill=0;dashed=1;html=1;rounded=0;" edge="1" source="impl_hcs" target="i_cs" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="real5" style="endArrow=block;endSize=16;endFill=0;dashed=1;html=1;rounded=0;" edge="1" source="impl_jwt" target="i_auth" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- Domain relationships -->
+        <mxCell id="rel1" value="1" style="endArrow=open;endSize=12;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="c_camera_a" target="c_ss_a" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="rel1l" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" vertex="1" connectable="0" parent="rel1"><mxGeometry x="0.8" relative="1" as="geometry"><mxPoint y="-12" as="offset"/></mxGeometry></mxCell>
+        <mxCell id="rel2" value="1" style="endArrow=open;endSize=12;html=1;rounded=0;" edge="1" source="c_vs_a" target="c_ss_a" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="rel2l" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" vertex="1" connectable="0" parent="rel2"><mxGeometry x="-0.7" relative="1" as="geometry"><mxPoint y="-12" as="offset"/></mxGeometry></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

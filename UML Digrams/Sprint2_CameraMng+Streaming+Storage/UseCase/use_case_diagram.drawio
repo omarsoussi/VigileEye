@@ -1,0 +1,89 @@
+<mxfile host="app.diagrams.net" modified="2026-03-06T00:00:00.000Z" agent="5.0" version="22.1.2" type="device">
+  <diagram name="Sprint 2 - Combined Use Case (Camera + Streaming + Storage)" id="sprint2-uc">
+    <mxGraphModel dx="2400" dy="1600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2400" pageHeight="1600" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="Sprint 2 – Combined Use Case: Camera Management + Streaming + Storage" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=16;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="550" y="10" width="650" height="30" as="geometry"/></mxCell>
+
+        <!-- Actors -->
+        <mxCell id="a_owner" value="Owner" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" vertex="1" parent="1"><mxGeometry x="30" y="520" width="40" height="60" as="geometry"/></mxCell>
+        <mxCell id="a_member" value="Member" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" vertex="1" parent="1"><mxGeometry x="30" y="820" width="40" height="60" as="geometry"/></mxCell>
+
+        <!-- ========== CAMERA MANAGEMENT BOX ========== -->
+        <mxCell id="cam_box" value="Camera Management Service" style="shape=mxgraph.sysml.package;html=1;align=left;spacingLeft=8;verticalAlign=top;spacingTop=-3;labelX=135;overflow=hidden;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="140" y="50" width="360" height="450" as="geometry"/></mxCell>
+        <mxCell id="cm1" value="C1: Register Camera" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="200" y="100" width="160" height="45" as="geometry"/></mxCell>
+        <mxCell id="cm2" value="C2: Get Camera Details" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="200" y="155" width="160" height="45" as="geometry"/></mxCell>
+        <mxCell id="cm3" value="C3: List Owned Cameras" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="200" y="210" width="160" height="45" as="geometry"/></mxCell>
+        <mxCell id="cm4" value="C4: Update Camera" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="200" y="265" width="160" height="45" as="geometry"/></mxCell>
+        <mxCell id="cm5" value="C5: Delete Camera" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="200" y="320" width="160" height="45" as="geometry"/></mxCell>
+        <mxCell id="cm6" value="C6: Configure Health Check" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="200" y="375" width="170" height="45" as="geometry"/></mxCell>
+        <mxCell id="cm7" value="C7: Manage Detection Zones" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="200" y="430" width="180" height="45" as="geometry"/></mxCell>
+        <mxCell id="cm8" value="C8: Share Camera Access" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="380" y="265" width="100" height="45" as="geometry"/></mxCell>
+        <mxCell id="cm9" value="C9: List Shared Cameras" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="380" y="320" width="100" height="45" as="geometry"/></mxCell>
+
+        <!-- ========== STREAMING BOX ========== -->
+        <mxCell id="str_box" value="Streaming Service" style="shape=mxgraph.sysml.package;html=1;align=left;spacingLeft=8;verticalAlign=top;spacingTop=-3;labelX=100;overflow=hidden;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="560" y="50" width="360" height="450" as="geometry"/></mxCell>
+        <mxCell id="st1" value="S1: Start Stream" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="620" y="100" width="150" height="45" as="geometry"/></mxCell>
+        <mxCell id="st2" value="S2: Stop Stream" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="620" y="155" width="150" height="45" as="geometry"/></mxCell>
+        <mxCell id="st3" value="S3: Get Stream Status" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="620" y="210" width="160" height="45" as="geometry"/></mxCell>
+        <mxCell id="st4" value="S4: List Active Streams" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="620" y="265" width="160" height="45" as="geometry"/></mxCell>
+        <mxCell id="st5" value="S5: Watch Live Stream (WebRTC)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="620" y="320" width="200" height="45" as="geometry"/></mxCell>
+        <mxCell id="st6" value="S6: Capture Frame" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="620" y="375" width="150" height="45" as="geometry"/></mxCell>
+        <mxCell id="st7" value="S7: Auto-Start on Viewer" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="620" y="430" width="160" height="45" as="geometry"/></mxCell>
+
+        <!-- ========== STORAGE BOX ========== -->
+        <mxCell id="sto_box" value="Storage Service" style="shape=mxgraph.sysml.package;html=1;align=left;spacingLeft=8;verticalAlign=top;spacingTop=-3;labelX=90;overflow=hidden;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="980" y="50" width="360" height="450" as="geometry"/></mxCell>
+        <mxCell id="sr1" value="R1: Start Recording" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="1040" y="100" width="160" height="45" as="geometry"/></mxCell>
+        <mxCell id="sr2" value="R2: Stop Recording" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="1040" y="155" width="160" height="45" as="geometry"/></mxCell>
+        <mxCell id="sr3" value="R3: List Recordings" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="1040" y="210" width="160" height="45" as="geometry"/></mxCell>
+        <mxCell id="sr4" value="R4: Download Recording" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="1040" y="265" width="170" height="45" as="geometry"/></mxCell>
+        <mxCell id="sr5" value="R5: Get Storage Metrics" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="1040" y="320" width="170" height="45" as="geometry"/></mxCell>
+        <mxCell id="sr6" value="R6: Manage Storage Config" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="1040" y="375" width="180" height="45" as="geometry"/></mxCell>
+
+        <!-- ====== SHARED INTERNAL USE CASES ====== -->
+        <mxCell id="sh_label" value="Shared Internal" style="text;html=1;fontSize=11;fontStyle=5;fillColor=none;strokeColor=none;fontColor=#666666;" vertex="1" parent="1"><mxGeometry x="540" y="535" width="110" height="20" as="geometry"/></mxCell>
+        <mxCell id="sh1" value="Fetch Camera Metadata" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1"><mxGeometry x="440" y="560" width="170" height="45" as="geometry"/></mxCell>
+        <mxCell id="sh2" value="WebRTC Negotiation" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1"><mxGeometry x="650" y="560" width="160" height="45" as="geometry"/></mxCell>
+        <mxCell id="sh3" value="Enforce Retention Policy" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1"><mxGeometry x="850" y="560" width="170" height="45" as="geometry"/></mxCell>
+
+        <!-- ====== OWNER → CAMERA MANAGEMENT ====== -->
+        <mxCell id="oa1" style="html=1;rounded=0;" edge="1" source="a_owner" target="cm1" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="oa2" style="html=1;rounded=0;" edge="1" source="a_owner" target="cm2" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="oa3" style="html=1;rounded=0;" edge="1" source="a_owner" target="cm3" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="oa4" style="html=1;rounded=0;" edge="1" source="a_owner" target="cm4" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="oa5" style="html=1;rounded=0;" edge="1" source="a_owner" target="cm5" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="oa6" style="html=1;rounded=0;" edge="1" source="a_owner" target="cm6" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="oa7" style="html=1;rounded=0;" edge="1" source="a_owner" target="cm7" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="oa8" style="html=1;rounded=0;" edge="1" source="a_owner" target="cm8" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- OWNER → STREAMING -->
+        <mxCell id="oa_st1" style="html=1;rounded=0;" edge="1" source="a_owner" target="st1" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="oa_st2" style="html=1;rounded=0;" edge="1" source="a_owner" target="st2" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="oa_st3" style="html=1;rounded=0;" edge="1" source="a_owner" target="st3" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="oa_st4" style="html=1;rounded=0;" edge="1" source="a_owner" target="st4" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="oa_st5" style="html=1;rounded=0;" edge="1" source="a_owner" target="st5" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- OWNER → STORAGE -->
+        <mxCell id="oa_sr1" style="html=1;rounded=0;" edge="1" source="a_owner" target="sr1" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="oa_sr2" style="html=1;rounded=0;" edge="1" source="a_owner" target="sr2" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="oa_sr5" style="html=1;rounded=0;" edge="1" source="a_owner" target="sr5" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="oa_sr6" style="html=1;rounded=0;" edge="1" source="a_owner" target="sr6" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- MEMBER → selected use cases -->
+        <mxCell id="ma_cm9" style="html=1;rounded=0;" edge="1" source="a_member" target="cm9" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ma_cm2" style="html=1;rounded=0;" edge="1" source="a_member" target="cm2" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ma_st5" style="html=1;rounded=0;" edge="1" source="a_member" target="st5" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ma_st3" style="html=1;rounded=0;" edge="1" source="a_member" target="st3" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ma_sr3" style="html=1;rounded=0;" edge="1" source="a_member" target="sr3" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ma_sr4" style="html=1;rounded=0;" edge="1" source="a_member" target="sr4" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- INCLUDE: cross-service -->
+        <mxCell id="inc_st_sh1" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;" style="html=1;dashed=1;rounded=0;fontSize=10;" edge="1" source="st1" target="sh1" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="inc_sr_sh1" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;" style="html=1;dashed=1;rounded=0;fontSize=10;" edge="1" source="sr1" target="sh1" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="inc_st5_sh2" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;" style="html=1;dashed=1;rounded=0;fontSize=10;" edge="1" source="st5" target="sh2" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="inc_sr_sh3" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;" style="html=1;dashed=1;rounded=0;fontSize=10;" edge="1" source="sr6" target="sh3" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

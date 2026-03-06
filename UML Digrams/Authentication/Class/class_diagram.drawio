@@ -1,0 +1,345 @@
+<mxfile host="app.diagrams.net" modified="2026-03-06T00:00:00.000Z" agent="5.0" version="22.1.2" type="device">
+  <diagram name="Figure 1.2 - Class Diagram - Authentication Service" id="auth-class">
+    <mxGraphModel dx="1800" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1400" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- Title -->
+        <mxCell id="title" value="Figure 1.2: Class Diagram – Authentication Service" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=16;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="550" y="10" width="440" height="30" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══ DOMAIN LAYER ═══ -->
+        <mxCell id="pkg_domain" value="&lt;&lt;Domain&gt;&gt;" style="shape=mxgraph.sysml.package;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=10;tabWidth=120;tabHeight=24;fillColor=#dae8fc;strokeColor=#6c8ebf;opacity=20;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="50" width="720" height="540" as="geometry"/>
+        </mxCell>
+
+        <!-- User class -->
+        <mxCell id="c_user" value="&lt;b&gt;User&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="90" width="240" height="290" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_user_attr" value="- id : UUID&#xa;- email : str&#xa;- hashed_password : str&#xa;- full_name : str&#xa;- is_verified : bool&#xa;- is_active : bool&#xa;- failed_login_attempts : int&#xa;- locked_until : datetime&#xa;- created_at : datetime&#xa;- updated_at : datetime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=11;" vertex="1" parent="c_user">
+          <mxGeometry y="26" width="240" height="160" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_user_sep" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=10;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;strokeColor=inherit;html=1;" vertex="1" parent="c_user">
+          <mxGeometry y="186" width="240" height="8" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_user_meth" value="+ verify_email() : void&#xa;+ lock_account(duration) : void&#xa;+ unlock_account() : void&#xa;+ increment_failed_attempts() : void&#xa;+ reset_failed_attempts() : void&#xa;+ is_locked() : bool" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=11;" vertex="1" parent="c_user">
+          <mxGeometry y="194" width="240" height="96" as="geometry"/>
+        </mxCell>
+
+        <!-- OTP class -->
+        <mxCell id="c_otp" value="&lt;b&gt;OTP&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="320" y="90" width="200" height="230" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_otp_attr" value="- id : UUID&#xa;- user_id : UUID&#xa;- code : str&#xa;- purpose : str&#xa;- is_used : bool&#xa;- expires_at : datetime&#xa;- created_at : datetime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=11;" vertex="1" parent="c_otp">
+          <mxGeometry y="26" width="200" height="120" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_otp_sep" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=10;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;strokeColor=inherit;html=1;" vertex="1" parent="c_otp">
+          <mxGeometry y="146" width="200" height="8" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_otp_meth" value="+ is_valid() : bool&#xa;+ mark_used() : void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=11;" vertex="1" parent="c_otp">
+          <mxGeometry y="154" width="200" height="76" as="geometry"/>
+        </mxCell>
+
+        <!-- LoginHistory class -->
+        <mxCell id="c_lh" value="&lt;b&gt;LoginHistory&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="410" width="200" height="160" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_lh_attr" value="- id : UUID&#xa;- user_id : UUID&#xa;- ip_address : str&#xa;- user_agent : str&#xa;- status : str&#xa;- created_at : datetime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=11;" vertex="1" parent="c_lh">
+          <mxGeometry y="26" width="200" height="134" as="geometry"/>
+        </mxCell>
+
+        <!-- Email value object -->
+        <mxCell id="c_email" value="&lt;b&gt;Email&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="560" y="90" width="160" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_email_attr" value="- value : str" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=11;" vertex="1" parent="c_email">
+          <mxGeometry y="26" width="160" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_email_sep" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=10;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;strokeColor=inherit;html=1;" vertex="1" parent="c_email">
+          <mxGeometry y="52" width="160" height="8" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_email_meth" value="+ validate() : bool" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=11;" vertex="1" parent="c_email">
+          <mxGeometry y="60" width="160" height="50" as="geometry"/>
+        </mxCell>
+
+        <!-- Password value object -->
+        <mxCell id="c_pass" value="&lt;b&gt;Password&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="560" y="230" width="160" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_pass_attr" value="- value : str" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=11;" vertex="1" parent="c_pass">
+          <mxGeometry y="26" width="160" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_pass_sep" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=10;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;strokeColor=inherit;html=1;" vertex="1" parent="c_pass">
+          <mxGeometry y="52" width="160" height="8" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_pass_meth" value="+ validate_strength() : bool" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=11;" vertex="1" parent="c_pass">
+          <mxGeometry y="60" width="160" height="50" as="geometry"/>
+        </mxCell>
+
+        <!-- OTPPurpose enum -->
+        <mxCell id="c_otpp" value="&lt;b&gt;&amp;lt;&amp;lt;enum&amp;gt;&amp;gt;&#xa;OTPPurpose&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=40;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="560" y="380" width="160" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_otpp_attr" value="EMAIL_VERIFICATION&#xa;LOGIN_2FA&#xa;PASSWORD_RESET" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=11;" vertex="1" parent="c_otpp">
+          <mxGeometry y="40" width="160" height="70" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══ APPLICATION LAYER ═══ -->
+        <mxCell id="pkg_app" value="&lt;&lt;Application&gt;&gt;" style="shape=mxgraph.sysml.package;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=10;tabWidth=140;tabHeight=24;fillColor=#fff2cc;strokeColor=#d6b656;opacity=20;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="760" y="50" width="500" height="640" as="geometry"/>
+        </mxCell>
+
+        <!-- AuthService -->
+        <mxCell id="c_authsvc" value="&lt;b&gt;AuthService&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="780" y="90" width="260" height="250" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_authsvc_meth" value="+ register(request) : UserResponse&#xa;+ verify_email(request) : MessageResponse&#xa;+ login(request) : MessageResponse&#xa;+ confirm_login(request) : TokenResponse&#xa;+ forgot_password(request) : MessageResponse&#xa;+ reset_password(request) : MessageResponse&#xa;+ google_auth_url() : str&#xa;+ google_callback(code) : TokenResponse&#xa;+ refresh_token(token) : TokenResponse" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=10;" vertex="1" parent="c_authsvc">
+          <mxGeometry y="26" width="260" height="224" as="geometry"/>
+        </mxCell>
+
+        <!-- Use Cases -->
+        <mxCell id="c_register" value="&lt;b&gt;RegisterUserUseCase&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="90" width="160" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_register_m" value="+ execute(email, password, name) : User" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=9;" vertex="1" parent="c_register">
+          <mxGeometry y="26" width="160" height="34" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_verify" value="&lt;b&gt;VerifyEmailUseCase&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="170" width="160" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_verify_m" value="+ execute(email, otp) : void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=9;" vertex="1" parent="c_verify">
+          <mxGeometry y="26" width="160" height="29" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_login" value="&lt;b&gt;LoginUserUseCase&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="245" width="160" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_login_m" value="+ execute(email, password, ip, ua) : void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=9;" vertex="1" parent="c_login">
+          <mxGeometry y="26" width="160" height="29" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_confirm" value="&lt;b&gt;ConfirmLoginUseCase&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="320" width="160" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_confirm_m" value="+ execute(email, otp) : TokenResponse" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=9;" vertex="1" parent="c_confirm">
+          <mxGeometry y="26" width="160" height="29" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_forgot" value="&lt;b&gt;ForgotPasswordUseCase&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="395" width="160" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_forgot_m" value="+ execute(email) : void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=9;" vertex="1" parent="c_forgot">
+          <mxGeometry y="26" width="160" height="29" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_reset" value="&lt;b&gt;ResetPasswordUseCase&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="470" width="160" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_reset_m" value="+ execute(email, otp, pwd) : void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=9;" vertex="1" parent="c_reset">
+          <mxGeometry y="26" width="160" height="29" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_goauth" value="&lt;b&gt;GoogleOAuthUseCase&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="545" width="160" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_goauth_m" value="+ execute(code) : TokenResponse" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=9;" vertex="1" parent="c_goauth">
+          <mxGeometry y="26" width="160" height="29" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_refresh" value="&lt;b&gt;RefreshTokenUseCase&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="620" width="160" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_refresh_m" value="+ execute(refresh_token) : TokenResponse" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=9;" vertex="1" parent="c_refresh">
+          <mxGeometry y="26" width="160" height="29" as="geometry"/>
+        </mxCell>
+
+        <!-- DTOs -->
+        <mxCell id="c_tokenresp" value="&lt;b&gt;TokenResponse&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="780" y="370" width="200" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_tokenresp_a" value="+ access_token : str&#xa;+ refresh_token : str&#xa;+ token_type : str" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=11;" vertex="1" parent="c_tokenresp">
+          <mxGeometry y="26" width="200" height="74" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c_regreq" value="&lt;b&gt;RegisterRequest&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="780" y="500" width="200" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_regreq_a" value="+ email : str&#xa;+ password : str&#xa;+ full_name : str" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=11;" vertex="1" parent="c_regreq">
+          <mxGeometry y="26" width="200" height="74" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══ INFRASTRUCTURE LAYER ═══ -->
+        <mxCell id="pkg_infra" value="&lt;&lt;Infrastructure&gt;&gt;" style="shape=mxgraph.sysml.package;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=10;tabWidth=150;tabHeight=24;fillColor=#d5e8d4;strokeColor=#82b366;opacity=20;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="720" width="1240" height="350" as="geometry"/>
+        </mxCell>
+
+        <!-- Repository Interfaces -->
+        <mxCell id="c_userrepo" value="&lt;b&gt;&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&#xa;UserRepositoryInterface&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=40;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="40" y="760" width="220" height="130" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_userrepo_m" value="+ create(user) : User&#xa;+ get_by_id(id) : User&#xa;+ get_by_email(email) : User&#xa;+ update(user) : User" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=10;" vertex="1" parent="c_userrepo">
+          <mxGeometry y="40" width="220" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c_otprepo" value="&lt;b&gt;&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&#xa;OTPRepositoryInterface&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=40;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="280" y="760" width="220" height="120" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_otprepo_m" value="+ create(otp) : OTP&#xa;+ get_latest(user_id, purpose) : OTP&#xa;+ invalidate_all(user_id, purpose) : void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=10;" vertex="1" parent="c_otprepo">
+          <mxGeometry y="40" width="220" height="80" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c_lhrepo" value="&lt;b&gt;&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&#xa;LoginHistoryRepositoryInterface&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=40;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="520" y="760" width="230" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_lhrepo_m" value="+ create(history) : LoginHistory&#xa;+ get_by_user(user_id, limit) : List" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=10;" vertex="1" parent="c_lhrepo">
+          <mxGeometry y="40" width="230" height="70" as="geometry"/>
+        </mxCell>
+
+        <!-- Infrastructure implementations -->
+        <mxCell id="c_jwt" value="&lt;b&gt;JWTHandler&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="40" y="920" width="200" height="130" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_jwt_a" value="- secret_key : str&#xa;- algorithm : str" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=10;" vertex="1" parent="c_jwt">
+          <mxGeometry y="26" width="200" height="34" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_jwt_sep" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=10;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;strokeColor=inherit;html=1;" vertex="1" parent="c_jwt">
+          <mxGeometry y="60" width="200" height="8" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_jwt_m" value="+ create_access_token(data) : str&#xa;+ create_refresh_token(data) : str&#xa;+ decode_token(token) : dict" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=10;" vertex="1" parent="c_jwt">
+          <mxGeometry y="68" width="200" height="62" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c_hasher" value="&lt;b&gt;PasswordHasher&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="260" y="920" width="180" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_hasher_m" value="+ hash(password) : str&#xa;+ verify(password, hash) : bool" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=10;" vertex="1" parent="c_hasher">
+          <mxGeometry y="26" width="180" height="54" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c_otpgen" value="&lt;b&gt;OTPGenerator&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="460" y="920" width="160" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_otpgen_m" value="+ generate(length) : str" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=10;" vertex="1" parent="c_otpgen">
+          <mxGeometry y="26" width="160" height="34" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c_smtp" value="&lt;b&gt;SMTPEmailSender&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="640" y="920" width="200" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_smtp_m" value="+ send_otp_email(to, code, purpose) : void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=10;" vertex="1" parent="c_smtp">
+          <mxGeometry y="26" width="200" height="34" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c_goauthclient" value="&lt;b&gt;GoogleOAuthClient&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="860" y="920" width="200" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_goauthclient_m" value="+ get_auth_url() : str&#xa;+ exchange_code(code) : UserInfo" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=10;" vertex="1" parent="c_goauthclient">
+          <mxGeometry y="26" width="200" height="54" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c_sqluser" value="&lt;b&gt;SQLAlchemyUserRepository&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="920" width="170" height="40" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══ RELATIONSHIPS ═══ -->
+        <!-- Domain relationships -->
+        <mxCell id="r1" style="endArrow=diamondThin;endFill=1;html=1;rounded=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" edge="1" source="c_otp" target="c_user" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="r1_lbl" value="1     0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" vertex="1" connectable="0" parent="r1">
+          <mxGeometry x="0.2" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="r2" style="endArrow=diamondThin;endFill=1;html=1;rounded=0;" edge="1" source="c_lh" target="c_user" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="r2_lbl" value="1     0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" vertex="1" connectable="0" parent="r2">
+          <mxGeometry x="0.2" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="r3" style="endArrow=open;endSize=12;endFill=0;dashed=1;html=1;rounded=0;" edge="1" source="c_user" target="c_email" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="r3_lbl" value="uses" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" vertex="1" connectable="0" parent="r3">
+          <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="r4" style="endArrow=open;endSize=12;endFill=0;dashed=1;html=1;rounded=0;" edge="1" source="c_user" target="c_pass" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="r4_lbl" value="uses" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" vertex="1" connectable="0" parent="r4">
+          <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="r5" style="endArrow=open;endSize=12;endFill=0;html=1;rounded=0;" edge="1" source="c_otp" target="c_otpp" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- AuthService delegates -->
+        <mxCell id="d1" style="endArrow=open;endSize=12;dashed=1;html=1;rounded=0;" edge="1" source="c_authsvc" target="c_register" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="d1_lbl" value="delegates to" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;" vertex="1" connectable="0" parent="d1">
+          <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="d2" style="endArrow=open;endSize=12;dashed=1;html=1;rounded=0;" edge="1" source="c_authsvc" target="c_login" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="d3" style="endArrow=open;endSize=12;dashed=1;html=1;rounded=0;" edge="1" source="c_authsvc" target="c_confirm" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="d4" style="endArrow=open;endSize=12;dashed=1;html=1;rounded=0;" edge="1" source="c_authsvc" target="c_goauth" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Use case → Repo dependencies -->
+        <mxCell id="dep1" style="endArrow=open;endSize=12;dashed=1;html=1;rounded=0;" edge="1" source="c_register" target="c_userrepo" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="dep1_lbl" value="uses" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;" vertex="1" connectable="0" parent="dep1">
+          <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <mxCell id="dep2" style="endArrow=open;endSize=12;dashed=1;html=1;rounded=0;" edge="1" source="c_login" target="c_userrepo" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="dep3" style="endArrow=open;endSize=12;dashed=1;html=1;rounded=0;" edge="1" source="c_confirm" target="c_jwt" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="dep4" style="endArrow=open;endSize=12;dashed=1;html=1;rounded=0;" edge="1" source="c_goauth" target="c_goauthclient" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Implements -->
+        <mxCell id="impl1" style="endArrow=block;endFill=0;dashed=1;html=1;rounded=0;" edge="1" source="c_sqluser" target="c_userrepo" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="impl1_lbl" value="implements" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;" vertex="1" connectable="0" parent="impl1">
+          <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry>
+        </mxCell>
+
+        <!-- Legend -->
+        <mxCell id="legend" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#999999;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="1290" y="50" width="180" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="leg1" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="1300" y="60" width="20" height="15" as="geometry"/>
+        </mxCell>
+        <mxCell id="leg1t" value="Domain Layer" style="text;html=1;align=left;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1325" y="55" width="90" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="leg2" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="1300" y="85" width="20" height="15" as="geometry"/>
+        </mxCell>
+        <mxCell id="leg2t" value="Application Layer" style="text;html=1;align=left;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1325" y="80" width="110" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="leg3" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="1300" y="110" width="20" height="15" as="geometry"/>
+        </mxCell>
+        <mxCell id="leg3t" value="Infrastructure Layer" style="text;html=1;align=left;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1325" y="105" width="120" height="25" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

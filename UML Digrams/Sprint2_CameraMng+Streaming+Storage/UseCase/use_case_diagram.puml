@@ -1,0 +1,97 @@
+@startuml
+!theme plain
+title Figure 7.1: Use Case Diagram – Sprint 2 (Camera Management + Streaming + Storage)
+
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam usecase {
+    BackgroundColor #E8F4FD
+    BorderColor #2196F3
+}
+
+left to right direction
+
+actor "Camera Owner" as Owner
+actor "Shared Member" as Member
+
+rectangle "Sprint 2 — Camera Management + Streaming + Storage" {
+
+    rectangle "Camera Management Service" as CamBox {
+        usecase "Register Camera" as C1
+        usecase "List My Cameras" as C2
+        usecase "Update Camera Config" as C3
+        usecase "Delete Camera" as C4
+        usecase "Enable/Disable Camera" as C5
+        usecase "Record Camera Health" as C6
+        usecase "Create Detection Zone" as C7
+        usecase "Manage Detection Zones" as C8
+        usecase "Grant/Revoke Access" as C9
+    }
+
+    rectangle "Video Streaming Service" as StreamBox {
+        usecase "Start Stream" as S1
+        usecase "Stop Stream" as S2
+        usecase "View Live Stream" as S3
+        usecase "Get Stream Status" as S4
+        usecase "List Active Streams" as S5
+        usecase "Get Latest Frame" as S6
+        usecase "Probe Stream URL" as S7
+    }
+
+    rectangle "Storage Service" as StorBox {
+        usecase "Start Recording" as R1
+        usecase "Stop Recording" as R2
+        usecase "List Recordings" as R3
+        usecase "Download Recording" as R4
+        usecase "Configure Storage" as R5
+        usecase "View Storage Metrics" as R6
+    }
+
+    ' ─── Shared Internal ───
+    usecase "Fetch Camera Metadata" as X1
+    usecase "WebRTC Negotiation" as X2
+    usecase "Enforce Retention" as X3
+}
+
+Owner --> C1
+Owner --> C2
+Owner --> C3
+Owner --> C4
+Owner --> C5
+Owner --> C6
+Owner --> C7
+Owner --> C8
+Owner --> C9
+
+Owner --> S1
+Owner --> S2
+Owner --> S3
+Owner --> S4
+Owner --> S5
+Owner --> S6
+Owner --> S7
+
+Owner --> R1
+Owner --> R2
+Owner --> R3
+Owner --> R4
+Owner --> R5
+Owner --> R6
+
+Member --> C2
+Member --> S3
+Member --> R3
+
+' ─── Cross-service includes ───
+S1 ..> X1 : <<include>>
+R1 ..> X1 : <<include>>
+S3 ..> X2 : <<include>>
+R1 ..> X3 : <<extend>>
+
+note bottom of X1
+  Streaming and Storage services
+  fetch camera details from
+  Camera Management via HTTP
+end note
+
+@enduml

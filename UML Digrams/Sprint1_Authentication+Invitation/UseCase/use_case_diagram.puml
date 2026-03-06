@@ -1,0 +1,97 @@
+@startuml
+!theme plain
+title Figure 6.1: Use Case Diagram – Sprint 1 (Authentication + Members Invitation)
+
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam usecase {
+    BackgroundColor #E8F4FD
+    BorderColor #2196F3
+}
+
+left to right direction
+
+actor "User" as User
+actor "Owner" as Owner
+actor "Invited Member" as Member
+actor "Google OAuth\nProvider" as Google
+
+rectangle "Sprint 1 — Authentication + Members Invitation" {
+
+    rectangle "Authentication Service" as AuthBox {
+        usecase "Register Account" as A1
+        usecase "Verify Email" as A2
+        usecase "Login (2FA)" as A3
+        usecase "Confirm Login" as A4
+        usecase "Forgot Password" as A5
+        usecase "Reset Password" as A6
+        usecase "Login with Google" as A7
+        usecase "Refresh Token" as A8
+        usecase "View Login History" as A9
+    }
+
+    rectangle "Members Invitation Service" as InvBox {
+        usecase "Create Invitation" as I1
+        usecase "Accept Invitation" as I2
+        usecase "Decline Invitation" as I3
+        usecase "List Sent Invitations" as I4
+        usecase "List Received Invitations" as I5
+        usecase "Create Group" as I6
+        usecase "Invite Group Member" as I7
+        usecase "Accept Group Invitation" as I8
+        usecase "Remove Group Member" as I9
+        usecase "Update Member Access" as I10
+        usecase "Resend Invitation Code" as I11
+    }
+
+    ' ─── Shared ───
+    usecase "Send Email with OTP" as S1
+    usecase "Validate OTP / Code" as S2
+    usecase "Generate JWT Token" as S3
+}
+
+User --> A1
+User --> A3
+User --> A5
+User --> A7
+User --> A8
+User --> A9
+Google --> A7
+
+Owner --> I1
+Owner --> I4
+Owner --> I6
+Owner --> I7
+Owner --> I9
+Owner --> I10
+Owner --> I11
+
+Member --> I2
+Member --> I3
+Member --> I5
+Member --> I8
+
+' ─── Includes ───
+A1 ..> S1 : <<include>>
+A1 ..> A2 : <<include>>
+A2 ..> S2 : <<include>>
+A3 ..> S1 : <<include>>
+A3 ..> A4 : <<include>>
+A4 ..> S2 : <<include>>
+A4 ..> S3 : <<include>>
+A5 ..> S1 : <<include>>
+A6 ..> S2 : <<include>>
+A7 ..> S3 : <<include>>
+
+I1 ..> S1 : <<include>>
+I2 ..> S2 : <<include>>
+I7 ..> S1 : <<include>>
+I8 ..> S2 : <<include>>
+
+note right of S1
+  Shared behavior:
+  Both services send
+  OTP codes via email
+end note
+
+@enduml

@@ -1,0 +1,91 @@
+@startuml
+!theme plain
+title Figure 5.3: Sequence Diagram – Storage Service
+
+skinparam participant {
+    BackgroundColor #E8F4FD
+    BorderColor #2196F3
+}
+
+actor "User" as U
+participant "Frontend" as FE
+participant "StorageController" as SC
+participant "StorageUseCases" as UC
+participant "CameraService\n(HTTP Client)" as CS
+participant "RecordingManager" as RM
+participant "StorageBackend\n(Local/MinIO/Azure)" as SB
+participant "RetentionEnforcer" as RE
+database "PostgreSQL" as DB
+
+== Start Recording ==
+U -> FE : Click "Start Recording"
+FE -> SC : POST /api/v1/recordings/start {camera_id}
+SC -> UC : StartRecording(camera_id, user_id, token)
+UC -> CS : GetCamera(camera_id, token)
+CS --> UC : Camera{stream_url, owner_user_id}
+UC -> DB : SELECT * FROM storage_configs WHERE camera_id = ?
+DB --> UC : config (or create default)
+UC -> RM : StartRecording(camera_id, owner_id, stream_url, config)
+RM -> RM : Check not already recording
+alt Already recording
+    RM --> UC : RecordingActiveError
+    UC --> SC : 409 Conflict
+    SC --> FE : Error
+else Not recording
+    RM -> RM : Launch FFmpeg process (RTSP → file)
+    RM -> DB : INSERT INTO recordings (status='recording')
+    DB --> RM : recording
+    RM --> UC : Recording
+    UC --> SC : RecordingResponse
+    SC --> FE : 200 {id, status, started_at}
+    FE --> U : "Recording started"
+end
+
+== Stop Recording ==
+U -> FE : Click "Stop Recording"
+FE -> SC : POST /api/v1/recordings/stop {camera_id}
+SC -> UC : StopRecording(camera_id, user_id, token)
+UC -> RM : StopRecording(camera_id)
+RM -> RM : Kill FFmpeg process
+RM -> RM : Calculate file_size + duration
+RM -> SB : Upload(key, file_reader, size, "video/mp4")
+SB --> RM : storage_path
+RM -> DB : UPDATE recordings SET status='completed', file_size, duration
+DB --> RM : updated recording
+RM --> UC : Recording{status=COMPLETED}
+UC --> SC : RecordingResponse
+SC --> FE : 200 OK
+FE --> U : "Recording stopped and saved"
+
+== Download Recording ==
+U -> FE : Click "Download" on recording
+FE -> SC : GET /api/v1/recordings/{id}/download
+SC -> UC : GenerateDownloadToken(record_id, user_id)
+UC -> DB : SELECT * FROM recordings WHERE id = ?
+DB --> UC : recording
+UC -> UC : Verify ownership
+UC -> UC : Generate signed download token (JWT)
+UC --> SC : DownloadTokenResponse{url, expires_at}
+SC --> FE : 200 {download_url}
+FE -> SC : GET /api/v1/recordings/download?token={token}
+SC -> UC : ValidateDownloadToken(token)
+UC -> SB : Download(file_path)
+SB --> UC : ReadCloser (file stream)
+UC --> SC : 200 application/octet-stream
+SC --> FE : Stream file
+FE --> U : File downloaded
+
+== Automatic Retention Enforcement ==
+RE -> DB : SELECT * FROM storage_configs WHERE enabled = true
+DB --> RE : configs[]
+loop For each config
+    RE -> DB : SELECT * FROM recordings WHERE camera_id = ? AND created_at < retention_cutoff
+    DB --> RE : old_recordings[]
+    loop For each old recording
+        RE -> SB : Delete(file_path)
+        SB --> RE : OK
+        RE -> DB : UPDATE recordings SET status = 'deleted'
+    end
+end
+
+@enduml

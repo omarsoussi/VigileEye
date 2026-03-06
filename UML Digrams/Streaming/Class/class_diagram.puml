@@ -1,0 +1,238 @@
+@startuml
+!theme plain
+title Figure 4.2: Class Diagram – Video Streaming Service
+
+skinparam class {
+    BackgroundColor<<Domain>> #DCEEFB
+    BorderColor<<Domain>> #2196F3
+    BackgroundColor<<Application>> #FFF9C4
+    BorderColor<<Application>> #FBC02D
+    BackgroundColor<<Infrastructure>> #C8E6C9
+    BorderColor<<Infrastructure>> #4CAF50
+}
+
+' ─── Domain Layer ───
+package "<<Domain>>" {
+    class Camera <<Domain>> {
+        - ID : string
+        - OwnerUserID : string
+        - Name : string
+        - StreamURL : string
+        - Protocol : string
+        - Resolution : string
+        - FPS : int
+        - Encoding : string
+        - Status : string
+        - CameraType : string
+        - IsActive : bool
+    }
+
+    class StreamSession <<Domain>> {
+        - ID : string
+        - CameraID : string
+        - UserID : string
+        - Status : StreamStatus
+        - Config : StreamConfig
+        - MediaMTXPath : string
+        - StartedAt : time.Time
+        - StoppedAt : time.Time
+        - ErrorMsg : string
+        + Activate() : void
+        + Stop() : void
+        + SetError(msg) : void
+    }
+
+    class StreamConfig <<Domain>> {
+        - Resolution : string
+        - Bitrate : int
+        - FPS : int
+        - Codec : string
+    }
+
+    class ViewerSession <<Domain>> {
+        - ID : string
+        - CameraID : string
+        - UserID : string
+        - State : ViewerState
+        - SDP : string
+        - ConnectedAt : time.Time
+        - DisconnectedAt : time.Time
+    }
+
+    enum StreamStatus <<Domain>> {
+        STARTING
+        ACTIVE
+        STOPPING
+        STOPPED
+        ERROR
+    }
+
+    enum ViewerState <<Domain>> {
+        CONNECTING
+        WATCHING
+        DISCONNECTED
+    }
+
+    class DomainError <<Domain>> {
+        - Message : string
+        - Code : string
+    }
+
+    class CameraNotFoundError <<Domain>> {
+    }
+
+    class StreamAlreadyActiveError <<Domain>> {
+    }
+
+    class StreamNotFoundError <<Domain>> {
+    }
+}
+
+' ─── Application Layer ───
+package "<<Application>>" {
+    class StartStreamUseCase <<Application>> {
+        + Execute(req: StartStreamRequest) : StreamSessionResponse
+    }
+
+    class StopStreamUseCase <<Application>> {
+        + Execute(req: StopStreamRequest) : StreamSessionResponse
+    }
+
+    class GetStreamStatusUseCase <<Application>> {
+        + Execute(cameraID, userID) : StreamStatusResponse
+    }
+
+    class ListActiveStreamsUseCase <<Application>> {
+        + Execute(userID) : ActiveStreamsResponse
+    }
+
+    class NegotiateViewerUseCase <<Application>> {
+        + Execute(req: WebRTCOfferRequest) : WebRTCAnswerResponse
+    }
+
+    class StartStreamRequest <<Application>> {
+        + CameraID : string
+        + UserID : string
+        + Resolution : string
+        + Bitrate : int
+        + FPS : int
+    }
+
+    class StreamSessionResponse <<Application>> {
+        + ID : string
+        + CameraID : string
+        + Status : string
+        + WHEPEndpoint : string
+        + StartedAt : string
+    }
+
+    class WebRTCOfferRequest <<Application>> {
+        + CameraID : string
+        + UserID : string
+        + SDP : string
+    }
+
+    class WebRTCAnswerResponse <<Application>> {
+        + SDP : string
+        + ViewerID : string
+        + ICEServers : List
+    }
+}
+
+' ─── Infrastructure Layer ───
+package "<<Infrastructure>>" {
+    interface StreamSessionRepository <<Infrastructure>> {
+        + Get(cameraID) : StreamSession
+        + GetAll() : List[StreamSession]
+        + Save(session) : void
+        + Remove(cameraID) : void
+    }
+
+    interface ViewerSessionRepository <<Infrastructure>> {
+        + Get(viewerID) : ViewerSession
+        + GetByCamera(cameraID) : List
+        + Save(session) : void
+        + Remove(viewerID) : void
+    }
+
+    interface StreamService <<Infrastructure>> {
+        + StartStream(session, camera) : void
+        + StopStream(cameraID) : void
+        + NegotiateWebRTC(cameraID, offer) : Answer
+        + GetRealTimeInfo(cameraID) : RealTimeInfo
+    }
+
+    interface CameraService <<Infrastructure>> {
+        + GetCamera(cameraID, token) : Camera
+        + GetCamerasForUser(userID, token) : List[Camera]
+    }
+
+    interface AuthService <<Infrastructure>> {
+        + ValidateToken(token) : AuthPayload
+    }
+
+    class StreamManager <<Infrastructure>> {
+        + StartStream(session, camera) : void
+        + StopStream(cameraID) : void
+        + NegotiateWebRTC(cameraID, offer) : Answer
+        + AddICECandidate(cameraID, viewerID, candidate) : void
+        + DisconnectViewer(cameraID, viewerID) : void
+        + GetRealTimeInfo(cameraID) : RealTimeInfo
+        + GetLatestFrame(cameraID) : bytes
+    }
+
+    class MediaMTXClient <<Infrastructure>> {
+        + AddPath(name, source) : void
+        + RemovePath(name) : void
+        + WHEPOffer(path, sdp) : Answer
+        + ListPaths() : List
+        + HealthCheck() : bool
+    }
+
+    class FFmpegProcess <<Infrastructure>> {
+        + BuildRTPArgs(input, rtp_url) : List
+        + ProbeStream(url) : ProbeResult
+    }
+
+    class InMemoryStreamSessionRepo <<Infrastructure>> {
+    }
+
+    class InMemoryViewerSessionRepo <<Infrastructure>> {
+    }
+
+    class HTTPCameraService <<Infrastructure>> {
+    }
+
+    class JWTAuthService <<Infrastructure>> {
+        + ValidateToken(token) : AuthPayload
+    }
+}
+
+' ─── Relationships ───
+StreamSession --> StreamStatus : has
+StreamSession "1" *-- "1" StreamConfig : configured by >
+ViewerSession --> ViewerState : has
+StreamSession "1" --> "0..*" ViewerSession : watched by >
+StreamSession --> Camera : streams from
+
+CameraNotFoundError --|> DomainError : extends
+StreamAlreadyActiveError --|> DomainError : extends
+StreamNotFoundError --|> DomainError : extends
+
+StartStreamUseCase ..> StreamSessionRepository : uses
+StartStreamUseCase ..> CameraService : uses
+StartStreamUseCase ..> StreamService : uses
+StopStreamUseCase ..> StreamSessionRepository : uses
+StopStreamUseCase ..> StreamService : uses
+NegotiateViewerUseCase ..> StreamService : uses
+NegotiateViewerUseCase ..> ViewerSessionRepository : uses
+
+StreamManager ..|> StreamService : implements
+StreamManager --> MediaMTXClient : delegates to
+StreamManager --> FFmpegProcess : manages
+InMemoryStreamSessionRepo ..|> StreamSessionRepository : implements
+InMemoryViewerSessionRepo ..|> ViewerSessionRepository : implements
+HTTPCameraService ..|> CameraService : implements
+JWTAuthService ..|> AuthService : implements
+
+@enduml

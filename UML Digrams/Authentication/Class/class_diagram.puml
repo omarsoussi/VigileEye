@@ -1,0 +1,219 @@
+@startuml
+!theme plain
+title Figure 1.2: Class Diagram – Authentication Service
+
+skinparam class {
+    BackgroundColor<<Domain>> #DCEEFB
+    BorderColor<<Domain>> #2196F3
+    BackgroundColor<<Application>> #FFF9C4
+    BorderColor<<Application>> #FBC02D
+    BackgroundColor<<Infrastructure>> #C8E6C9
+    BorderColor<<Infrastructure>> #4CAF50
+}
+
+' ─── Domain Layer ───
+package "<<Domain>>" {
+    class User <<Domain>> {
+        - id : UUID
+        - email : str
+        - hashed_password : str
+        - full_name : str
+        - is_verified : bool
+        - is_active : bool
+        - failed_login_attempts : int
+        - locked_until : datetime
+        - created_at : datetime
+        - updated_at : datetime
+        + verify_email() : void
+        + lock_account(duration: int) : void
+        + unlock_account() : void
+        + increment_failed_attempts() : void
+        + reset_failed_attempts() : void
+        + is_locked() : bool
+    }
+
+    class OTP <<Domain>> {
+        - id : UUID
+        - user_id : UUID
+        - code : str
+        - purpose : str
+        - is_used : bool
+        - expires_at : datetime
+        - created_at : datetime
+        + is_valid() : bool
+        + mark_used() : void
+    }
+
+    class LoginHistory <<Domain>> {
+        - id : UUID
+        - user_id : UUID
+        - ip_address : str
+        - user_agent : str
+        - status : str
+        - created_at : datetime
+    }
+
+    class Email <<Domain>> {
+        - value : str
+        + validate() : bool
+    }
+
+    class Password <<Domain>> {
+        - value : str
+        + validate_strength() : bool
+    }
+
+    enum OTPPurpose <<Domain>> {
+        EMAIL_VERIFICATION
+        LOGIN_2FA
+        PASSWORD_RESET
+    }
+}
+
+' ─── Application Layer ───
+package "<<Application>>" {
+    class RegisterUserUseCase <<Application>> {
+        + execute(email, password, full_name) : User
+    }
+
+    class VerifyEmailUseCase <<Application>> {
+        + execute(email, otp_code) : void
+    }
+
+    class LoginUserUseCase <<Application>> {
+        + execute(email, password, ip, user_agent) : void
+    }
+
+    class ConfirmLoginUseCase <<Application>> {
+        + execute(email, otp_code) : TokenResponse
+    }
+
+    class ForgotPasswordUseCase <<Application>> {
+        + execute(email) : void
+    }
+
+    class ResetPasswordUseCase <<Application>> {
+        + execute(email, otp_code, new_password) : void
+    }
+
+    class GoogleOAuthUseCase <<Application>> {
+        + get_auth_url() : str
+        + execute(code) : TokenResponse
+    }
+
+    class RefreshTokenUseCase <<Application>> {
+        + execute(refresh_token) : TokenResponse
+    }
+
+    class AuthService <<Application>> {
+        + register(request) : UserResponse
+        + verify_email(request) : MessageResponse
+        + login(request) : MessageResponse
+        + confirm_login(request) : TokenResponse
+        + forgot_password(request) : MessageResponse
+        + reset_password(request) : MessageResponse
+        + google_auth_url() : str
+        + google_callback(code) : TokenResponse
+        + refresh_token(token) : TokenResponse
+    }
+
+    class RegisterRequest <<Application>> {
+        + email : str
+        + password : str
+        + full_name : str
+    }
+
+    class TokenResponse <<Application>> {
+        + access_token : str
+        + refresh_token : str
+        + token_type : str
+    }
+}
+
+' ─── Infrastructure Layer ───
+package "<<Infrastructure>>" {
+    interface UserRepositoryInterface <<Infrastructure>> {
+        + create(user) : User
+        + get_by_id(id) : User
+        + get_by_email(email) : User
+        + update(user) : User
+    }
+
+    interface OTPRepositoryInterface <<Infrastructure>> {
+        + create(otp) : OTP
+        + get_latest(user_id, purpose) : OTP
+        + invalidate_all(user_id, purpose) : void
+    }
+
+    interface LoginHistoryRepositoryInterface <<Infrastructure>> {
+        + create(history) : LoginHistory
+        + get_by_user(user_id, limit) : List
+    }
+
+    class SQLAlchemyUserRepository <<Infrastructure>> {
+        + create(user) : User
+        + get_by_id(id) : User
+        + get_by_email(email) : User
+        + update(user) : User
+    }
+
+    class JWTHandler <<Infrastructure>> {
+        - secret_key : str
+        - algorithm : str
+        + create_access_token(data) : str
+        + create_refresh_token(data) : str
+        + decode_token(token) : dict
+    }
+
+    class PasswordHasher <<Infrastructure>> {
+        + hash(password) : str
+        + verify(password, hash) : bool
+    }
+
+    class OTPGenerator <<Infrastructure>> {
+        + generate(length) : str
+    }
+
+    class SMTPEmailSender <<Infrastructure>> {
+        + send_otp_email(to, code, purpose) : void
+    }
+
+    class GoogleOAuthClient <<Infrastructure>> {
+        + get_auth_url() : str
+        + exchange_code(code) : UserInfo
+    }
+
+    interface EmailSenderInterface <<Infrastructure>> {
+        + send_otp_email(to, code, purpose) : void
+    }
+}
+
+' ─── Relationships ───
+User "1" *-- "0..*" OTP : has >
+User "1" *-- "0..*" LoginHistory : tracks >
+User --> Email : uses
+User --> Password : uses
+OTP --> OTPPurpose : categorized by
+
+AuthService "1" ..> "1" RegisterUserUseCase : delegates to
+AuthService "1" ..> "1" VerifyEmailUseCase : delegates to
+AuthService "1" ..> "1" LoginUserUseCase : delegates to
+AuthService "1" ..> "1" ConfirmLoginUseCase : delegates to
+AuthService "1" ..> "1" ForgotPasswordUseCase : delegates to
+AuthService "1" ..> "1" ResetPasswordUseCase : delegates to
+AuthService "1" ..> "1" GoogleOAuthUseCase : delegates to
+AuthService "1" ..> "1" RefreshTokenUseCase : delegates to
+
+RegisterUserUseCase ..> UserRepositoryInterface : uses
+RegisterUserUseCase ..> OTPRepositoryInterface : uses
+RegisterUserUseCase ..> EmailSenderInterface : uses
+LoginUserUseCase ..> UserRepositoryInterface : uses
+LoginUserUseCase ..> OTPRepositoryInterface : uses
+LoginUserUseCase ..> LoginHistoryRepositoryInterface : uses
+ConfirmLoginUseCase ..> JWTHandler : uses
+GoogleOAuthUseCase ..> GoogleOAuthClient : uses
+
+SQLAlchemyUserRepository ..|> UserRepositoryInterface : implements
+SMTPEmailSender ..|> EmailSenderInterface : implements
+
+@enduml

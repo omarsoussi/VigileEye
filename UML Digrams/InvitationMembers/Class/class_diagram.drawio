@@ -1,0 +1,237 @@
+<mxfile host="app.diagrams.net" modified="2026-03-06T00:00:00.000Z" agent="5.0" version="22.1.2" type="device">
+  <diagram name="Figure 2.2 - Class Diagram - Members Invitation Service" id="inv-class">
+    <mxGraphModel dx="1800" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1400" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <mxCell id="title" value="Figure 2.2: Class Diagram – Members Invitation Service" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=16;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="500" y="10" width="480" height="30" as="geometry"/>
+        </mxCell>
+
+        <!-- DOMAIN LAYER -->
+        <mxCell id="pkg_domain" value="&lt;&lt;Domain&gt;&gt;" style="shape=mxgraph.sysml.package;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=10;tabWidth=120;tabHeight=24;fillColor=#dae8fc;strokeColor=#6c8ebf;opacity=20;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="50" width="720" height="600" as="geometry"/>
+        </mxCell>
+
+        <!-- Invitation -->
+        <mxCell id="c_inv" value="&lt;b&gt;Invitation&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="90" width="240" height="290" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_inv_a" value="- id : UUID&#xa;- inviter_user_id : UUID&#xa;- invitee_email : str&#xa;- permission_level : PermissionLevel&#xa;- status : InvitationStatus&#xa;- approval_code_hash : str&#xa;- code_expires_at : datetime&#xa;- code_resent_count : int&#xa;- camera_ids : List[UUID]&#xa;- responded_at : datetime&#xa;- created_at : datetime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=10;" vertex="1" parent="c_inv">
+          <mxGeometry y="26" width="240" height="180" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_inv_sep" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=10;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;strokeColor=inherit;html=1;" vertex="1" parent="c_inv">
+          <mxGeometry y="206" width="240" height="8" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_inv_m" value="+ accept() : void&#xa;+ decline() : void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=10;" vertex="1" parent="c_inv">
+          <mxGeometry y="214" width="240" height="76" as="geometry"/>
+        </mxCell>
+
+        <!-- Group -->
+        <mxCell id="c_grp" value="&lt;b&gt;Group&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="320" y="90" width="200" height="230" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_grp_a" value="- id : UUID&#xa;- owner_user_id : UUID&#xa;- name : str&#xa;- description : str&#xa;- status : str&#xa;- camera_ids : List[UUID]&#xa;- created_at : datetime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=10;" vertex="1" parent="c_grp">
+          <mxGeometry y="26" width="200" height="120" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_grp_sep" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=10;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;strokeColor=inherit;html=1;" vertex="1" parent="c_grp">
+          <mxGeometry y="146" width="200" height="8" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_grp_m" value="+ update(name, desc, cameras) : void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=10;" vertex="1" parent="c_grp">
+          <mxGeometry y="154" width="200" height="76" as="geometry"/>
+        </mxCell>
+
+        <!-- GroupMember -->
+        <mxCell id="c_gm" value="&lt;b&gt;GroupMember&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="320" y="350" width="200" height="190" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_gm_a" value="- id : UUID&#xa;- group_id : UUID&#xa;- user_email : str&#xa;- status : str&#xa;- permission : PermissionLevel&#xa;- approval_code_hash : str&#xa;- code_expires_at : datetime&#xa;- invited_at : datetime&#xa;- accepted_at : datetime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=10;" vertex="1" parent="c_gm">
+          <mxGeometry y="26" width="200" height="164" as="geometry"/>
+        </mxCell>
+
+        <!-- Membership -->
+        <mxCell id="c_mem" value="&lt;b&gt;Membership&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="420" width="220" height="150" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_mem_a" value="- id : UUID&#xa;- owner_user_id : UUID&#xa;- member_user_id : UUID&#xa;- permission_level : PermissionLevel&#xa;- camera_ids : List[UUID]&#xa;- created_at : datetime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=10;" vertex="1" parent="c_mem">
+          <mxGeometry y="26" width="220" height="124" as="geometry"/>
+        </mxCell>
+
+        <!-- Enums -->
+        <mxCell id="c_invs" value="&lt;b&gt;&amp;lt;&amp;lt;enum&amp;gt;&amp;gt;&#xa;InvitationStatus&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=40;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="560" y="90" width="150" height="120" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_invs_a" value="PENDING&#xa;ACCEPTED&#xa;DECLINED&#xa;EXPIRED" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=10;" vertex="1" parent="c_invs">
+          <mxGeometry y="40" width="150" height="80" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c_perm" value="&lt;b&gt;&amp;lt;&amp;lt;enum&amp;gt;&amp;gt;&#xa;PermissionLevel&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=40;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="560" y="240" width="150" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_perm_a" value="READER&#xa;EDITOR" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=10;" vertex="1" parent="c_perm">
+          <mxGeometry y="40" width="150" height="50" as="geometry"/>
+        </mxCell>
+
+        <!-- APPLICATION LAYER -->
+        <mxCell id="pkg_app" value="&lt;&lt;Application&gt;&gt;" style="shape=mxgraph.sysml.package;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=10;tabWidth=140;tabHeight=24;fillColor=#fff2cc;strokeColor=#d6b656;opacity=20;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="760" y="50" width="480" height="600" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c_cinv" value="&lt;b&gt;CreateInvitationUseCase&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="780" y="90" width="200" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_cinv_m" value="+ execute(inviter_id, email, perm, cameras) : Invitation" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=9;" vertex="1" parent="c_cinv">
+          <mxGeometry y="26" width="200" height="29" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c_ainv" value="&lt;b&gt;AcceptInvitationUseCase&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="780" y="165" width="200" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_ainv_m" value="+ execute(invitation_id, code) : Membership" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=9;" vertex="1" parent="c_ainv">
+          <mxGeometry y="26" width="200" height="29" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c_dinv" value="&lt;b&gt;DeclineInvitationUseCase&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="780" y="240" width="200" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_dinv_m" value="+ execute(invitation_id, user_id) : void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=9;" vertex="1" parent="c_dinv">
+          <mxGeometry y="26" width="200" height="29" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c_cgrp" value="&lt;b&gt;CreateGroupUseCase&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="1010" y="90" width="200" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_cgrp_m" value="+ execute(owner_id, name, desc, cameras) : Group" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=9;" vertex="1" parent="c_cgrp">
+          <mxGeometry y="26" width="200" height="29" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c_igm" value="&lt;b&gt;InviteGroupMemberUseCase&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="1010" y="165" width="200" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_igm_m" value="+ execute(group_id, owner, email, perm) : GroupMember" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=9;" vertex="1" parent="c_igm">
+          <mxGeometry y="26" width="200" height="29" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c_bigm" value="&lt;b&gt;BulkInviteGroupMembersUseCase&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="1010" y="240" width="210" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_bigm_m" value="+ execute(group_id, owner, members) : List" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=9;" vertex="1" parent="c_bigm">
+          <mxGeometry y="26" width="210" height="29" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c_resend" value="&lt;b&gt;ResendInvitationCodeUseCase&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="780" y="315" width="200" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_resend_m" value="+ execute(invitation_id, inviter_id) : void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=9;" vertex="1" parent="c_resend">
+          <mxGeometry y="26" width="200" height="29" as="geometry"/>
+        </mxCell>
+
+        <!-- DTOs -->
+        <mxCell id="c_invresp" value="&lt;b&gt;InvitationResponse&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="780" y="400" width="200" height="130" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_invresp_a" value="+ id : str&#xa;+ inviter_user_id : str&#xa;+ invitee_email : str&#xa;+ status : str&#xa;+ permission_level : str&#xa;+ camera_ids : List[str]" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=10;" vertex="1" parent="c_invresp">
+          <mxGeometry y="26" width="200" height="104" as="geometry"/>
+        </mxCell>
+
+        <!-- INFRASTRUCTURE LAYER -->
+        <mxCell id="pkg_infra" value="&lt;&lt;Infrastructure&gt;&gt;" style="shape=mxgraph.sysml.package;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=10;tabWidth=150;tabHeight=24;fillColor=#d5e8d4;strokeColor=#82b366;opacity=20;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="680" width="1220" height="340" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c_irepo" value="&lt;b&gt;&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&#xa;InvitationRepositoryInterface&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=40;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="40" y="720" width="230" height="130" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_irepo_m" value="+ create(invitation) : Invitation&#xa;+ get_by_id(id) : Invitation&#xa;+ get_by_inviter(user_id) : List&#xa;+ get_by_email(email) : List&#xa;+ update(invitation) : Invitation" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=10;" vertex="1" parent="c_irepo">
+          <mxGeometry y="40" width="230" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c_grepo" value="&lt;b&gt;&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&#xa;GroupRepositoryInterface&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=40;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="290" y="720" width="210" height="130" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_grepo_m" value="+ create(group) : Group&#xa;+ get_by_id(id) : Group&#xa;+ get_by_owner(user_id) : List&#xa;+ update(group) : Group&#xa;+ delete(id) : void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=10;" vertex="1" parent="c_grepo">
+          <mxGeometry y="40" width="210" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c_gmrepo" value="&lt;b&gt;&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&#xa;GroupMemberRepositoryInterface&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=40;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="520" y="720" width="230" height="120" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_gmrepo_m" value="+ create(member) : GroupMember&#xa;+ get_by_group(group_id) : List&#xa;+ update(member) : GroupMember&#xa;+ delete(id) : void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=10;" vertex="1" parent="c_gmrepo">
+          <mxGeometry y="40" width="230" height="80" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c_mrepo" value="&lt;b&gt;&amp;lt;&amp;lt;interface&amp;gt;&amp;gt;&#xa;MembershipRepositoryInterface&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=40;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="770" y="720" width="230" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_mrepo_m" value="+ create(membership) : Membership&#xa;+ get_by_member(user_id) : List&#xa;+ get_by_owner(user_id) : List" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=10;" vertex="1" parent="c_mrepo">
+          <mxGeometry y="40" width="230" height="70" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c_smtp2" value="&lt;b&gt;SMTPEmailSender&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="40" y="880" width="230" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_smtp2_m" value="+ send_invitation_code(to, code) : void&#xa;+ send_group_invitation_code(to, name, code) : void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=9;" vertex="1" parent="c_smtp2">
+          <mxGeometry y="26" width="230" height="54" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c_otp2" value="&lt;b&gt;OTPGenerator&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="290" y="880" width="160" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_otp2_m" value="+ generate(length) : str" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=10;" vertex="1" parent="c_otp2">
+          <mxGeometry y="26" width="160" height="34" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c_ph2" value="&lt;b&gt;PasswordHasher&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="470" y="880" width="180" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_ph2_m" value="+ hash(code) : str&#xa;+ verify(code, hash) : bool" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0;html=1;fontSize=10;" vertex="1" parent="c_ph2">
+          <mxGeometry y="26" width="180" height="54" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c_sql_inv" value="&lt;b&gt;SQLAlchemyInvitationRepository&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="670" y="880" width="200" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_sql_grp" value="&lt;b&gt;SQLAlchemyGroupRepository&lt;/b&gt;" style="swimlane;fontStyle=0;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="890" y="880" width="200" height="40" as="geometry"/>
+        </mxCell>
+
+        <!-- RELATIONSHIPS -->
+        <mxCell id="r1" style="endArrow=open;endSize=12;endFill=0;html=1;rounded=0;" edge="1" source="c_inv" target="c_invs" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="r2" style="endArrow=open;endSize=12;endFill=0;html=1;rounded=0;" edge="1" source="c_inv" target="c_perm" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="r3" style="endArrow=open;endSize=12;endFill=0;html=1;rounded=0;" edge="1" source="c_gm" target="c_perm" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="r4" style="endArrow=diamondThin;endFill=1;html=1;rounded=0;" edge="1" source="c_gm" target="c_grp" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="r4l" value="1    0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" vertex="1" connectable="0" parent="r4"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="r5" style="endArrow=open;endSize=12;endFill=0;html=1;rounded=0;" edge="1" source="c_inv" target="c_mem" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="r5l" value="creates  0..1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" vertex="1" connectable="0" parent="r5"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- Use case → repo deps -->
+        <mxCell id="d1" style="endArrow=open;endSize=12;dashed=1;html=1;rounded=0;" edge="1" source="c_cinv" target="c_irepo" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="d1l" value="uses" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;" vertex="1" connectable="0" parent="d1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="d2" style="endArrow=open;endSize=12;dashed=1;html=1;rounded=0;" edge="1" source="c_cinv" target="c_smtp2" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="d3" style="endArrow=open;endSize=12;dashed=1;html=1;rounded=0;" edge="1" source="c_ainv" target="c_mrepo" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="d4" style="endArrow=open;endSize=12;dashed=1;html=1;rounded=0;" edge="1" source="c_cgrp" target="c_grepo" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="d5" style="endArrow=open;endSize=12;dashed=1;html=1;rounded=0;" edge="1" source="c_igm" target="c_gmrepo" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="d6" style="endArrow=open;endSize=12;dashed=1;html=1;rounded=0;" edge="1" source="c_bigm" target="c_igm" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="d6l" value="delegates to" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;" vertex="1" connectable="0" parent="d6"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- Implements -->
+        <mxCell id="impl1" style="endArrow=block;endFill=0;dashed=1;html=1;rounded=0;" edge="1" source="c_sql_inv" target="c_irepo" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="impl1l" value="implements" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;" vertex="1" connectable="0" parent="impl1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="impl2" style="endArrow=block;endFill=0;dashed=1;html=1;rounded=0;" edge="1" source="c_sql_grp" target="c_grepo" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- Legend -->
+        <mxCell id="legend" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#999999;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="1270" y="50" width="180" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="leg1" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="1280" y="60" width="20" height="15" as="geometry"/></mxCell>
+        <mxCell id="leg1t" value="Domain Layer" style="text;html=1;align=left;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=10;" vertex="1" parent="1"><mxGeometry x="1305" y="55" width="90" height="25" as="geometry"/></mxCell>
+        <mxCell id="leg2" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="1280" y="85" width="20" height="15" as="geometry"/></mxCell>
+        <mxCell id="leg2t" value="Application Layer" style="text;html=1;align=left;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=10;" vertex="1" parent="1"><mxGeometry x="1305" y="80" width="110" height="25" as="geometry"/></mxCell>
+        <mxCell id="leg3" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="1280" y="110" width="20" height="15" as="geometry"/></mxCell>
+        <mxCell id="leg3t" value="Infrastructure Layer" style="text;html=1;align=left;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=10;" vertex="1" parent="1"><mxGeometry x="1305" y="105" width="120" height="25" as="geometry"/></mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

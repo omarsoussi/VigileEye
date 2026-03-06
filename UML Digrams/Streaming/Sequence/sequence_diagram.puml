@@ -1,0 +1,84 @@
+@startuml
+!theme plain
+title Figure 4.3: Sequence Diagram – Video Streaming Service
+
+skinparam participant {
+    BackgroundColor #E8F4FD
+    BorderColor #2196F3
+}
+
+actor "User" as U
+participant "Frontend" as FE
+participant "StreamController" as SC
+participant "StreamUseCases" as UC
+participant "CameraService\n(HTTP Client)" as CS
+participant "StreamManager" as SM
+participant "MediaMTXClient" as MTX
+participant "FFmpegProcess" as FF
+database "InMemoryRepo" as DB
+
+== Start Stream ==
+U -> FE : Click "Start Stream" for camera
+FE -> SC : POST /api/v1/streams/start {camera_id}
+SC -> UC : StartStream(camera_id, user_id)
+UC -> CS : GetCamera(camera_id, token)
+CS --> UC : Camera{stream_url, protocol}
+UC -> DB : Save(StreamSession{status=STARTING})
+UC -> SM : StartStream(session, camera)
+SM -> MTX : AddPath(camera_id, stream_url)
+MTX --> SM : OK
+SM -> SM : session.Activate()
+UC -> DB : Save(StreamSession{status=ACTIVE})
+UC --> SC : StreamSessionResponse
+SC --> FE : 200 {id, status, whep_endpoint}
+FE --> U : "Stream started"
+
+== View Stream (WebRTC Negotiation) ==
+U -> FE : Open camera live view
+FE -> SC : POST /api/v1/webrtc/offer {camera_id, sdp}
+SC -> UC : NegotiateViewer(camera_id, user_id, sdp)
+UC -> DB : Get(camera_id)
+alt Stream not active
+    UC -> UC : auto-start stream
+    UC -> CS : GetCamera(camera_id, token)
+    CS --> UC : Camera
+    UC -> SM : StartStream(session, camera)
+end
+UC -> SM : NegotiateWebRTC(camera_id, sdp_offer)
+SM -> MTX : WHEPOffer(path, sdp_offer)
+MTX --> SM : sdp_answer, location_header
+SM --> UC : WebRTCAnswer{sdp, viewer_id}
+UC -> DB : Save(ViewerSession{state=WATCHING})
+UC --> SC : WebRTCAnswerResponse
+SC --> FE : 200 {sdp_answer, viewer_id, ice_servers}
+FE -> FE : setRemoteDescription(sdp_answer)
+FE --> U : Live video feed displayed
+
+== Get Latest Frame (HTTP fallback) ==
+U -> FE : Request snapshot
+FE -> SC : GET /api/v1/streams/frame/{camera_id}
+SC -> SM : GetLatestFrame(camera_id)
+alt No JPEG extractor running
+    SM -> FF : Start FFmpeg JPEG extraction
+    FF --> SM : Frame available
+end
+SM --> SC : JPEG bytes
+SC --> FE : 200 image/jpeg
+FE --> U : Display snapshot
+
+== Stop Stream ==
+U -> FE : Click "Stop Stream"
+FE -> SC : POST /api/v1/streams/stop {camera_id}
+SC -> UC : StopStream(camera_id, user_id)
+UC -> DB : Get(camera_id)
+DB --> UC : StreamSession
+UC -> SM : StopStream(camera_id)
+SM -> MTX : RemovePath(camera_id)
+MTX --> SM : OK
+SM -> SM : session.Stop()
+UC -> DB : Remove(camera_id)
+UC --> SC : StreamSessionResponse{status=STOPPED}
+SC --> FE : 200 OK
+FE --> U : "Stream stopped"
+
+@enduml

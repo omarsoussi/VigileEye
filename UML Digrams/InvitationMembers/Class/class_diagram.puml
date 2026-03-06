@@ -1,0 +1,221 @@
+@startuml
+!theme plain
+title Figure 2.2: Class Diagram – Members Invitation Service
+
+skinparam class {
+    BackgroundColor<<Domain>> #DCEEFB
+    BorderColor<<Domain>> #2196F3
+    BackgroundColor<<Application>> #FFF9C4
+    BorderColor<<Application>> #FBC02D
+    BackgroundColor<<Infrastructure>> #C8E6C9
+    BorderColor<<Infrastructure>> #4CAF50
+}
+
+' ─── Domain Layer ───
+package "<<Domain>>" {
+    class Invitation <<Domain>> {
+        - id : UUID
+        - inviter_user_id : UUID
+        - invitee_email : str
+        - permission_level : PermissionLevel
+        - status : InvitationStatus
+        - approval_code_hash : str
+        - code_expires_at : datetime
+        - code_resent_count : int
+        - camera_ids : List[UUID]
+        - responded_at : datetime
+        - created_at : datetime
+        - updated_at : datetime
+        + accept() : void
+        + decline() : void
+    }
+
+    class Group <<Domain>> {
+        - id : UUID
+        - owner_user_id : UUID
+        - name : str
+        - description : str
+        - status : str
+        - camera_ids : List[UUID]
+        - created_at : datetime
+        - updated_at : datetime
+        + update(name, description, camera_ids) : void
+    }
+
+    class GroupMember <<Domain>> {
+        - id : UUID
+        - group_id : UUID
+        - user_email : str
+        - status : str
+        - permission : PermissionLevel
+        - approval_code_hash : str
+        - code_expires_at : datetime
+        - code_resent_count : int
+        - invited_at : datetime
+        - accepted_at : datetime
+    }
+
+    class Membership <<Domain>> {
+        - id : UUID
+        - owner_user_id : UUID
+        - member_user_id : UUID
+        - permission_level : PermissionLevel
+        - camera_ids : List[UUID]
+        - created_at : datetime
+    }
+
+    enum InvitationStatus <<Domain>> {
+        PENDING
+        ACCEPTED
+        DECLINED
+        EXPIRED
+    }
+
+    enum PermissionLevel <<Domain>> {
+        READER
+        EDITOR
+    }
+}
+
+' ─── Application Layer ───
+package "<<Application>>" {
+    class CreateInvitationUseCase <<Application>> {
+        + execute(inviter_id, email, permission, camera_ids) : Invitation
+    }
+
+    class AcceptInvitationUseCase <<Application>> {
+        + execute(invitation_id, approval_code) : Membership
+    }
+
+    class DeclineInvitationUseCase <<Application>> {
+        + execute(invitation_id, user_id) : void
+    }
+
+    class CreateGroupUseCase <<Application>> {
+        + execute(owner_id, name, description, camera_ids) : Group
+    }
+
+    class InviteGroupMemberUseCase <<Application>> {
+        + execute(group_id, owner_id, email, permission) : GroupMember
+    }
+
+    class BulkInviteGroupMembersUseCase <<Application>> {
+        + execute(group_id, owner_id, members) : List
+    }
+
+    class AcceptGroupMemberUseCase <<Application>> {
+        + execute(group_id, email, approval_code) : void
+    }
+
+    class UpdateGroupMemberAccessUseCase <<Application>> {
+        + execute(group_id, member_id, owner_id, permission, camera_ids) : GroupMember
+    }
+
+    class ResendInvitationCodeUseCase <<Application>> {
+        + execute(invitation_id, inviter_id) : void
+    }
+
+    class ListSentInvitationsUseCase <<Application>> {
+        + execute(user_id) : List[Invitation]
+    }
+
+    class ListReceivedInvitationsUseCase <<Application>> {
+        + execute(email) : List[Invitation]
+    }
+
+    class CreateInvitationRequest <<Application>> {
+        + invitee_email : str
+        + permission_level : str
+        + camera_ids : List[str]
+    }
+
+    class InvitationResponse <<Application>> {
+        + id : str
+        + inviter_user_id : str
+        + invitee_email : str
+        + status : str
+        + permission_level : str
+        + camera_ids : List[str]
+    }
+}
+
+' ─── Infrastructure Layer ───
+package "<<Infrastructure>>" {
+    interface InvitationRepositoryInterface <<Infrastructure>> {
+        + create(invitation) : Invitation
+        + get_by_id(id) : Invitation
+        + get_by_inviter(user_id) : List
+        + get_by_email(email) : List
+        + update(invitation) : Invitation
+    }
+
+    interface GroupRepositoryInterface <<Infrastructure>> {
+        + create(group) : Group
+        + get_by_id(id) : Group
+        + get_by_owner(user_id) : List
+        + update(group) : Group
+        + delete(id) : void
+    }
+
+    interface GroupMemberRepositoryInterface <<Infrastructure>> {
+        + create(member) : GroupMember
+        + get_by_id(id) : GroupMember
+        + get_by_group(group_id) : List
+        + get_by_email_and_group(email, group_id) : GroupMember
+        + update(member) : GroupMember
+        + delete(id) : void
+    }
+
+    interface MembershipRepositoryInterface <<Infrastructure>> {
+        + create(membership) : Membership
+        + get_by_member(user_id) : List
+        + get_by_owner(user_id) : List
+    }
+
+    class SQLAlchemyInvitationRepository <<Infrastructure>> {
+    }
+
+    class SQLAlchemyGroupRepository <<Infrastructure>> {
+    }
+
+    class SMTPEmailSender <<Infrastructure>> {
+        + send_invitation_code(to, code) : void
+        + send_group_invitation_code(to, group_name, code) : void
+    }
+
+    class JWTHandler <<Infrastructure>> {
+        + decode_token(token) : dict
+    }
+
+    class OTPGenerator <<Infrastructure>> {
+        + generate(length) : str
+    }
+
+    class PasswordHasher <<Infrastructure>> {
+        + hash(code) : str
+        + verify(code, hash) : bool
+    }
+}
+
+' ─── Relationships ───
+Invitation --> InvitationStatus : has
+Invitation --> PermissionLevel : uses
+GroupMember --> PermissionLevel : uses
+Membership --> PermissionLevel : uses
+
+Group "1" *-- "0..*" GroupMember : contains >
+Invitation "1" --> "0..1" Membership : creates >
+
+CreateInvitationUseCase ..> InvitationRepositoryInterface : uses
+CreateInvitationUseCase ..> SMTPEmailSender : uses
+AcceptInvitationUseCase ..> InvitationRepositoryInterface : uses
+AcceptInvitationUseCase ..> MembershipRepositoryInterface : uses
+CreateGroupUseCase ..> GroupRepositoryInterface : uses
+InviteGroupMemberUseCase ..> GroupMemberRepositoryInterface : uses
+InviteGroupMemberUseCase ..> SMTPEmailSender : uses
+BulkInviteGroupMembersUseCase ..> InviteGroupMemberUseCase : delegates to
+
+SQLAlchemyInvitationRepository ..|> InvitationRepositoryInterface : implements
+SQLAlchemyGroupRepository ..|> GroupRepositoryInterface : implements
+
+@enduml

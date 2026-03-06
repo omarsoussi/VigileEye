@@ -1,0 +1,58 @@
+@startuml
+!theme plain
+title Figure 1.1: Use Case Diagram – Authentication Service
+
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam usecase {
+    BackgroundColor #E8F4FD
+    BorderColor #2196F3
+}
+
+left to right direction
+
+actor "User" as User
+actor "Google OAuth\nProvider" as Google
+
+rectangle "Authentication Service" {
+    usecase "Register Account" as UC1
+    usecase "Verify Email" as UC2
+    usecase "Login" as UC3
+    usecase "Confirm Login (2FA)" as UC4
+    usecase "Forgot Password" as UC5
+    usecase "Reset Password" as UC6
+    usecase "Login with Google" as UC7
+    usecase "Refresh Token" as UC8
+    usecase "View Login History" as UC9
+    usecase "View Suspicious Logins" as UC10
+
+    usecase "Validate OTP" as UC11
+    usecase "Send Email OTP" as UC12
+    usecase "Generate JWT Token" as UC13
+    usecase "Lock Account\n(Max Attempts)" as UC14
+}
+
+User --> UC1
+User --> UC3
+User --> UC5
+User --> UC7
+User --> UC8
+User --> UC9
+User --> UC10
+
+UC1 ..> UC12 : <<include>>
+UC1 ..> UC2 : <<include>>
+UC2 ..> UC11 : <<include>>
+UC3 ..> UC12 : <<include>>
+UC3 ..> UC4 : <<include>>
+UC4 ..> UC11 : <<include>>
+UC4 ..> UC13 : <<include>>
+UC5 ..> UC12 : <<include>>
+UC5 ..> UC6 : <<include>>
+UC6 ..> UC11 : <<include>>
+UC3 ..> UC14 : <<extend>>
+UC7 ..> UC13 : <<include>>
+
+Google --> UC7
+
+@enduml

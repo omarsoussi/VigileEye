@@ -1,0 +1,240 @@
+@startuml
+!theme plain
+title Figure 6.2: Class Diagram – Sprint 1 (Authentication + Members Invitation)
+
+skinparam class {
+    BackgroundColor<<Domain>> #DCEEFB
+    BorderColor<<Domain>> #2196F3
+    BackgroundColor<<Application>> #FFF9C4
+    BorderColor<<Application>> #FBC02D
+    BackgroundColor<<Infrastructure>> #C8E6C9
+    BorderColor<<Infrastructure>> #4CAF50
+}
+
+' ─── Domain Layer ───
+package "<<Domain>>" {
+    ' --- Auth Entities ---
+    class User <<Domain>> {
+        - id : UUID
+        - email : str
+        - hashed_password : str
+        - full_name : str
+        - is_verified : bool
+        - is_active : bool
+        - failed_login_attempts : int
+        - locked_until : datetime
+        + verify_email() : void
+        + lock_account(duration) : void
+        + is_locked() : bool
+    }
+
+    class OTP <<Domain>> {
+        - id : UUID
+        - user_id : UUID
+        - code : str
+        - purpose : OTPPurpose
+        - is_used : bool
+        - expires_at : datetime
+        + is_valid() : bool
+        + mark_used() : void
+    }
+
+    class LoginHistory <<Domain>> {
+        - id : UUID
+        - user_id : UUID
+        - ip_address : str
+        - user_agent : str
+        - status : str
+    }
+
+    class Email <<Domain>> {
+        - value : str
+        + validate() : bool
+    }
+
+    class Password <<Domain>> {
+        - value : str
+        + validate_strength() : bool
+    }
+
+    ' --- Invitation Entities ---
+    class Invitation <<Domain>> {
+        - id : UUID
+        - inviter_user_id : UUID
+        - invitee_email : str
+        - permission_level : PermissionLevel
+        - status : InvitationStatus
+        - approval_code_hash : str
+        - camera_ids : List[UUID]
+    }
+
+    class Group <<Domain>> {
+        - id : UUID
+        - owner_user_id : UUID
+        - name : str
+        - description : str
+        - camera_ids : List[UUID]
+    }
+
+    class GroupMember <<Domain>> {
+        - id : UUID
+        - group_id : UUID
+        - user_email : str
+        - status : str
+        - permission : PermissionLevel
+        - approval_code_hash : str
+    }
+
+    class Membership <<Domain>> {
+        - id : UUID
+        - owner_user_id : UUID
+        - member_user_id : UUID
+        - permission_level : PermissionLevel
+        - camera_ids : List[UUID]
+    }
+
+    enum InvitationStatus <<Domain>> {
+        PENDING
+        ACCEPTED
+        DECLINED
+        EXPIRED
+    }
+
+    enum PermissionLevel <<Domain>> {
+        READER
+        EDITOR
+    }
+
+    enum OTPPurpose <<Domain>> {
+        EMAIL_VERIFICATION
+        LOGIN_2FA
+        PASSWORD_RESET
+    }
+}
+
+' ─── Application Layer ───
+package "<<Application>>" {
+    ' --- Auth Use Cases ---
+    class RegisterUserUseCase <<Application>> {
+        + execute(email, password, name) : User
+    }
+
+    class LoginUserUseCase <<Application>> {
+        + execute(email, password) : void
+    }
+
+    class ConfirmLoginUseCase <<Application>> {
+        + execute(email, otp) : TokenResponse
+    }
+
+    class GoogleOAuthUseCase <<Application>> {
+        + execute(code) : TokenResponse
+    }
+
+    class RefreshTokenUseCase <<Application>> {
+        + execute(refresh_token) : TokenResponse
+    }
+
+    ' --- Invitation Use Cases ---
+    class CreateInvitationUseCase <<Application>> {
+        + execute(inviter_id, email, cameras) : Invitation
+    }
+
+    class AcceptInvitationUseCase <<Application>> {
+        + execute(invitation_id, code) : Membership
+    }
+
+    class CreateGroupUseCase <<Application>> {
+        + execute(owner_id, name, cameras) : Group
+    }
+
+    class InviteGroupMemberUseCase <<Application>> {
+        + execute(group_id, email, permission) : GroupMember
+    }
+
+    class TokenResponse <<Application>> {
+        + access_token : str
+        + refresh_token : str
+    }
+}
+
+' ─── Infrastructure Layer ───
+package "<<Infrastructure>>" {
+    interface UserRepositoryInterface <<Infrastructure>> {
+        + create(user) : User
+        + get_by_email(email) : User
+        + update(user) : User
+    }
+
+    interface InvitationRepositoryInterface <<Infrastructure>> {
+        + create(invitation) : Invitation
+        + get_by_id(id) : Invitation
+        + update(invitation) : Invitation
+    }
+
+    interface GroupRepositoryInterface <<Infrastructure>> {
+        + create(group) : Group
+        + get_by_owner(user_id) : List
+    }
+
+    interface MembershipRepositoryInterface <<Infrastructure>> {
+        + create(membership) : Membership
+        + get_by_member(user_id) : List
+    }
+
+    class JWTHandler <<Infrastructure>> {
+        + create_access_token(data) : str
+        + create_refresh_token(data) : str
+        + decode_token(token) : dict
+    }
+
+    class PasswordHasher <<Infrastructure>> {
+        + hash(value) : str
+        + verify(value, hash) : bool
+    }
+
+    class OTPGenerator <<Infrastructure>> {
+        + generate(length) : str
+    }
+
+    class EmailSender <<Infrastructure>> {
+        + send_otp_email(to, code, purpose) : void
+        + send_invitation_code(to, code) : void
+    }
+
+    class GoogleOAuthClient <<Infrastructure>> {
+        + get_auth_url() : str
+        + exchange_code(code) : UserInfo
+    }
+}
+
+' ─── Relationships ───
+User "1" *-- "0..*" OTP : has >
+User "1" *-- "0..*" LoginHistory : tracks >
+User --> Email : uses
+User --> Password : uses
+OTP --> OTPPurpose : categorized by
+
+Invitation --> InvitationStatus : has
+Invitation --> PermissionLevel : uses
+GroupMember --> PermissionLevel : uses
+Membership --> PermissionLevel : uses
+Group "1" *-- "0..*" GroupMember : contains >
+Invitation "1" --> "0..1" Membership : creates >
+
+' Cross-service: Auth token validates invitation actions
+note "Auth JWT tokens are used to\nauthenticate Invitation service requests" as N1
+JWTHandler .. N1
+N1 .. InvitationRepositoryInterface
+
+RegisterUserUseCase ..> UserRepositoryInterface : uses
+RegisterUserUseCase ..> EmailSender : uses
+LoginUserUseCase ..> UserRepositoryInterface : uses
+ConfirmLoginUseCase ..> JWTHandler : uses
+GoogleOAuthUseCase ..> GoogleOAuthClient : uses
+CreateInvitationUseCase ..> InvitationRepositoryInterface : uses
+CreateInvitationUseCase ..> EmailSender : uses
+AcceptInvitationUseCase ..> MembershipRepositoryInterface : uses
+CreateGroupUseCase ..> GroupRepositoryInterface : uses
+
+@enduml

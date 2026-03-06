@@ -1,0 +1,73 @@
+@startuml
+!theme plain
+title Figure 2.1: Use Case Diagram – Members Invitation Service
+
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam usecase {
+    BackgroundColor #E8F4FD
+    BorderColor #2196F3
+}
+
+left to right direction
+
+actor "Owner" as Owner
+actor "Invited Member" as Member
+
+rectangle "Members Invitation Service" {
+    ' ─── Invitation Use Cases ───
+    usecase "Create Invitation" as UC1
+    usecase "Accept Invitation" as UC2
+    usecase "Decline Invitation" as UC3
+    usecase "Resend Invitation Code" as UC4
+    usecase "List Sent Invitations" as UC5
+    usecase "List Received Invitations" as UC6
+
+    ' ─── Group Use Cases ───
+    usecase "Create Group" as UC7
+    usecase "Update Group" as UC8
+    usecase "Delete Group" as UC9
+    usecase "List Groups" as UC10
+    usecase "Invite Group Member" as UC11
+    usecase "Bulk Invite Group Members" as UC12
+    usecase "Accept Group Invitation" as UC13
+    usecase "Decline Group Invitation" as UC14
+    usecase "Remove Group Member" as UC15
+    usecase "Update Member Access" as UC16
+    usecase "Resend Group Codes" as UC17
+
+    ' ─── Included Use Cases ───
+    usecase "Send Email with OTP" as UC18
+    usecase "Validate Approval Code" as UC19
+    usecase "Create Membership" as UC20
+}
+
+Owner --> UC1
+Owner --> UC5
+Owner --> UC7
+Owner --> UC8
+Owner --> UC9
+Owner --> UC10
+Owner --> UC11
+Owner --> UC12
+Owner --> UC15
+Owner --> UC16
+Owner --> UC4
+Owner --> UC17
+
+Member --> UC2
+Member --> UC3
+Member --> UC6
+Member --> UC13
+Member --> UC14
+
+UC1 ..> UC18 : <<include>>
+UC2 ..> UC19 : <<include>>
+UC2 ..> UC20 : <<include>>
+UC11 ..> UC18 : <<include>>
+UC12 ..> UC11 : <<include>>
+UC13 ..> UC19 : <<include>>
+UC4 ..> UC18 : <<include>>
+UC17 ..> UC18 : <<include>>
+
+@enduml
