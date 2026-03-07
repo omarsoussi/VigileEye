@@ -119,11 +119,15 @@ services:
       # When running behind Docker port-mapping, browsers need ICE candidates
       # that resolve to the host (not the container's internal IP).
       MTX_WEBRTCADDITIONALHOSTS: "127.0.0.1,localhost"
+      # Force all WebRTC ICE traffic through a single UDP port so Docker
+      # port-mapping works.  Without this, MediaMTX picks ephemeral ports
+      # that are NOT mapped → ICE fails → fallback to slow HTTP polling.
+      MTX_WEBRTCLOCALUDPADDRESS: ":8189"
       MTX_API: "yes"
       MTX_APIADDRESS: ":9997"
-      MTX_LOGLEVEL: "info"
+      MTX_LOGLEVEL: "debug"
       # Low-latency tuning
-      MTX_READBUFFERCOUNT: "256"
+      MTX_WRITEQUEUESIZE: "512"
       MTX_WEBRTCICETCPMUX: "no"
       # Allow the Control API to be called from other containers.
       # By default, MediaMTX allows API access only from 127.0.0.1/::1.
@@ -152,10 +156,10 @@ services:
       resources:
         limits:
           cpus: '2'
-          memory: 1G
+          memory: 4G
         reservations:
           cpus: '0.25'
-          memory: 128M
+          memory: 256M
     restart: unless-stopped
 
   # ───────────────── Video Streaming – Go (port 8003) ──────────
@@ -167,7 +171,7 @@ services:
       - ./StreamingBackend/.env
     environment:
       PORT: "8003"
-      LOG_LEVEL: "info"
+      LOG_LEVEL: "debug"
       JWT_SECRET: *jwt-secret
       CAMERA_SERVICE_URL: "http://cameramanagement:8002"
       FFMPEG_PATH: "ffmpeg"
@@ -203,11 +207,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
-          memory: 1G
+          cpus: '3'
+          memory: 8G
         reservations:
           cpus: '0.5'
-          memory: 256M
+          memory: 512M
     restart: unless-stopped
 
   # ───────────────── Storage Backend – Go (port 8004) ──────────
@@ -250,10 +254,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
-          memory: 1G
+          cpus: '1'
+          memory: 2G
         reservations:
-          cpus: '0.5'
+          cpus: '0.25'
           memory: 256M
     restart: unless-stopped
 

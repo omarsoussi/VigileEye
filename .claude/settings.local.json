@@ -1,7 +1,22 @@
 {
   "permissions": {
     "allow": [
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(ls:*)",
+      "Bash(docker-compose build:*)",
+      "Bash(docker-compose down:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker-compose ps:*)",
+      "Bash(curl:*)",
+      "Bash(__NEW_LINE_10699fff01e07245__ curl:*)",
+      "Bash(__NEW_LINE_d9f74082ee63dfcb__ curl:*)",
+      "Bash(docker ps:*)",
+      "Bash(echo $CONFIRM_RESP:*)",
+      "Bash(echo Failed to query MediaMTX API:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker compose:*)",
+      "Bash(sleep 5:*)",
+      "Bash(docker system:*)"
     ]
   }
 }

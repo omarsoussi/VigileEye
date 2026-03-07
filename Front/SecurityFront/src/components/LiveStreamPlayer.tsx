@@ -324,8 +324,8 @@ export const LiveStreamPlayer: React.FC<LiveStreamPlayerProps> = ({
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Video Frame */}
-      {/* WebRTC mode: native <video> for MediaStream */}
-      {mode === 'webrtc' && (
+      {/* WebRTC/WHEP mode: native <video> for MediaStream */}
+      {(mode === 'webrtc' || mode === 'whep') && (
         <video
           ref={videoRef}
           autoPlay
@@ -340,7 +340,7 @@ export const LiveStreamPlayer: React.FC<LiveStreamPlayerProps> = ({
         />
       )}
       {/* HTTP fallback mode: <img> for JPEG frames */}
-      {mode !== 'webrtc' && frameUrl ? (
+      {mode !== 'webrtc' && mode !== 'whep' && frameUrl ? (
         <img
           src={frameUrl}
           alt={camera.name}

@@ -11,7 +11,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useTheme } from '../contexts/ThemeContext';
-import { useWebRTCStream } from '../hooks/useWebRTCStream';
+import { useWHEPStream } from '../hooks/useWHEPStream';
 import { CameraResponse, tokenStorage } from '../services/api';
 import { HiOutlineVideoCamera, HiOutlineRefresh } from 'react-icons/hi';
 import { BsCircleFill } from 'react-icons/bs';
@@ -40,10 +40,11 @@ export const LiveThumbnail: React.FC<LiveThumbnailProps> = ({
 
   const shouldConnect = camera.is_active !== false;
 
-  const { state } = useWebRTCStream({
+  const { videoRef, state } = useWHEPStream({
     cameraId: camera.id,
     authToken,
     autoConnect: shouldConnect,
+    streamUrl: camera.stream_url,
   });
 
   const { isConnected, isConnecting, hasFrames, error, frameUrl, fps, latency } = state;
@@ -95,15 +96,27 @@ export const LiveThumbnail: React.FC<LiveThumbnailProps> = ({
       overflow: 'hidden', position: 'relative',
       background: isDark ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.1)',
     }}>
-      {/* Live JPEG frame */}
-      {frameUrl && (
+      {/* Live WebRTC/WHEP video (native <video> element) */}
+      {(state.mode === 'whep' || state.mode === 'webrtc') && hasFrames && (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          style={{
+            width: '100%', height: '100%', objectFit: 'cover', display: 'block',
+          }}
+        />
+      )}
+      {/* HTTP fallback: JPEG frame */}
+      {state.mode === 'http' && frameUrl && (
         <img src={frameUrl} alt={camera.name} style={{
           width: '100%', height: '100%', objectFit: 'cover', display: 'block',
         }} />
       )}
 
-      {/* Placeholder when no frame */}
-      {!frameUrl && (() => {
+      {/* Placeholder when no frame and not using native video */}
+      {!hasFrames && (() => {
         const ph = getPlaceholder();
         return (
           <div style={{

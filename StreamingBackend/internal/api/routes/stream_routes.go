@@ -117,6 +117,13 @@ func (h *StreamHandler) StartStream(c *gin.Context) {
 	user := middleware.GetUser(c)
 	token := middleware.GetToken(c)
 
+	log.Info().
+		Str("camera_id", req.CameraID).
+		Str("stream_url", req.StreamURL).
+		Str("user_id", user.Sub).
+		Bool("mediamtx_enabled", h.streamManager.IsMediaMTXEnabled()).
+		Msg("[STREAM] StartStream request received")
+
 	session, err := h.startStreamUC.Execute(usecases.StartStreamInput{
 		CameraID:  req.CameraID,
 		UserID:    user.Sub,
@@ -125,9 +132,17 @@ func (h *StreamHandler) StartStream(c *gin.Context) {
 		Config:    toStreamConfig(req.Config),
 	})
 	if err != nil {
+		log.Error().Err(err).Str("camera_id", req.CameraID).Msg("[STREAM] StartStream failed")
 		handleError(c, err)
 		return
 	}
+
+	log.Info().
+		Str("camera_id", req.CameraID).
+		Str("session_id", session.ID).
+		Str("status", string(session.Status)).
+		Bool("using_mediamtx", h.streamManager.IsCameraUsingMediaMTX(req.CameraID)).
+		Msg("[STREAM] Stream started successfully")
 
 	c.JSON(http.StatusOK, dto.ToSessionResponse(session))
 }
@@ -323,12 +338,19 @@ func (h *StreamHandler) WebRTCOffer(c *gin.Context) {
 		SDP:  req.SDP,
 	}
 
+	log.Info().
+		Str("camera_id", req.CameraID).
+		Str("user_id", user.Sub).
+		Bool("using_mediamtx", h.streamManager.IsCameraUsingMediaMTX(req.CameraID)).
+		Msg("[WEBRTC] SDP offer received from browser")
+
 	answer, viewerID, err := h.negotiateUC.NegotiateOffer(usecases.NegotiateViewerInput{
 		CameraID: req.CameraID,
 		UserID:   user.Sub,
 		Token:    token,
 	}, offer)
 	if err != nil {
+		log.Error().Err(err).Str("camera_id", req.CameraID).Msg("[WEBRTC] SDP negotiation failed")
 		handleError(c, err)
 		return
 	}
@@ -337,7 +359,8 @@ func (h *StreamHandler) WebRTCOffer(c *gin.Context) {
 		Str("camera_id", req.CameraID).
 		Str("viewer_id", viewerID).
 		Str("user_id", user.Sub).
-		Msg("WebRTC viewer connected via HTTP offer")
+		Bool("using_mediamtx", h.streamManager.IsCameraUsingMediaMTX(req.CameraID)).
+		Msg("[WEBRTC] SDP answer sent to browser — viewer connected")
 
 	c.JSON(http.StatusOK, dto.WebRTCAnswerResponse{
 		ViewerID: viewerID,
@@ -424,6 +447,13 @@ func (h *StreamHandler) MediaMTXStatus(c *gin.Context) {
 	if paths != nil {
 		pathCount = paths.ItemCount
 	}
+
+	log.Info().
+		Bool("healthy", healthy).
+		Str("api_url", h.config.MediaMTXAPIURL).
+		Str("whep_url", h.config.MediaMTXWHEPURL).
+		Int("active_paths", pathCount).
+		Msg("[MEDIAMTX] Status check")
 
 	c.JSON(http.StatusOK, gin.H{
 		"enabled":      true,

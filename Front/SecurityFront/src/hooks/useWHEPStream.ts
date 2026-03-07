@@ -289,6 +289,7 @@ export const useWHEPStream = ({
         }
       };
 
+      console.log(`[VigileEye HTTP] Camera ${cameraId}: HTTP JPEG polling started (interval=${HTTP_POLL_MS}ms, url=${url})`);
       tick();
       httpTimerRef.current = setInterval(tick, HTTP_POLL_MS);
     },
@@ -346,6 +347,7 @@ export const useWHEPStream = ({
         if (connId !== connIdRef.current || !mountedRef.current) return;
 
         const stream = ev.streams[0] || new MediaStream([ev.track]);
+        console.log(`[VigileEye WHEP] Camera ${cameraId}: Track received — kind=${ev.track.kind}, readyState=${ev.track.readyState}, videoTracks=${stream.getVideoTracks().length}, audioTracks=${stream.getAudioTracks().length}`);
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           videoRef.current.play().catch(() => {});
@@ -364,10 +366,13 @@ export const useWHEPStream = ({
       pc.oniceconnectionstatechange = () => {
         if (connId !== connIdRef.current) return;
         const iceState = pc.iceConnectionState;
+        console.log(`[VigileEye WHEP] Camera ${cameraId}: ICE state → ${iceState}`);
 
         if (iceState === 'connected' || iceState === 'completed') {
+          console.log(`[VigileEye WHEP] Camera ${cameraId}: ICE connected — WebRTC media flowing`);
           setState((p) => ({ ...p, isConnecting: false, isConnected: true, error: null }));
         } else if (iceState === 'failed' || iceState === 'disconnected') {
+          console.warn(`[VigileEye WHEP] Camera ${cameraId}: ICE ${iceState} — falling back to HTTP polling`);
           cleanup();
           startHttpPolling(connId);
         }
@@ -396,6 +401,7 @@ export const useWHEPStream = ({
       if (!localDesc) throw new Error('No local description');
 
       // Send SDP offer to WHEP endpoint (retry briefly on 404 "no stream" during startup)
+      console.log(`[VigileEye WHEP] Camera ${cameraId}: Sending SDP offer to ${whepUrl}`);
       const whepStart = Date.now();
       let resp: Response | null = null;
       // eslint-disable-next-line no-constant-condition
@@ -419,6 +425,8 @@ export const useWHEPStream = ({
       if (!resp) throw new Error('WHEP request failed');
 
       const answerSdp = await resp.text();
+
+      console.log(`[VigileEye WHEP] Camera ${cameraId}: SDP answer received (${answerSdp.length} bytes)`);
 
       // Store session URL from Location header (for ICE candidates & teardown)
       const sessionLocation = resp.headers.get('Location');
@@ -572,25 +580,40 @@ export const useWHEPStream = ({
     startTimeRef.current = Date.now();
     setState({ ...INITIAL_STATE, isConnecting: true, mode: 'none' });
 
+    console.log(`[VigileEye Streaming] Camera ${cameraId}: Starting connection sequence...`);
+    console.log(`[VigileEye Streaming] Camera ${cameraId}: WHEP base URL = ${whepBase}`);
+    if (streamUrl) console.log(`[VigileEye Streaming] Camera ${cameraId}: Stream URL = ${streamUrl}`);
+
     // Combined: ensure stream is started and resolve WHEP endpoint in one pass (saves an API round-trip).
     const whepEndpoint = await ensureStreamAndResolveWHEP();
 
     if (whepEndpoint) {
+      console.log(`[VigileEye Streaming] Camera ${cameraId}: Attempting WHEP connection → ${whepEndpoint}`);
       setState((p) => ({ ...p, mode: 'whep' }));
       const whepOk = await connectWHEP(connId, whepEndpoint);
-      if (whepOk) return;
+      if (whepOk) {
+        console.log(`[VigileEye Streaming] Camera ${cameraId}: WHEP connected successfully (sub-second latency)`);
+        return;
+      }
+      console.warn(`[VigileEye Streaming] Camera ${cameraId}: WHEP failed, trying backend WebRTC...`);
     }
 
     if (connId !== connIdRef.current || !mountedRef.current) return;
 
     // Fallback: try backend-proxied WebRTC
+    console.log(`[VigileEye Streaming] Camera ${cameraId}: Attempting backend-proxied WebRTC...`);
     setState((p) => ({ ...p, mode: 'webrtc' }));
     const backendOk = await connectViaBackend(connId);
-    if (backendOk) return;
+    if (backendOk) {
+      console.log(`[VigileEye Streaming] Camera ${cameraId}: Backend WebRTC connected`);
+      return;
+    }
+    console.warn(`[VigileEye Streaming] Camera ${cameraId}: Backend WebRTC failed, falling back to HTTP polling (HIGH LATENCY)`);
 
     if (connId !== connIdRef.current || !mountedRef.current) return;
 
     // Last resort: HTTP polling
+    console.warn(`[VigileEye Streaming] Camera ${cameraId}: Using HTTP JPEG polling — expect slideshow-like performance`);
     startHttpPolling(connId);
   }, [authToken, cleanup, connectWHEP, connectViaBackend, ensureStreamAndResolveWHEP, startHttpPolling]);
 

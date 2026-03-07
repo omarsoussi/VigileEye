@@ -250,7 +250,7 @@ func buildFFmpegArgs(opts FFmpegOptions) []string {
 
 	// Protocol-specific flags
 	if strings.HasPrefix(lower, "rtsp://") {
-		args = append(args, "-rtsp_transport", "tcp", "-stimeout", "5000000")
+		args = append(args, "-rtsp_transport", "tcp", "-timeout", "5000000")
 	}
 	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
 		args = append(args, "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "5")
@@ -264,7 +264,7 @@ func buildFFmpegArgs(opts FFmpegOptions) []string {
 		"-vcodec", "mjpeg",
 		"-q:v", "5",
 		"-vf", fmt.Sprintf("fps=%d,scale=%d:%d:flags=fast_bilinear", opts.FPS, opts.Width, opts.Height),
-		"-vsync", "0",
+		"-fps_mode", "passthrough",
 		"-fflags", "nobuffer",
 		"-an",
 		"pipe:1",
@@ -291,7 +291,7 @@ func BuildRTPArgs(cfg *config.Config, streamURL string, videoRTPPort, audioRTPPo
 		args = append(args, "-re")
 	}
 	if strings.HasPrefix(lower, "rtsp://") {
-		args = append(args, "-rtsp_transport", "tcp", "-stimeout", "5000000")
+		args = append(args, "-rtsp_transport", "tcp", "-timeout", "5000000")
 	}
 	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
 		args = append(args, "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "5")
@@ -344,7 +344,7 @@ func BuildTranscodeRTPArgsAV(cfg *config.Config, streamURL string, videoRTPPort,
 		args = append(args, "-re")
 	}
 	if strings.HasPrefix(lower, "rtsp://") {
-		args = append(args, "-rtsp_transport", "tcp", "-stimeout", "5000000")
+		args = append(args, "-rtsp_transport", "tcp", "-timeout", "5000000")
 	}
 	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
 		args = append(args, "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "5")
@@ -413,7 +413,7 @@ func BuildTranscodeRTPArgs(cfg *config.Config, streamURL string, rtpPort, fps, w
 
 	lower := strings.ToLower(streamURL)
 	if strings.HasPrefix(lower, "rtsp://") {
-		args = append(args, "-rtsp_transport", "tcp", "-stimeout", "5000000")
+		args = append(args, "-rtsp_transport", "tcp", "-timeout", "5000000")
 	}
 	args = append(args, "-i", streamURL)
 

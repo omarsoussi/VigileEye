@@ -49,6 +49,7 @@ export function useVideoStream({
     cameraId: camera.id,
     authToken,
     autoConnect,
+    streamUrl: camera.stream_url,
   });
 
   // Map state to old connection state

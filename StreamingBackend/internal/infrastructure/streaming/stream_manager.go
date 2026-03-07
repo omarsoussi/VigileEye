@@ -496,21 +496,26 @@ func (sm *StreamManager) NegotiateWebRTC(cameraID, viewerID string, offer webrtc
 
 // negotiateViaWHEP proxies WebRTC signaling through MediaMTX WHEP.
 func (sm *StreamManager) negotiateViaWHEP(cameraID, viewerID string, offer webrtc.SessionDescription) (*webrtc.SessionDescription, error) {
+	log.Info().Str("camera_id", cameraID).Str("viewer_id", viewerID).Msg("[WHEP] Starting WHEP negotiation for viewer")
+
 	// Ensure the path is actually producing media before attempting WHEP.
-	// Without this, MediaMTX can legitimately return 404 "no stream is available" for a short time
-	// right after adding/updating the path config.
 	if sm.mediaMTX != nil {
+		log.Debug().Str("camera_id", cameraID).Msg("[WHEP] Waiting for MediaMTX path readiness...")
 		ready, err := sm.mediaMTX.WaitPathReady(cameraID, 4*time.Second)
 		if err != nil {
+			log.Error().Err(err).Str("camera_id", cameraID).Msg("[WHEP] Path readiness check failed")
 			return nil, domainerrors.NewStreamConnectionError(cameraID, "MediaMTX path readiness check failed: "+err.Error())
 		}
 		if !ready {
+			log.Warn().Str("camera_id", cameraID).Msg("[WHEP] MediaMTX stream not ready after timeout")
 			return nil, domainerrors.NewStreamConnectionError(cameraID, "MediaMTX stream is not ready yet")
 		}
+		log.Info().Str("camera_id", cameraID).Msg("[WHEP] MediaMTX path is ready")
 	}
 
 	// Use the WHEP-specific URL if configured, otherwise fall back to API URL
 	whepClient := NewMediaMTXClient(sm.cfg.MediaMTXWHEPURL)
+	log.Info().Str("camera_id", cameraID).Str("whep_url", sm.cfg.MediaMTXWHEPURL).Msg("[WHEP] Using WHEP client URL")
 
 	answerSDP, sessionURL, err := whepClient.WHEPOffer(cameraID, offer.SDP)
 	if err != nil {

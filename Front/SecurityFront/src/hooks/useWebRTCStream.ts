@@ -278,6 +278,7 @@ export const useWebRTCStream = ({ cameraId, authToken, autoConnect = true, strea
         }
       };
 
+      console.log(`[VigileEye HTTP] Camera ${cameraId}: HTTP JPEG polling started (interval=${HTTP_POLL_MS}ms)`);
       tick();
       httpTimerRef.current = setInterval(tick, HTTP_POLL_MS);
     },
@@ -340,6 +341,8 @@ export const useWebRTCStream = ({ cameraId, authToken, autoConnect = true, strea
     startTimeRef.current = Date.now();
     setState({ ...INITIAL_STATE, isConnecting: true, mode: 'webrtc' });
 
+    console.log(`[VigileEye WebRTC] Camera ${cameraId}: Starting backend-proxied WebRTC connection...`);
+
     // Best-effort: start the stream first to reduce offer 503s during cold start.
     await ensureStreamStarted();
 
@@ -376,6 +379,7 @@ export const useWebRTCStream = ({ cameraId, authToken, autoConnect = true, strea
         if (connId !== connIdRef.current || !mountedRef.current) return;
 
         const stream = ev.streams[0] || new MediaStream([ev.track]);
+        console.log(`[VigileEye WebRTC] Camera ${cameraId}: Track received — kind=${ev.track.kind}, readyState=${ev.track.readyState}`);
 
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
@@ -399,8 +403,10 @@ export const useWebRTCStream = ({ cameraId, authToken, autoConnect = true, strea
       pc.oniceconnectionstatechange = () => {
         if (connId !== connIdRef.current) return;
         const iceState = pc.iceConnectionState;
+        console.log(`[VigileEye WebRTC] Camera ${cameraId}: ICE state → ${iceState}`);
 
         if (iceState === 'connected' || iceState === 'completed') {
+          console.log(`[VigileEye WebRTC] Camera ${cameraId}: ICE connected — media flowing`);
           setState((p) => ({
             ...p,
             isConnecting: false,
@@ -408,6 +414,7 @@ export const useWebRTCStream = ({ cameraId, authToken, autoConnect = true, strea
             error: null,
           }));
         } else if (iceState === 'failed' || iceState === 'disconnected') {
+          console.warn(`[VigileEye WebRTC] Camera ${cameraId}: ICE ${iceState} — falling back to HTTP polling`);
           // Fallback to HTTP polling
           cleanup();
           startHttpPolling(connId);
@@ -501,7 +508,7 @@ export const useWebRTCStream = ({ cameraId, authToken, autoConnect = true, strea
     } catch (err) {
       if (connId !== connIdRef.current || !mountedRef.current) return;
 
-      console.warn('[useWebRTCStream] WebRTC failed, falling back to HTTP polling:', err);
+      console.warn(`[VigileEye WebRTC] Camera ${cameraId}: WebRTC failed, falling back to HTTP polling:`, err);
       cleanup();
       startHttpPolling(connId);
     }

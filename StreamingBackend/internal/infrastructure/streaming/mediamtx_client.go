@@ -404,6 +404,7 @@ func (c *MediaMTXClient) WHEPOffer(pathName, sdpOffer string) (sdpAnswer string,
 	// MediaMTX WHEP endpoint: POST /pathName/whep
 	// The base URL for WHEP is the MediaMTX HTTP address (typically port 8889)
 	whepURL := fmt.Sprintf("%s/%s/whep", c.getWHEPBaseURL(), pathName)
+	log.Info().Str("path", pathName).Str("whep_url", whepURL).Msg("[MEDIAMTX] Sending WHEP SDP offer")
 
 	req, err := http.NewRequest("POST", whepURL, strings.NewReader(sdpOffer))
 	if err != nil {
@@ -435,6 +436,7 @@ func (c *MediaMTXClient) WHEPOffer(pathName, sdpOffer string) (sdpAnswer string,
 		}
 	}
 
+	log.Info().Str("path", pathName).Str("session_url", sessionURL).Int("answer_bytes", len(answerBody)).Msg("[MEDIAMTX] WHEP SDP answer received")
 	return string(answerBody), sessionURL, nil
 }
 
