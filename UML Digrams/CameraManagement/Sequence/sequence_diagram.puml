@@ -1,0 +1,83 @@
+@startuml
+!theme plain
+title Figure 3.3: Sequence Diagram – Camera Management Service
+
+skinparam participant {
+    BackgroundColor #E8F4FD
+    BorderColor #2196F3
+}
+
+actor "Camera Owner" as O
+participant "Frontend" as FE
+participant "CameraController" as CC
+participant "CameraUseCases" as UC
+participant "CameraRepository" as CR
+participant "ZoneRepository" as ZR
+participant "MembershipsClient" as MC
+database "PostgreSQL" as DB
+
+== Register Camera ==
+O -> FE : Fill camera registration form
+FE -> CC : POST /api/cameras
+CC -> UC : create_camera(owner_id, name, stream_url, ...)
+UC -> UC : auto_detect_protocol(stream_url)
+UC -> CR : create(camera)
+CR -> DB : INSERT INTO cameras
+DB --> CR : camera
+CR --> UC : camera
+UC --> CC : CameraResponse
+CC --> FE : 201 Created
+FE --> O : "Camera registered"
+
+== List Cameras (with shared access) ==
+O -> FE : Open camera dashboard
+FE -> CC : GET /api/cameras
+CC -> UC : list_user_cameras(user_id, token)
+UC -> CR : get_by_owner(user_id)
+CR -> DB : SELECT * FROM cameras WHERE owner_user_id = ?
+DB --> CR : owned_cameras[]
+UC -> MC : fetch_my_memberships(token)
+MC --> UC : memberships[]
+UC -> CR : get_by_ids(shared_camera_ids)
+CR -> DB : SELECT * FROM cameras WHERE id IN (...)
+DB --> CR : shared_cameras[]
+UC -> UC : merge owned + shared (deduplicate)
+UC --> CC : List[CameraResponse]
+CC --> FE : 200 OK
+FE --> O : Display cameras
+
+== Create Detection Zone ==
+O -> FE : Draw zone polygon on camera feed
+FE -> CC : POST /api/zones
+CC -> UC : create_zone(camera_id, owner_id, name, points, zone_type)
+UC -> CR : get_by_id(camera_id)
+CR -> DB : SELECT * FROM cameras WHERE id = ?
+DB --> CR : camera
+alt Owner mismatch
+    UC -> MC : get_membership_permission(token, camera_id)
+    MC --> UC : "editor"
+end
+UC -> ZR : create(zone)
+ZR -> DB : INSERT INTO zones
+DB --> ZR : zone
+ZR --> UC : zone
+UC --> CC : ZoneResponse
+CC --> FE : 201 Created
+FE --> O : "Zone created"
+
+== Record Health / Heartbeat ==
+O -> FE : (Automatic heartbeat from camera agent)
+FE -> CC : POST /api/cameras/{id}/health
+CC -> UC : record_health(camera_id, latency_ms, ...)
+UC -> CR : get_by_id(camera_id)
+CR -> DB : SELECT * FROM cameras
+DB --> CR : camera
+UC -> UC : camera.mark_online()
+UC -> CR : update(camera)
+CR -> DB : UPDATE cameras SET status='online', last_heartbeat=NOW()
+UC -> DB : INSERT INTO camera_health
+DB --> UC : health_record
+UC --> CC : CameraHealthResponse
+CC --> FE : 200 OK
+
+@enduml

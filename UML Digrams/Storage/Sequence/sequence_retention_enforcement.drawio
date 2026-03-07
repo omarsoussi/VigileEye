@@ -1,0 +1,49 @@
+<mxfile host="app.diagrams.net" modified="2026-03-06T00:00:00.000Z" agent="5.0" version="22.1.2" type="device">
+  <diagram name="Sequence - Automatic Retention Enforcement" id="storage-seq-retention">
+    <mxGraphModel dx="1300" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1300" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="Sequence Diagram: Automatic Retention Enforcement" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=16;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="370" y="10" width="430" height="30" as="geometry"/></mxCell>
+
+        <!-- Lifelines -->
+        <mxCell id="l1" value="Scheduler&#xa;(Cron Job)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#f8cecc;strokeColor=#b85450;size=40;" vertex="1" parent="1"><mxGeometry x="60" y="60" width="90" height="800" as="geometry"/></mxCell>
+        <mxCell id="l2" value="Retention&#xa;Enforcer" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#fff2cc;strokeColor=#d6b656;size=40;" vertex="1" parent="1"><mxGeometry x="260" y="60" width="90" height="800" as="geometry"/></mxCell>
+        <mxCell id="l3" value="StorageConfig&#xa;Repo" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#d5e8d4;strokeColor=#82b366;size=40;" vertex="1" parent="1"><mxGeometry x="460" y="60" width="100" height="800" as="geometry"/></mxCell>
+        <mxCell id="l4" value="Recording&#xa;Repo" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#d5e8d4;strokeColor=#82b366;size=40;" vertex="1" parent="1"><mxGeometry x="660" y="60" width="90" height="800" as="geometry"/></mxCell>
+        <mxCell id="l5" value="Storage&#xa;Backend" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#d5e8d4;strokeColor=#82b366;size=40;" vertex="1" parent="1"><mxGeometry x="860" y="60" width="80" height="800" as="geometry"/></mxCell>
+
+        <!-- Frame: Retention Enforcement -->
+        <mxCell id="f1" value="Automatic Retention Enforcement (scheduled)" style="shape=umlFrame;whiteSpace=wrap;html=1;width=290;height=20;boundedLbl=1;verticalAlign=top;align=left;spacingLeft=5;fillColor=none;strokeColor=#6c8ebf;fontSize=12;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="30" y="120" width="940" height="680" as="geometry"/></mxCell>
+
+        <mxCell id="m1" value="trigger enforceRetention()" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="105" y="160" as="sourcePoint"/><mxPoint x="305" y="160" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m2" value="FindAll()" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="305" y="190" as="sourcePoint"/><mxPoint x="510" y="190" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m3" value="[]CameraStorageConfig" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;rounded=0;strokeColor=#999999;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="510" y="220" as="sourcePoint"/><mxPoint x="305" y="220" as="targetPoint"/></mxGeometry></mxCell>
+
+        <!-- LOOP: for each config -->
+        <mxCell id="loop1" value="LOOP [for each CameraStorageConfig]" style="shape=umlFrame;whiteSpace=wrap;html=1;width=240;height=20;boundedLbl=1;verticalAlign=top;align=left;spacingLeft=5;fillColor=none;strokeColor=#2e7d32;fontSize=11;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="230" y="250" width="720" height="520" as="geometry"/></mxCell>
+
+        <mxCell id="m4" value="cutoffDate = now - config.retention_days" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="305" y="290" as="sourcePoint"/><mxPoint x="305" y="320" as="targetPoint"><mxPoint x="340" y="290" as="sourcePoint"/><mxPoint x="340" y="320" as="targetPoint"/></mxPoint></mxGeometry></mxCell>
+        <mxCell id="m5" value="FindOlderThan(camera_id, cutoffDate)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="305" y="340" as="sourcePoint"/><mxPoint x="705" y="340" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m6" value="[]Recording (expired)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;rounded=0;strokeColor=#999999;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="705" y="370" as="sourcePoint"/><mxPoint x="305" y="370" as="targetPoint"/></mxGeometry></mxCell>
+
+        <!-- LOOP: for each old recording -->
+        <mxCell id="loop2" value="LOOP [for each expired recording]" style="shape=umlFrame;whiteSpace=wrap;html=1;width=220;height=20;boundedLbl=1;verticalAlign=top;align=left;spacingLeft=5;fillColor=none;strokeColor=#c62828;fontSize=11;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="260" y="400" width="670" height="350" as="geometry"/></mxCell>
+
+        <mxCell id="m7" value="Delete(recording.file_path)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="305" y="440" as="sourcePoint"/><mxPoint x="900" y="440" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m8" value="ok (file removed)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;rounded=0;strokeColor=#999999;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="900" y="470" as="sourcePoint"/><mxPoint x="305" y="470" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m9" value="recording.MarkDeleted()" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="305" y="500" as="sourcePoint"/><mxPoint x="305" y="530" as="targetPoint"><mxPoint x="340" y="500" as="sourcePoint"/><mxPoint x="340" y="530" as="targetPoint"/></mxPoint></mxGeometry></mxCell>
+        <mxCell id="m10" value="Save(recording) // status=Deleted" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="305" y="550" as="sourcePoint"/><mxPoint x="705" y="550" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m11" value="ok" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;rounded=0;strokeColor=#999999;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="705" y="580" as="sourcePoint"/><mxPoint x="305" y="580" as="targetPoint"/></mxGeometry></mxCell>
+
+        <!-- ALT: delete fails -->
+        <mxCell id="alt1" value="ALT" style="shape=umlFrame;whiteSpace=wrap;html=1;width=30;height=16;boundedLbl=1;verticalAlign=top;align=left;spacingLeft=5;fillColor=#fff2cc;strokeColor=#d6b656;opacity=30;fontSize=10;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="275" y="620" width="640" height="110" as="geometry"/></mxCell>
+        <mxCell id="alt1a" value="[storage delete fails]" style="text;html=1;align=left;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=10;fontStyle=2;fontColor=#d32f2f;" vertex="1" parent="1"><mxGeometry x="280" y="636" width="120" height="20" as="geometry"/></mxCell>
+        <mxCell id="e1" value="log error, skip recording" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#d32f2f;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="305" y="680" as="sourcePoint"/><mxPoint x="305" y="710" as="targetPoint"><mxPoint x="340" y="680" as="sourcePoint"/><mxPoint x="340" y="710" as="targetPoint"/></mxPoint></mxGeometry></mxCell>
+        <mxCell id="e1note" value="continue to next recording" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=9;fontColor=#d32f2f;" vertex="1" parent="1"><mxGeometry x="345" y="688" width="140" height="20" as="geometry"/></mxCell>
+
+        <mxCell id="mfinal" value="retention enforcement complete" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;rounded=0;strokeColor=#999999;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="305" y="780" as="sourcePoint"/><mxPoint x="105" y="780" as="targetPoint"/></mxGeometry></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

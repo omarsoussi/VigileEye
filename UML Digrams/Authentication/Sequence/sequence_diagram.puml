@@ -1,0 +1,83 @@
+@startuml
+!theme plain
+title Figure 1.3: Sequence Diagram – Authentication Service
+
+skinparam participant {
+    BackgroundColor #E8F4FD
+    BorderColor #2196F3
+}
+
+actor User as U
+participant "Frontend" as FE
+participant "AuthController" as AC
+participant "AuthService" as AS
+participant "UserRepository" as UR
+participant "OTPRepository" as OR
+participant "EmailSender" as ES
+database "PostgreSQL" as DB
+
+== Register Account ==
+U -> FE : Fill registration form
+FE -> AC : POST /api/auth/register
+AC -> AS : register(email, password, name)
+AS -> UR : get_by_email(email)
+UR -> DB : SELECT * FROM users WHERE email = ?
+DB --> UR : null
+AS -> AS : validate password strength
+AS -> UR : create(user)
+UR -> DB : INSERT INTO users
+DB --> UR : user
+AS -> OR : create(otp)
+OR -> DB : INSERT INTO otps
+AS -> ES : send_otp_email(email, code, "verification")
+ES --> AS : sent
+AS --> AC : UserResponse
+AC --> FE : 201 Created
+FE --> U : "Check email for OTP"
+
+== Login (2FA Flow) ==
+U -> FE : Enter credentials
+FE -> AC : POST /api/auth/login
+AC -> AS : login(email, password)
+AS -> UR : get_by_email(email)
+UR -> DB : SELECT * FROM users WHERE email = ?
+DB --> UR : user
+alt Account Locked
+    AS --> AC : 403 Account locked
+    AC --> FE : Error
+else Valid Credentials
+    AS -> AS : verify password hash
+    AS -> OR : create(otp)
+    OR -> DB : INSERT INTO otps
+    AS -> ES : send_otp_email(email, code, "2fa")
+    ES --> AS : sent
+    AS --> AC : "OTP sent"
+    AC --> FE : 200 OK
+    FE --> U : "Enter OTP from email"
+
+    U -> FE : Enter OTP code
+    FE -> AC : POST /api/auth/login/confirm
+    AC -> AS : confirm_login(email, otp_code)
+    AS -> OR : get_latest(user_id, "2fa")
+    OR -> DB : SELECT * FROM otps
+    DB --> OR : otp
+    AS -> AS : validate OTP (not expired, not used)
+    AS -> AS : generate JWT access + refresh tokens
+    AS --> AC : TokenResponse
+    AC --> FE : 200 {access_token, refresh_token}
+    FE --> U : Logged in
+else Invalid Password
+    AS -> AS : increment_failed_attempts()
+    AS -> UR : update(user)
+    UR -> DB : UPDATE users SET failed_login_attempts
+    opt Max attempts reached
+        AS -> AS : lock_account(60 min)
+        AS -> UR : update(user)
+        UR -> DB : UPDATE users SET locked_until
+    end
+    AS --> AC : 401 Invalid credentials
+    AC --> FE : Error
+    FE --> U : "Invalid credentials"
+end
+
+@enduml

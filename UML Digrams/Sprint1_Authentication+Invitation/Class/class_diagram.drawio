@@ -1,0 +1,105 @@
+<mxfile host="app.diagrams.net" modified="2026-03-06T00:00:00.000Z" agent="5.0" version="22.1.2" type="device">
+  <diagram name="Sprint 1 - Combined Class Diagram (Auth + Invitation)" id="sprint1-class">
+    <mxGraphModel dx="2200" dy="1600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2200" pageHeight="1600" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="Sprint 1 – Combined Class Diagram: Authentication + Members Invitation" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=16;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="600" y="10" width="600" height="30" as="geometry"/></mxCell>
+
+        <!-- ========== AUTH DOMAIN ========== -->
+        <mxCell id="auth_label" value="Authentication Domain" style="text;html=1;fontSize=13;fontStyle=5;fillColor=none;strokeColor=none;fontColor=#2e5a88;" vertex="1" parent="1"><mxGeometry x="20" y="50" width="180" height="25" as="geometry"/></mxCell>
+
+        <mxCell id="c_user" value="User" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="30" y="85" width="220" height="200" as="geometry"/></mxCell>
+        <mxCell id="c_user_a" value="- id : UUID&#xa;- email : Email&#xa;- hashed_password : Password&#xa;- full_name : str&#xa;- is_verified : bool&#xa;- is_2fa_enabled : bool&#xa;- is_locked : bool&#xa;- google_id : Optional[str]" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="c_user"><mxGeometry y="26" width="220" height="124" as="geometry"/></mxCell>
+        <mxCell id="c_user_ln" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;strokeColor=#6c8ebf;" vertex="1" parent="c_user"><mxGeometry y="150" width="220" height="8" as="geometry"/></mxCell>
+        <mxCell id="c_user_m" value="+ verify_email()&#xa;+ enable_2fa()&#xa;+ lock_account()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="c_user"><mxGeometry y="158" width="220" height="40" as="geometry"/></mxCell>
+
+        <mxCell id="c_otp" value="OTP" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="290" y="85" width="220" height="160" as="geometry"/></mxCell>
+        <mxCell id="c_otp_a" value="- id : UUID&#xa;- user_id : UUID&#xa;- code : str&#xa;- purpose : OTPPurpose&#xa;- expires_at : datetime&#xa;- is_used : bool" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="c_otp"><mxGeometry y="26" width="220" height="94" as="geometry"/></mxCell>
+        <mxCell id="c_otp_ln" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;strokeColor=#6c8ebf;" vertex="1" parent="c_otp"><mxGeometry y="120" width="220" height="8" as="geometry"/></mxCell>
+        <mxCell id="c_otp_m" value="+ is_expired() : bool&#xa;+ mark_used()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="c_otp"><mxGeometry y="128" width="220" height="30" as="geometry"/></mxCell>
+
+        <mxCell id="c_lh" value="LoginHistory" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="550" y="85" width="220" height="130" as="geometry"/></mxCell>
+        <mxCell id="c_lh_a" value="- id : UUID&#xa;- user_id : UUID&#xa;- ip_address : str&#xa;- user_agent : str&#xa;- timestamp : datetime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="c_lh"><mxGeometry y="26" width="220" height="84" as="geometry"/></mxCell>
+        <mxCell id="c_lh_ln" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;strokeColor=#6c8ebf;" vertex="1" parent="c_lh"><mxGeometry y="110" width="220" height="8" as="geometry"/></mxCell>
+
+        <!-- Auth Value Objects -->
+        <mxCell id="vo_email" value="&amp;lt;&amp;lt;value object&amp;gt;&amp;gt;&#xa;Email" style="swimlane;fontStyle=1;align=center;startSize=36;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="30" y="310" width="140" height="70" as="geometry"/></mxCell>
+        <mxCell id="vo_email_a" value="- value : str" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="vo_email"><mxGeometry y="36" width="140" height="32" as="geometry"/></mxCell>
+
+        <mxCell id="vo_pw" value="&amp;lt;&amp;lt;value object&amp;gt;&amp;gt;&#xa;Password" style="swimlane;fontStyle=1;align=center;startSize=36;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="190" y="310" width="140" height="70" as="geometry"/></mxCell>
+        <mxCell id="vo_pw_a" value="- hashed : str" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="vo_pw"><mxGeometry y="36" width="140" height="32" as="geometry"/></mxCell>
+
+        <mxCell id="e_otp_p" value="&amp;lt;&amp;lt;enum&amp;gt;&amp;gt;&#xa;OTPPurpose" style="swimlane;fontStyle=1;align=center;startSize=36;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="360" y="310" width="140" height="90" as="geometry"/></mxCell>
+        <mxCell id="e_otp_p_v" value="VERIFY_EMAIL&#xa;LOGIN_2FA&#xa;RESET_PASSWORD" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="e_otp_p"><mxGeometry y="36" width="140" height="52" as="geometry"/></mxCell>
+
+        <!-- ========== INVITATION DOMAIN ========== -->
+        <mxCell id="inv_label" value="Invitation Domain" style="text;html=1;fontSize=13;fontStyle=5;fillColor=none;strokeColor=none;fontColor=#8c6d1f;" vertex="1" parent="1"><mxGeometry x="850" y="50" width="150" height="25" as="geometry"/></mxCell>
+
+        <mxCell id="c_inv" value="Invitation" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="850" y="85" width="240" height="230" as="geometry"/></mxCell>
+        <mxCell id="c_inv_a" value="- id : UUID&#xa;- owner_id : UUID&#xa;- email : str&#xa;- invitation_code : str&#xa;- hashed_code : str&#xa;- status : InvitationStatus&#xa;- permission_level : PermissionLevel&#xa;- expires_at : datetime&#xa;- accepted_at : Optional[datetime]" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="c_inv"><mxGeometry y="26" width="240" height="150" as="geometry"/></mxCell>
+        <mxCell id="c_inv_ln" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;strokeColor=#d6b656;" vertex="1" parent="c_inv"><mxGeometry y="176" width="240" height="8" as="geometry"/></mxCell>
+        <mxCell id="c_inv_m" value="+ accept()&#xa;+ decline()&#xa;+ is_expired() : bool" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="c_inv"><mxGeometry y="184" width="240" height="44" as="geometry"/></mxCell>
+
+        <mxCell id="c_grp" value="Group" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="1140" y="85" width="200" height="180" as="geometry"/></mxCell>
+        <mxCell id="c_grp_a" value="- id : UUID&#xa;- owner_id : UUID&#xa;- name : str&#xa;- description : str&#xa;- max_members : int&#xa;- created_at : datetime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="c_grp"><mxGeometry y="26" width="200" height="98" as="geometry"/></mxCell>
+        <mxCell id="c_grp_ln" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;strokeColor=#d6b656;" vertex="1" parent="c_grp"><mxGeometry y="124" width="200" height="8" as="geometry"/></mxCell>
+        <mxCell id="c_grp_m" value="+ is_full() : bool&#xa;+ add_member(member)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="c_grp"><mxGeometry y="132" width="200" height="46" as="geometry"/></mxCell>
+
+        <mxCell id="c_gm" value="GroupMember" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="1390" y="85" width="220" height="180" as="geometry"/></mxCell>
+        <mxCell id="c_gm_a" value="- id : UUID&#xa;- group_id : UUID&#xa;- email : str&#xa;- invitation_code : str&#xa;- status : InvitationStatus&#xa;- permission_level : PermissionLevel&#xa;- joined_at : Optional[datetime]" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="c_gm"><mxGeometry y="26" width="220" height="110" as="geometry"/></mxCell>
+        <mxCell id="c_gm_ln" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;strokeColor=#d6b656;" vertex="1" parent="c_gm"><mxGeometry y="136" width="220" height="8" as="geometry"/></mxCell>
+        <mxCell id="c_gm_m" value="+ accept()&#xa;+ decline()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="c_gm"><mxGeometry y="144" width="220" height="34" as="geometry"/></mxCell>
+
+        <mxCell id="c_ms" value="Membership" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="1640" y="85" width="200" height="140" as="geometry"/></mxCell>
+        <mxCell id="c_ms_a" value="- id : UUID&#xa;- user_id : UUID&#xa;- owner_id : UUID&#xa;- permission_level : PermissionLevel&#xa;- camera_ids : List[UUID]" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="c_ms"><mxGeometry y="26" width="200" height="84" as="geometry"/></mxCell>
+        <mxCell id="c_ms_ln" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;strokeColor=#d6b656;" vertex="1" parent="c_ms"><mxGeometry y="110" width="200" height="8" as="geometry"/></mxCell>
+
+        <!-- Invitation enums -->
+        <mxCell id="e_is" value="&amp;lt;&amp;lt;enum&amp;gt;&amp;gt;&#xa;InvitationStatus" style="swimlane;fontStyle=1;align=center;startSize=36;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="850" y="340" width="140" height="100" as="geometry"/></mxCell>
+        <mxCell id="e_is_v" value="Pending&#xa;Accepted&#xa;Declined&#xa;Expired" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="e_is"><mxGeometry y="36" width="140" height="62" as="geometry"/></mxCell>
+
+        <mxCell id="e_pl" value="&amp;lt;&amp;lt;enum&amp;gt;&amp;gt;&#xa;PermissionLevel" style="swimlane;fontStyle=1;align=center;startSize=36;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="1020" y="340" width="150" height="90" as="geometry"/></mxCell>
+        <mxCell id="e_pl_v" value="VIEW_ONLY&#xa;VIEW_AND_MANAGE&#xa;FULL_ACCESS" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="e_pl"><mxGeometry y="36" width="150" height="52" as="geometry"/></mxCell>
+
+        <!-- ========== APPLICATION LAYER ========== -->
+        <mxCell id="app_label" value="Application Layer (combined)" style="text;html=1;fontSize=13;fontStyle=5;fillColor=none;strokeColor=none;fontColor=#8c6d1f;" vertex="1" parent="1"><mxGeometry x="20" y="460" width="230" height="25" as="geometry"/></mxCell>
+
+        <!-- Auth use cases -->
+        <mxCell id="uc_reg" value="RegisterUseCase" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="30" y="500" width="180" height="52" as="geometry"/></mxCell>
+        <mxCell id="uc_login" value="LoginUseCase" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="230" y="500" width="160" height="52" as="geometry"/></mxCell>
+        <mxCell id="uc_confirm" value="ConfirmLoginUseCase" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="410" y="500" width="180" height="52" as="geometry"/></mxCell>
+        <mxCell id="uc_google" value="GoogleOAuthUseCase" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="610" y="500" width="180" height="52" as="geometry"/></mxCell>
+        <mxCell id="uc_refresh" value="RefreshTokenUseCase" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="810" y="500" width="180" height="52" as="geometry"/></mxCell>
+
+        <!-- Invitation use cases -->
+        <mxCell id="uc_ci" value="CreateInvitationUseCase" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="30" y="580" width="200" height="52" as="geometry"/></mxCell>
+        <mxCell id="uc_ai" value="AcceptInvitationUseCase" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="250" y="580" width="200" height="52" as="geometry"/></mxCell>
+        <mxCell id="uc_cg" value="CreateGroupUseCase" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="470" y="580" width="180" height="52" as="geometry"/></mxCell>
+        <mxCell id="uc_igm" value="InviteGroupMemberUseCase" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="670" y="580" width="220" height="52" as="geometry"/></mxCell>
+
+        <!-- ========== INFRASTRUCTURE ========== -->
+        <mxCell id="infra_label" value="Shared Infrastructure" style="text;html=1;fontSize=13;fontStyle=5;fillColor=none;strokeColor=none;fontColor=#3a7728;" vertex="1" parent="1"><mxGeometry x="20" y="660" width="170" height="25" as="geometry"/></mxCell>
+
+        <mxCell id="i_jwt" value="JWTHandler" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="30" y="700" width="170" height="52" as="geometry"/></mxCell>
+        <mxCell id="i_pwh" value="PasswordHasher" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="220" y="700" width="170" height="52" as="geometry"/></mxCell>
+        <mxCell id="i_otpg" value="OTPGenerator" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="410" y="700" width="160" height="52" as="geometry"/></mxCell>
+        <mxCell id="i_email" value="SMTPEmailSender" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="590" y="700" width="170" height="52" as="geometry"/></mxCell>
+        <mxCell id="i_goog" value="GoogleOAuthClient" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="780" y="700" width="180" height="52" as="geometry"/></mxCell>
+
+        <!-- Cross-service note -->
+        <mxCell id="note1" value="Cross-Service: JWT tokens issued by Auth&#xa;are validated by Invitation service to&#xa;authenticate Owner/Member actions." style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=14;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1"><mxGeometry x="1200" y="500" width="280" height="70" as="geometry"/></mxCell>
+
+        <!-- Domain relationships -->
+        <mxCell id="rel1" style="endArrow=open;endSize=12;html=1;rounded=0;" edge="1" source="c_user_a" target="c_otp_a" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="rel1l" value="1..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" vertex="1" connectable="0" parent="rel1"><mxGeometry x="0.7" relative="1" as="geometry"><mxPoint y="-12" as="offset"/></mxGeometry></mxCell>
+        <mxCell id="rel2" style="endArrow=open;endSize=12;html=1;rounded=0;" edge="1" source="c_user_a" target="c_lh_a" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="rel2l" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" vertex="1" connectable="0" parent="rel2"><mxGeometry x="0.7" relative="1" as="geometry"><mxPoint y="-12" as="offset"/></mxGeometry></mxCell>
+        <mxCell id="rel3" style="endArrow=open;endSize=12;html=1;rounded=0;" edge="1" source="c_grp_a" target="c_gm_a" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="rel3l" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" vertex="1" connectable="0" parent="rel3"><mxGeometry x="0.7" relative="1" as="geometry"><mxPoint y="-12" as="offset"/></mxGeometry></mxCell>
+        <mxCell id="rel4" style="endArrow=open;endSize=12;html=1;rounded=0;" edge="1" source="c_inv_a" target="c_ms_a" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="rel4l" value="0..1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" vertex="1" connectable="0" parent="rel4"><mxGeometry x="0.7" relative="1" as="geometry"><mxPoint y="-12" as="offset"/></mxGeometry></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

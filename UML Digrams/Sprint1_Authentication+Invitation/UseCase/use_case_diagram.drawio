@@ -1,0 +1,88 @@
+<mxfile host="app.diagrams.net" modified="2026-03-06T00:00:00.000Z" agent="5.0" version="22.1.2" type="device">
+  <diagram name="Sprint 1 - Combined Use Case (Auth + Invitation)" id="sprint1-uc">
+    <mxGraphModel dx="1800" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="Sprint 1 – Combined Use Case: Authentication + Members Invitation" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=16;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="420" y="10" width="560" height="30" as="geometry"/></mxCell>
+
+        <!-- Actors -->
+        <mxCell id="a_user" value="User" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#E6E6E6;strokeColor=#666666;" vertex="1" parent="1"><mxGeometry x="40" y="250" width="30" height="55" as="geometry"/></mxCell>
+        <mxCell id="a_owner" value="Owner" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#E6E6E6;strokeColor=#666666;" vertex="1" parent="1"><mxGeometry x="40" y="700" width="30" height="55" as="geometry"/></mxCell>
+        <mxCell id="a_member" value="Invited&#xa;Member" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#E6E6E6;strokeColor=#666666;" vertex="1" parent="1"><mxGeometry x="1700" y="700" width="30" height="55" as="geometry"/></mxCell>
+        <mxCell id="a_google" value="Google" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#E6E6E6;strokeColor=#666666;" vertex="1" parent="1"><mxGeometry x="1700" y="250" width="30" height="55" as="geometry"/></mxCell>
+
+        <!-- Auth Service Box -->
+        <mxCell id="auth_box" value="Authentication Service" style="shape=mxgraph.sysml.package;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=10;tabWidth=170;tabHeight=22;fillColor=#dae8fc;strokeColor=#6c8ebf;opacity=15;fontSize=12;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="150" y="60" width="700" height="500" as="geometry"/></mxCell>
+
+        <mxCell id="a1" value="A1: Register Account" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="200" y="100" width="160" height="45" as="geometry"/></mxCell>
+        <mxCell id="a2" value="A2: Verify Email" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="200" y="160" width="150" height="45" as="geometry"/></mxCell>
+        <mxCell id="a3" value="A3: Login" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="200" y="220" width="130" height="45" as="geometry"/></mxCell>
+        <mxCell id="a4" value="A4: Confirm 2FA" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="200" y="280" width="150" height="45" as="geometry"/></mxCell>
+        <mxCell id="a5" value="A5: Forgot Password" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="200" y="340" width="160" height="45" as="geometry"/></mxCell>
+        <mxCell id="a6" value="A6: Reset Password" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="200" y="400" width="160" height="45" as="geometry"/></mxCell>
+        <mxCell id="a7" value="A7: Google OAuth Login" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="450" y="100" width="170" height="45" as="geometry"/></mxCell>
+        <mxCell id="a8" value="A8: Refresh Token" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="450" y="160" width="160" height="45" as="geometry"/></mxCell>
+        <mxCell id="a9" value="A9: View Login History" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="450" y="220" width="170" height="45" as="geometry"/></mxCell>
+
+        <!-- Invitation Service Box -->
+        <mxCell id="inv_box" value="Members Invitation Service" style="shape=mxgraph.sysml.package;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=10;tabWidth=190;tabHeight=22;fillColor=#fff2cc;strokeColor=#d6b656;opacity=15;fontSize=12;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="150" y="600" width="700" height="470" as="geometry"/></mxCell>
+
+        <mxCell id="i1" value="I1: Create Invitation" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="200" y="640" width="160" height="45" as="geometry"/></mxCell>
+        <mxCell id="i2" value="I2: Accept Invitation" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="200" y="700" width="160" height="45" as="geometry"/></mxCell>
+        <mxCell id="i3" value="I3: Decline Invitation" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="200" y="760" width="160" height="45" as="geometry"/></mxCell>
+        <mxCell id="i4" value="I4: Resend Invitation" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="200" y="820" width="160" height="45" as="geometry"/></mxCell>
+        <mxCell id="i5" value="I5: Revoke Invitation" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="200" y="880" width="160" height="45" as="geometry"/></mxCell>
+        <mxCell id="i6" value="I6: List Invitations" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="200" y="940" width="155" height="45" as="geometry"/></mxCell>
+        <mxCell id="i7" value="I7: Create Group" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="460" y="640" width="150" height="45" as="geometry"/></mxCell>
+        <mxCell id="i8" value="I8: Invite Group Member" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="460" y="700" width="170" height="45" as="geometry"/></mxCell>
+        <mxCell id="i9" value="I9: Bulk Invite Members" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="460" y="760" width="170" height="45" as="geometry"/></mxCell>
+        <mxCell id="i10" value="I10: Manage Group" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="460" y="820" width="160" height="45" as="geometry"/></mxCell>
+        <mxCell id="i11" value="I11: View Group Members" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="460" y="880" width="170" height="45" as="geometry"/></mxCell>
+
+        <!-- Shared Internal -->
+        <mxCell id="s1" value="Send Email OTP" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1"><mxGeometry x="1000" y="300" width="150" height="45" as="geometry"/></mxCell>
+        <mxCell id="s2" value="Validate OTP / Code" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1"><mxGeometry x="1000" y="380" width="160" height="45" as="geometry"/></mxCell>
+        <mxCell id="s3" value="Generate JWT" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1"><mxGeometry x="1000" y="460" width="150" height="45" as="geometry"/></mxCell>
+
+        <!-- User associations to Auth -->
+        <mxCell id="eu1" style="endArrow=none;html=1;rounded=0;" edge="1" source="a_user" target="a1" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eu2" style="endArrow=none;html=1;rounded=0;" edge="1" source="a_user" target="a2" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eu3" style="endArrow=none;html=1;rounded=0;" edge="1" source="a_user" target="a3" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eu4" style="endArrow=none;html=1;rounded=0;" edge="1" source="a_user" target="a4" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eu5" style="endArrow=none;html=1;rounded=0;" edge="1" source="a_user" target="a5" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eu6" style="endArrow=none;html=1;rounded=0;" edge="1" source="a_user" target="a6" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eu7" style="endArrow=none;html=1;rounded=0;" edge="1" source="a_user" target="a8" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eu8" style="endArrow=none;html=1;rounded=0;" edge="1" source="a_user" target="a9" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ea7" style="endArrow=none;html=1;rounded=0;" edge="1" source="a_google" target="a7" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- Owner associations to Invitation -->
+        <mxCell id="eo1" style="endArrow=none;html=1;rounded=0;" edge="1" source="a_owner" target="i1" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eo2" style="endArrow=none;html=1;rounded=0;" edge="1" source="a_owner" target="i4" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eo3" style="endArrow=none;html=1;rounded=0;" edge="1" source="a_owner" target="i5" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eo4" style="endArrow=none;html=1;rounded=0;" edge="1" source="a_owner" target="i6" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eo5" style="endArrow=none;html=1;rounded=0;" edge="1" source="a_owner" target="i7" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eo6" style="endArrow=none;html=1;rounded=0;" edge="1" source="a_owner" target="i8" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eo7" style="endArrow=none;html=1;rounded=0;" edge="1" source="a_owner" target="i9" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eo8" style="endArrow=none;html=1;rounded=0;" edge="1" source="a_owner" target="i10" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eo9" style="endArrow=none;html=1;rounded=0;" edge="1" source="a_owner" target="i11" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- Member associations -->
+        <mxCell id="em1" style="endArrow=none;html=1;rounded=0;" edge="1" source="a_member" target="i2" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="em2" style="endArrow=none;html=1;rounded=0;" edge="1" source="a_member" target="i3" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- Cross-service includes -->
+        <mxCell id="inc1" style="endArrow=open;endSize=12;dashed=1;html=1;rounded=0;" edge="1" source="a1" target="s1" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="inc1l" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;" vertex="1" connectable="0" parent="inc1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="inc2" style="endArrow=open;endSize=12;dashed=1;html=1;rounded=0;" edge="1" source="a4" target="s2" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="inc2l" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;" vertex="1" connectable="0" parent="inc2"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="inc3" style="endArrow=open;endSize=12;dashed=1;html=1;rounded=0;" edge="1" source="a3" target="s3" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="inc3l" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;" vertex="1" connectable="0" parent="inc3"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="inc4" style="endArrow=open;endSize=12;dashed=1;html=1;rounded=0;" edge="1" source="i1" target="s1" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="inc4l" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;" vertex="1" connectable="0" parent="inc4"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="inc5" style="endArrow=open;endSize=12;dashed=1;html=1;rounded=0;" edge="1" source="i2" target="s2" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="inc5l" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;" vertex="1" connectable="0" parent="inc5"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

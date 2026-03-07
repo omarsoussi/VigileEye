@@ -1,0 +1,140 @@
+<mxfile host="app.diagrams.net" modified="2026-03-06T00:00:00.000Z" agent="5.0" version="22.1.2" type="device">
+  <diagram name="Figure 2.1 - Use Case Diagram - Members Invitation Service" id="inv-uc">
+    <mxGraphModel dx="1422" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <mxCell id="title" value="Figure 2.1: Use Case Diagram – Members Invitation Service" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=16;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="320" y="10" width="500" height="30" as="geometry"/>
+        </mxCell>
+
+        <!-- Actors -->
+        <mxCell id="actor_owner" value="Owner" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" vertex="1" parent="1">
+          <mxGeometry x="60" y="300" width="30" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="actor_member" value="Invited Member" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" vertex="1" parent="1">
+          <mxGeometry x="1250" y="300" width="30" height="55" as="geometry"/>
+        </mxCell>
+
+        <!-- System Boundary -->
+        <mxCell id="sys" value="Members Invitation Service" style="shape=mxgraph.sysml.package;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=10;tabWidth=250;tabHeight=28;fillColor=none;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="200" y="50" width="900" height="1000" as="geometry"/>
+        </mxCell>
+
+        <!-- Invitation Use Cases -->
+        <mxCell id="uc1" value="Create Invitation" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="260" y="90" width="160" height="65" as="geometry"/>
+        </mxCell>
+        <mxCell id="uc2" value="Accept Invitation" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="260" y="175" width="160" height="65" as="geometry"/>
+        </mxCell>
+        <mxCell id="uc3" value="Decline Invitation" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="260" y="260" width="160" height="65" as="geometry"/>
+        </mxCell>
+        <mxCell id="uc4" value="Resend Invitation Code" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="260" y="345" width="160" height="65" as="geometry"/>
+        </mxCell>
+        <mxCell id="uc5" value="List Sent Invitations" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="260" y="430" width="160" height="65" as="geometry"/>
+        </mxCell>
+        <mxCell id="uc6" value="List Received Invitations" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="260" y="515" width="160" height="65" as="geometry"/>
+        </mxCell>
+
+        <!-- Group Use Cases -->
+        <mxCell id="uc7" value="Create Group" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="260" y="610" width="160" height="65" as="geometry"/>
+        </mxCell>
+        <mxCell id="uc8" value="Update Group" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="260" y="695" width="160" height="65" as="geometry"/>
+        </mxCell>
+        <mxCell id="uc9" value="Delete Group" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="260" y="780" width="160" height="65" as="geometry"/>
+        </mxCell>
+        <mxCell id="uc10" value="List Groups" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="560" y="530" width="160" height="65" as="geometry"/>
+        </mxCell>
+        <mxCell id="uc11" value="Invite Group Member" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="560" y="610" width="160" height="65" as="geometry"/>
+        </mxCell>
+        <mxCell id="uc12" value="Bulk Invite Group&#xa;Members" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="560" y="695" width="160" height="65" as="geometry"/>
+        </mxCell>
+        <mxCell id="uc13" value="Accept Group Invitation" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="560" y="780" width="160" height="65" as="geometry"/>
+        </mxCell>
+        <mxCell id="uc14" value="Decline Group Invitation" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="560" y="865" width="160" height="65" as="geometry"/>
+        </mxCell>
+        <mxCell id="uc15" value="Remove Group Member" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="260" y="865" width="160" height="65" as="geometry"/>
+        </mxCell>
+        <mxCell id="uc16" value="Update Member Access" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="260" y="950" width="160" height="65" as="geometry"/>
+        </mxCell>
+        <mxCell id="uc17" value="Resend Group Codes" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="560" y="950" width="160" height="65" as="geometry"/>
+        </mxCell>
+
+        <!-- Internal/Included Use Cases -->
+        <mxCell id="uc18" value="Send Email with OTP" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="840" y="150" width="160" height="65" as="geometry"/>
+        </mxCell>
+        <mxCell id="uc19" value="Validate Approval Code" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="840" y="280" width="160" height="65" as="geometry"/>
+        </mxCell>
+        <mxCell id="uc20" value="Create Membership" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="840" y="410" width="160" height="65" as="geometry"/>
+        </mxCell>
+
+        <!-- Owner associations -->
+        <mxCell id="a1" style="endArrow=none;html=1;rounded=0;" edge="1" source="actor_owner" target="uc1" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="a2" style="endArrow=none;html=1;rounded=0;" edge="1" source="actor_owner" target="uc5" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="a3" style="endArrow=none;html=1;rounded=0;" edge="1" source="actor_owner" target="uc7" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="a4" style="endArrow=none;html=1;rounded=0;" edge="1" source="actor_owner" target="uc8" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="a5" style="endArrow=none;html=1;rounded=0;" edge="1" source="actor_owner" target="uc9" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="a6" style="endArrow=none;html=1;rounded=0;" edge="1" source="actor_owner" target="uc10" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="a7" style="endArrow=none;html=1;rounded=0;" edge="1" source="actor_owner" target="uc11" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="a8" style="endArrow=none;html=1;rounded=0;" edge="1" source="actor_owner" target="uc12" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="a9" style="endArrow=none;html=1;rounded=0;" edge="1" source="actor_owner" target="uc15" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="a10" style="endArrow=none;html=1;rounded=0;" edge="1" source="actor_owner" target="uc16" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="a11" style="endArrow=none;html=1;rounded=0;" edge="1" source="actor_owner" target="uc4" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="a12" style="endArrow=none;html=1;rounded=0;" edge="1" source="actor_owner" target="uc17" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- Member associations -->
+        <mxCell id="b1" style="endArrow=none;html=1;rounded=0;" edge="1" source="actor_member" target="uc2" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="b2" style="endArrow=none;html=1;rounded=0;" edge="1" source="actor_member" target="uc3" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="b3" style="endArrow=none;html=1;rounded=0;" edge="1" source="actor_member" target="uc6" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="b4" style="endArrow=none;html=1;rounded=0;" edge="1" source="actor_member" target="uc13" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="b5" style="endArrow=none;html=1;rounded=0;" edge="1" source="actor_member" target="uc14" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- Include relationships -->
+        <mxCell id="i1" style="endArrow=open;endSize=12;dashed=1;html=1;rounded=0;" edge="1" source="uc1" target="uc18" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="i1l" value="&lt;&lt;include&gt;&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" vertex="1" connectable="0" parent="i1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="i2" style="endArrow=open;endSize=12;dashed=1;html=1;rounded=0;" edge="1" source="uc2" target="uc19" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="i2l" value="&lt;&lt;include&gt;&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" vertex="1" connectable="0" parent="i2"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="i3" style="endArrow=open;endSize=12;dashed=1;html=1;rounded=0;" edge="1" source="uc2" target="uc20" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="i3l" value="&lt;&lt;include&gt;&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" vertex="1" connectable="0" parent="i3"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="i4" style="endArrow=open;endSize=12;dashed=1;html=1;rounded=0;" edge="1" source="uc11" target="uc18" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="i4l" value="&lt;&lt;include&gt;&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" vertex="1" connectable="0" parent="i4"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="i5" style="endArrow=open;endSize=12;dashed=1;html=1;rounded=0;" edge="1" source="uc12" target="uc11" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="i5l" value="&lt;&lt;include&gt;&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" vertex="1" connectable="0" parent="i5"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="i6" style="endArrow=open;endSize=12;dashed=1;html=1;rounded=0;" edge="1" source="uc13" target="uc19" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="i6l" value="&lt;&lt;include&gt;&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" vertex="1" connectable="0" parent="i6"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="i7" style="endArrow=open;endSize=12;dashed=1;html=1;rounded=0;" edge="1" source="uc4" target="uc18" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="i7l" value="&lt;&lt;include&gt;&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" vertex="1" connectable="0" parent="i7"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="i8" style="endArrow=open;endSize=12;dashed=1;html=1;rounded=0;" edge="1" source="uc17" target="uc18" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="i8l" value="&lt;&lt;include&gt;&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" vertex="1" connectable="0" parent="i8"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

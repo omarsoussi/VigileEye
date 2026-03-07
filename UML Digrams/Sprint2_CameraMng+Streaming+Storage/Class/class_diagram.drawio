@@ -1,0 +1,164 @@
+<mxfile host="app.diagrams.net" modified="2026-03-06T00:00:00.000Z" agent="5.0" version="22.1.2" type="device">
+  <diagram name="Sprint 2 - Combined Class Diagram (Camera + Streaming + Storage)" id="sprint2-class">
+    <mxGraphModel dx="2800" dy="2200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2800" pageHeight="2200" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="Sprint 2 – Combined Class Diagram: Camera Management + Streaming + Storage" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=16;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="650" y="10" width="700" height="30" as="geometry"/></mxCell>
+
+        <!-- =================================================================== -->
+        <!--                    CAMERA MANAGEMENT DOMAIN (blue)                  -->
+        <!-- =================================================================== -->
+        <mxCell id="cam_label" value="Camera Management Domain" style="text;html=1;fontSize=13;fontStyle=5;fillColor=none;strokeColor=none;fontColor=#2e5a88;" vertex="1" parent="1"><mxGeometry x="20" y="50" width="210" height="25" as="geometry"/></mxCell>
+
+        <mxCell id="d_cam" value="Camera" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="30" y="85" width="260" height="250" as="geometry"/></mxCell>
+        <mxCell id="d_cam_a" value="- id : UUID&#xa;- owner_id : UUID&#xa;- name : str&#xa;- ip_address : str&#xa;- rtsp_port : int&#xa;- protocol : str&#xa;- location : CameraLocation&#xa;- status : CameraStatus&#xa;- is_active : bool&#xa;- created_at : datetime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="d_cam"><mxGeometry y="26" width="260" height="160" as="geometry"/></mxCell>
+        <mxCell id="d_cam_ln" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;strokeColor=#6c8ebf;" vertex="1" parent="d_cam"><mxGeometry y="186" width="260" height="8" as="geometry"/></mxCell>
+        <mxCell id="d_cam_m" value="+ rtsp_url() : str&#xa;+ auto_detect_protocol()&#xa;+ activate() / deactivate()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="d_cam"><mxGeometry y="194" width="260" height="54" as="geometry"/></mxCell>
+
+        <mxCell id="d_cloc" value="CameraLocation" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="330" y="85" width="180" height="120" as="geometry"/></mxCell>
+        <mxCell id="d_cloc_a" value="- latitude : float&#xa;- longitude : float&#xa;- address : str" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="d_cloc"><mxGeometry y="26" width="180" height="54" as="geometry"/></mxCell>
+        <mxCell id="d_cloc_ln" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;strokeColor=#6c8ebf;" vertex="1" parent="d_cloc"><mxGeometry y="80" width="180" height="8" as="geometry"/></mxCell>
+
+        <mxCell id="d_ca" value="CameraAccess" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="330" y="230" width="180" height="140" as="geometry"/></mxCell>
+        <mxCell id="d_ca_a" value="- id : UUID&#xa;- camera_id : UUID&#xa;- user_id : UUID&#xa;- permission_level : PermissionLevel" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="d_ca"><mxGeometry y="26" width="180" height="74" as="geometry"/></mxCell>
+        <mxCell id="d_ca_ln" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;strokeColor=#6c8ebf;" vertex="1" parent="d_ca"><mxGeometry y="100" width="180" height="8" as="geometry"/></mxCell>
+
+        <mxCell id="d_ch" value="CameraHealth" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="540" y="85" width="200" height="140" as="geometry"/></mxCell>
+        <mxCell id="d_ch_a" value="- camera_id : UUID&#xa;- is_online : bool&#xa;- last_ping : datetime&#xa;- latency_ms : int" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="d_ch"><mxGeometry y="26" width="200" height="68" as="geometry"/></mxCell>
+        <mxCell id="d_ch_ln" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;strokeColor=#6c8ebf;" vertex="1" parent="d_ch"><mxGeometry y="94" width="200" height="8" as="geometry"/></mxCell>
+        <mxCell id="d_ch_m" value="+ check_health()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="d_ch"><mxGeometry y="102" width="200" height="36" as="geometry"/></mxCell>
+
+        <mxCell id="d_zone" value="Zone" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="540" y="250" width="200" height="120" as="geometry"/></mxCell>
+        <mxCell id="d_zone_a" value="- id : UUID&#xa;- camera_id : UUID&#xa;- name : str&#xa;- points : List[ZonePoint]" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="d_zone"><mxGeometry y="26" width="200" height="68" as="geometry"/></mxCell>
+        <mxCell id="d_zone_ln" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;strokeColor=#6c8ebf;" vertex="1" parent="d_zone"><mxGeometry y="94" width="200" height="8" as="geometry"/></mxCell>
+
+        <!-- Camera enums -->
+        <mxCell id="e_cs" value="&amp;lt;&amp;lt;enum&amp;gt;&amp;gt;&#xa;CameraStatus" style="swimlane;fontStyle=1;align=center;startSize=36;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="30" y="370" width="130" height="90" as="geometry"/></mxCell>
+        <mxCell id="e_cs_v" value="ONLINE&#xa;OFFLINE&#xa;MAINTENANCE" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="e_cs"><mxGeometry y="36" width="130" height="52" as="geometry"/></mxCell>
+
+        <mxCell id="e_perm" value="&amp;lt;&amp;lt;enum&amp;gt;&amp;gt;&#xa;PermissionLevel" style="swimlane;fontStyle=1;align=center;startSize=36;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="180" y="370" width="140" height="90" as="geometry"/></mxCell>
+        <mxCell id="e_perm_v" value="VIEW_ONLY&#xa;VIEW_AND_MANAGE&#xa;FULL_ACCESS" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="e_perm"><mxGeometry y="36" width="140" height="52" as="geometry"/></mxCell>
+
+        <!-- =================================================================== -->
+        <!--                    STREAMING DOMAIN (yellow)                        -->
+        <!-- =================================================================== -->
+        <mxCell id="str_label" value="Streaming Domain" style="text;html=1;fontSize=13;fontStyle=5;fillColor=none;strokeColor=none;fontColor=#8c6d1f;" vertex="1" parent="1"><mxGeometry x="800" y="50" width="140" height="25" as="geometry"/></mxCell>
+
+        <mxCell id="d_ss" value="StreamSession" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="800" y="85" width="240" height="220" as="geometry"/></mxCell>
+        <mxCell id="d_ss_a" value="- id : UUID&#xa;- camera_id : UUID&#xa;- status : StreamStatus&#xa;- rtsp_url : str&#xa;- started_at : datetime&#xa;- stopped_at : Optional[datetime]&#xa;- error_message : str" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="d_ss"><mxGeometry y="26" width="240" height="116" as="geometry"/></mxCell>
+        <mxCell id="d_ss_ln" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;strokeColor=#d6b656;" vertex="1" parent="d_ss"><mxGeometry y="142" width="240" height="8" as="geometry"/></mxCell>
+        <mxCell id="d_ss_m" value="+ Activate()&#xa;+ Stop()&#xa;+ SetError(msg)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="d_ss"><mxGeometry y="150" width="240" height="54" as="geometry"/></mxCell>
+
+        <mxCell id="d_vs" value="ViewerSession" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="1080" y="85" width="220" height="170" as="geometry"/></mxCell>
+        <mxCell id="d_vs_a" value="- id : UUID&#xa;- stream_id : UUID&#xa;- user_id : UUID&#xa;- state : ViewerState&#xa;- joined_at : datetime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="d_vs"><mxGeometry y="26" width="220" height="84" as="geometry"/></mxCell>
+        <mxCell id="d_vs_ln" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;strokeColor=#d6b656;" vertex="1" parent="d_vs"><mxGeometry y="110" width="220" height="8" as="geometry"/></mxCell>
+        <mxCell id="d_vs_m" value="+ Connect()&#xa;+ Disconnect()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="d_vs"><mxGeometry y="118" width="220" height="40" as="geometry"/></mxCell>
+
+        <mxCell id="d_sc" value="StreamConfig" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="800" y="330" width="200" height="130" as="geometry"/></mxCell>
+        <mxCell id="d_sc_a" value="- camera_id : UUID&#xa;- resolution : str&#xa;- bitrate : int&#xa;- codec : str" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="d_sc"><mxGeometry y="26" width="200" height="68" as="geometry"/></mxCell>
+        <mxCell id="d_sc_ln" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;strokeColor=#d6b656;" vertex="1" parent="d_sc"><mxGeometry y="94" width="200" height="8" as="geometry"/></mxCell>
+
+        <!-- Streaming enums -->
+        <mxCell id="e_strst" value="&amp;lt;&amp;lt;enum&amp;gt;&amp;gt;&#xa;StreamStatus" style="swimlane;fontStyle=1;align=center;startSize=36;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="1080" y="280" width="130" height="100" as="geometry"/></mxCell>
+        <mxCell id="e_strst_v" value="ACTIVE&#xa;STOPPED&#xa;ERROR" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="e_strst"><mxGeometry y="36" width="130" height="62" as="geometry"/></mxCell>
+
+        <mxCell id="e_vws" value="&amp;lt;&amp;lt;enum&amp;gt;&amp;gt;&#xa;ViewerState" style="swimlane;fontStyle=1;align=center;startSize=36;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="1230" y="280" width="130" height="90" as="geometry"/></mxCell>
+        <mxCell id="e_vws_v" value="CONNECTING&#xa;WATCHING&#xa;DISCONNECTED" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="e_vws"><mxGeometry y="36" width="130" height="52" as="geometry"/></mxCell>
+
+        <!-- =================================================================== -->
+        <!--                    STORAGE DOMAIN (green)                           -->
+        <!-- =================================================================== -->
+        <mxCell id="sto_label" value="Storage Domain" style="text;html=1;fontSize=13;fontStyle=5;fillColor=none;strokeColor=none;fontColor=#3a7728;" vertex="1" parent="1"><mxGeometry x="1420" y="50" width="120" height="25" as="geometry"/></mxCell>
+
+        <mxCell id="d_rec" value="Recording" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="1420" y="85" width="260" height="250" as="geometry"/></mxCell>
+        <mxCell id="d_rec_a" value="- id : UUID&#xa;- camera_id : UUID&#xa;- file_path : str&#xa;- status : RecordingStatus&#xa;- size_bytes : int64&#xa;- started_at : datetime&#xa;- completed_at : Optional[datetime]&#xa;- storage_mode : StorageMode" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="d_rec"><mxGeometry y="26" width="260" height="130" as="geometry"/></mxCell>
+        <mxCell id="d_rec_ln" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;strokeColor=#82b366;" vertex="1" parent="d_rec"><mxGeometry y="156" width="260" height="8" as="geometry"/></mxCell>
+        <mxCell id="d_rec_m" value="+ NewRecording(cam, path)&#xa;+ Complete(size)&#xa;+ MarkFailed(err)&#xa;+ MarkDeleted()&#xa;+ IsActive() : bool" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="d_rec"><mxGeometry y="164" width="260" height="84" as="geometry"/></mxCell>
+
+        <mxCell id="d_csc" value="CameraStorageConfig" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="1720" y="85" width="250" height="220" as="geometry"/></mxCell>
+        <mxCell id="d_csc_a" value="- camera_id : UUID&#xa;- retention_days : int&#xa;- max_storage_bytes : int64&#xa;- storage_mode : StorageMode&#xa;- subscription_tier : SubscriptionTier&#xa;- cloud_enabled : bool" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="d_csc"><mxGeometry y="26" width="250" height="100" as="geometry"/></mxCell>
+        <mxCell id="d_csc_ln" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;strokeColor=#82b366;" vertex="1" parent="d_csc"><mxGeometry y="126" width="250" height="8" as="geometry"/></mxCell>
+        <mxCell id="d_csc_m" value="+ CanUseCloudStorage() : bool&#xa;+ Update(retention, maxStorage)&#xa;+ UpdateTier(tier)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="d_csc"><mxGeometry y="134" width="250" height="54" as="geometry"/></mxCell>
+
+        <mxCell id="d_sm" value="StorageMetrics" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="2010" y="85" width="200" height="120" as="geometry"/></mxCell>
+        <mxCell id="d_sm_a" value="- camera_id : UUID&#xa;- total_recordings : int&#xa;- total_size_bytes : int64&#xa;- oldest_recording : datetime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="d_sm"><mxGeometry y="26" width="200" height="68" as="geometry"/></mxCell>
+        <mxCell id="d_sm_ln" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;strokeColor=#82b366;" vertex="1" parent="d_sm"><mxGeometry y="94" width="200" height="8" as="geometry"/></mxCell>
+
+        <mxCell id="d_dt" value="DownloadToken" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="2010" y="230" width="200" height="120" as="geometry"/></mxCell>
+        <mxCell id="d_dt_a" value="- token : str&#xa;- recording_id : UUID&#xa;- expires_at : datetime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="d_dt"><mxGeometry y="26" width="200" height="54" as="geometry"/></mxCell>
+        <mxCell id="d_dt_ln" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=left;points=[];portConstraint=eastwest;strokeColor=#82b366;" vertex="1" parent="d_dt"><mxGeometry y="80" width="200" height="8" as="geometry"/></mxCell>
+        <mxCell id="d_dt_m" value="+ IsExpired() : bool" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="d_dt"><mxGeometry y="88" width="200" height="30" as="geometry"/></mxCell>
+
+        <!-- Storage enums -->
+        <mxCell id="e_rs" value="&amp;lt;&amp;lt;enum&amp;gt;&amp;gt;&#xa;RecordingStatus" style="swimlane;fontStyle=1;align=center;startSize=36;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="1420" y="370" width="140" height="110" as="geometry"/></mxCell>
+        <mxCell id="e_rs_v" value="IN_PROGRESS&#xa;COMPLETED&#xa;FAILED&#xa;DELETED" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="e_rs"><mxGeometry y="36" width="140" height="72" as="geometry"/></mxCell>
+
+        <mxCell id="e_stm" value="&amp;lt;&amp;lt;enum&amp;gt;&amp;gt;&#xa;StorageMode" style="swimlane;fontStyle=1;align=center;startSize=36;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="1580" y="370" width="120" height="90" as="geometry"/></mxCell>
+        <mxCell id="e_stm_v" value="LOCAL&#xa;CLOUD&#xa;HYBRID" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="e_stm"><mxGeometry y="36" width="120" height="52" as="geometry"/></mxCell>
+
+        <mxCell id="e_st" value="&amp;lt;&amp;lt;enum&amp;gt;&amp;gt;&#xa;SubscriptionTier" style="swimlane;fontStyle=1;align=center;startSize=36;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="1720" y="370" width="140" height="90" as="geometry"/></mxCell>
+        <mxCell id="e_st_v" value="FREE&#xa;BASIC&#xa;PREMIUM" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="e_st"><mxGeometry y="36" width="140" height="52" as="geometry"/></mxCell>
+
+        <!-- =================================================================== -->
+        <!--                    APPLICATION LAYER                                -->
+        <!-- =================================================================== -->
+        <mxCell id="app_label" value="Application Layer" style="text;html=1;fontSize=13;fontStyle=5;fillColor=none;strokeColor=none;fontColor=#555555;" vertex="1" parent="1"><mxGeometry x="20" y="500" width="140" height="25" as="geometry"/></mxCell>
+
+        <!-- Camera use cases -->
+        <mxCell id="uc_rc" value="RegisterCameraUseCase" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="30" y="540" width="190" height="52" as="geometry"/></mxCell>
+        <mxCell id="uc_gc" value="GetCameraUseCase" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="240" y="540" width="170" height="52" as="geometry"/></mxCell>
+        <mxCell id="uc_lc" value="ListCamerasUseCase" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="430" y="540" width="170" height="52" as="geometry"/></mxCell>
+        <mxCell id="uc_uc" value="UpdateCameraUseCase" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="620" y="540" width="180" height="52" as="geometry"/></mxCell>
+
+        <!-- Streaming use cases -->
+        <mxCell id="uc_ss" value="StartStreamUseCase" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="30" y="610" width="170" height="52" as="geometry"/></mxCell>
+        <mxCell id="uc_stops" value="StopStreamUseCase" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="220" y="610" width="170" height="52" as="geometry"/></mxCell>
+        <mxCell id="uc_nv" value="NegotiateViewerUseCase" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="410" y="610" width="200" height="52" as="geometry"/></mxCell>
+        <mxCell id="uc_gss" value="GetStreamStatusUseCase" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="630" y="610" width="200" height="52" as="geometry"/></mxCell>
+
+        <!-- Storage use cases -->
+        <mxCell id="uc_str" value="StartRecordingUseCase" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="30" y="680" width="190" height="52" as="geometry"/></mxCell>
+        <mxCell id="uc_stpr" value="StopRecordingUseCase" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="240" y="680" width="180" height="52" as="geometry"/></mxCell>
+        <mxCell id="uc_lr" value="ListRecordingsUseCase" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="440" y="680" width="180" height="52" as="geometry"/></mxCell>
+        <mxCell id="uc_gsm" value="GetStorageMetricsUseCase" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="640" y="680" width="210" height="52" as="geometry"/></mxCell>
+
+        <!-- =================================================================== -->
+        <!--                    INFRASTRUCTURE                                   -->
+        <!-- =================================================================== -->
+        <mxCell id="infra_label" value="Shared Infrastructure" style="text;html=1;fontSize=13;fontStyle=5;fillColor=none;strokeColor=none;fontColor=#3a7728;" vertex="1" parent="1"><mxGeometry x="20" y="760" width="160" height="25" as="geometry"/></mxCell>
+
+        <mxCell id="i_sm" value="StreamManager" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="30" y="800" width="160" height="52" as="geometry"/></mxCell>
+        <mxCell id="i_mmtx" value="MediaMTXClient" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="210" y="800" width="160" height="52" as="geometry"/></mxCell>
+        <mxCell id="i_rm" value="RecordingManager" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="390" y="800" width="170" height="52" as="geometry"/></mxCell>
+        <mxCell id="i_re" value="RetentionEnforcer" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="580" y="800" width="160" height="52" as="geometry"/></mxCell>
+        <mxCell id="i_lfs" value="LocalFSBackend" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="760" y="800" width="150" height="52" as="geometry"/></mxCell>
+        <mxCell id="i_minio" value="MinIOBackend" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="930" y="800" width="140" height="52" as="geometry"/></mxCell>
+        <mxCell id="i_hcam" value="HTTPCameraService" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="1090" y="800" width="170" height="52" as="geometry"/></mxCell>
+        <mxCell id="i_jwt" value="JWTAuthService" style="swimlane;fontStyle=1;align=center;startSize=26;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="1280" y="800" width="150" height="52" as="geometry"/></mxCell>
+
+        <!-- Cross-service notes -->
+        <mxCell id="note1" value="Cross-Service: Streaming &amp; Storage call&#xa;HTTPCameraService to fetch camera&#xa;metadata from Camera Mgmt API." style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=14;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1"><mxGeometry x="1500" y="540" width="280" height="60" as="geometry"/></mxCell>
+        <mxCell id="note2" value="Camera Management owns the Camera&#xa;entity that Streaming and Storage&#xa;reference via camera_id (UUID)." style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=14;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1"><mxGeometry x="1500" y="620" width="280" height="60" as="geometry"/></mxCell>
+
+        <!-- Domain relationships -->
+        <mxCell id="r1" style="endArrow=open;endSize=12;html=1;rounded=0;" edge="1" source="d_cam_a" target="d_cloc_a" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="r1l" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" vertex="1" connectable="0" parent="r1"><mxGeometry x="0.7" relative="1" as="geometry"><mxPoint y="-10" as="offset"/></mxGeometry></mxCell>
+        <mxCell id="r2" style="endArrow=open;endSize=12;html=1;rounded=0;" edge="1" source="d_cam_a" target="d_ca_a" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="r2l" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" vertex="1" connectable="0" parent="r2"><mxGeometry x="0.7" relative="1" as="geometry"><mxPoint y="-10" as="offset"/></mxGeometry></mxCell>
+        <mxCell id="r3" style="endArrow=open;endSize=12;html=1;rounded=0;" edge="1" source="d_cam_a" target="d_ch_a" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="r3l" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" vertex="1" connectable="0" parent="r3"><mxGeometry x="0.7" relative="1" as="geometry"><mxPoint y="-10" as="offset"/></mxGeometry></mxCell>
+        <mxCell id="r4" style="endArrow=open;endSize=12;html=1;rounded=0;" edge="1" source="d_cam_a" target="d_zone_a" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="r4l" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" vertex="1" connectable="0" parent="r4"><mxGeometry x="0.7" relative="1" as="geometry"><mxPoint y="-10" as="offset"/></mxGeometry></mxCell>
+        <mxCell id="r5" style="endArrow=open;endSize=12;html=1;rounded=0;" edge="1" source="d_ss_a" target="d_vs_a" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="r5l" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" vertex="1" connectable="0" parent="r5"><mxGeometry x="0.7" relative="1" as="geometry"><mxPoint y="-10" as="offset"/></mxGeometry></mxCell>
+        <mxCell id="r6" style="endArrow=open;endSize=12;html=1;rounded=0;" edge="1" source="d_rec_a" target="d_csc_a" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="r6l" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;" vertex="1" connectable="0" parent="r6"><mxGeometry x="0.7" relative="1" as="geometry"><mxPoint y="-10" as="offset"/></mxGeometry></mxCell>
+
+        <!-- Cross-domain dashed dependency: Streaming → Camera, Storage → Camera -->
+        <mxCell id="dep_str_cam" value="&amp;lt;&amp;lt;uses&amp;gt;&amp;gt;" style="html=1;dashed=1;rounded=0;fontSize=10;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="d_ss" target="d_cam" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="dep_sto_cam" value="&amp;lt;&amp;lt;uses&amp;gt;&amp;gt;" style="html=1;dashed=1;rounded=0;fontSize=10;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=1;entryDx=0;entryDy=0;" edge="1" source="d_rec" target="d_cam" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

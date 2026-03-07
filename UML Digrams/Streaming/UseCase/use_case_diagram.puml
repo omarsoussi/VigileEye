@@ -1,0 +1,52 @@
+@startuml
+!theme plain
+title Figure 4.1: Use Case Diagram – Video Streaming Service
+
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam usecase {
+    BackgroundColor #E8F4FD
+    BorderColor #2196F3
+}
+
+left to right direction
+
+actor "User" as User
+actor "Camera\nManagement\nService" as CamSvc
+
+rectangle "Video Streaming Service" {
+    usecase "Start Stream" as UC1
+    usecase "Stop Stream" as UC2
+    usecase "View Camera Stream" as UC3
+    usecase "Get Stream Status" as UC4
+    usecase "List Active Streams" as UC5
+    usecase "Get Real-Time Stats" as UC6
+    usecase "Get Latest Frame" as UC7
+    usecase "Probe Stream URL" as UC8
+    usecase "Get ICE Servers Config" as UC9
+
+    ' ─── Internal ───
+    usecase "Negotiate WebRTC\n(SDP Offer/Answer)" as UC10
+    usecase "Exchange ICE Candidates" as UC11
+    usecase "Disconnect Viewer" as UC12
+    usecase "Fetch Camera Metadata" as UC13
+}
+
+User --> UC1
+User --> UC2
+User --> UC3
+User --> UC4
+User --> UC5
+User --> UC6
+User --> UC7
+User --> UC8
+User --> UC9
+
+UC3 ..> UC10 : <<include>>
+UC10 ..> UC11 : <<extend>>
+UC3 ..> UC12 : <<extend>>
+UC1 ..> UC13 : <<include>>
+
+CamSvc --> UC13
+
+@enduml

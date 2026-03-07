@@ -1,0 +1,41 @@
+<mxfile host="app.diagrams.net" modified="2026-03-06T00:00:00.000Z" agent="5.0" version="22.1.2" type="device">
+  <diagram name="Sequence - Get Latest Frame (HTTP Fallback)" id="stream-seq-frame">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="800" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="Sequence Diagram: Get Latest Frame (HTTP Fallback)" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=16;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="340" y="10" width="440" height="30" as="geometry"/></mxCell>
+
+        <!-- Lifelines -->
+        <mxCell id="l1" value="User" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#E6E6E6;strokeColor=#666666;size=40;" vertex="1" parent="1"><mxGeometry x="60" y="60" width="80" height="680" as="geometry"/></mxCell>
+        <mxCell id="l2" value="Frontend" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#dae8fc;strokeColor=#6c8ebf;size=40;" vertex="1" parent="1"><mxGeometry x="210" y="60" width="90" height="680" as="geometry"/></mxCell>
+        <mxCell id="l3" value="Frame&#xa;Controller" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#fff2cc;strokeColor=#d6b656;size=40;" vertex="1" parent="1"><mxGeometry x="390" y="60" width="90" height="680" as="geometry"/></mxCell>
+        <mxCell id="l4" value="StreamSession&#xa;Repository" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#d5e8d4;strokeColor=#82b366;size=40;" vertex="1" parent="1"><mxGeometry x="570" y="60" width="100" height="680" as="geometry"/></mxCell>
+        <mxCell id="l5" value="FFmpeg&#xa;Process" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#d5e8d4;strokeColor=#82b366;size=40;" vertex="1" parent="1"><mxGeometry x="760" y="60" width="90" height="680" as="geometry"/></mxCell>
+        <mxCell id="l6" value="Camera&#xa;(RTSP)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#f8cecc;strokeColor=#b85450;size=40;" vertex="1" parent="1"><mxGeometry x="940" y="60" width="90" height="680" as="geometry"/></mxCell>
+
+        <!-- Frame: Get Latest Frame -->
+        <mxCell id="f1" value="Get Latest Frame (HTTP Snapshot Fallback)" style="shape=umlFrame;whiteSpace=wrap;html=1;width=280;height=20;boundedLbl=1;verticalAlign=top;align=left;spacingLeft=5;fillColor=none;strokeColor=#6c8ebf;fontSize=12;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="30" y="120" width="1030" height="350" as="geometry"/></mxCell>
+
+        <mxCell id="m1" value="GET /streams/{camera_id}/frame" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="100" y="160" as="sourcePoint"/><mxPoint x="255" y="160" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m2" value="getLatestFrame(camera_id)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="255" y="190" as="sourcePoint"/><mxPoint x="435" y="190" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m3" value="FindByCamera(camera_id)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="435" y="220" as="sourcePoint"/><mxPoint x="620" y="220" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m4" value="StreamSession{stream_url, status=Active}" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;rounded=0;strokeColor=#999999;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="620" y="250" as="sourcePoint"/><mxPoint x="435" y="250" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m5" value="ExtractFrame(rtsp_url)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="435" y="280" as="sourcePoint"/><mxPoint x="805" y="280" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m6" value="ffmpeg -i rtsp_url -frames:v 1 -f image2 pipe:" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="805" y="310" as="sourcePoint"/><mxPoint x="985" y="310" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m7" value="raw JPEG bytes" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;rounded=0;strokeColor=#999999;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="985" y="340" as="sourcePoint"/><mxPoint x="805" y="340" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m8" value="[]byte (JPEG)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;rounded=0;strokeColor=#999999;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="805" y="370" as="sourcePoint"/><mxPoint x="435" y="370" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m9" value="200 Content-Type: image/jpeg" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;rounded=0;strokeColor=#999999;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="435" y="400" as="sourcePoint"/><mxPoint x="255" y="400" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m10" value="Display frame in &lt;img&gt;" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;rounded=0;strokeColor=#999999;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="255" y="430" as="sourcePoint"/><mxPoint x="100" y="430" as="targetPoint"/></mxGeometry></mxCell>
+
+        <!-- ALT: Error -->
+        <mxCell id="alt1" value="ALT" style="shape=umlFrame;whiteSpace=wrap;html=1;width=30;height=16;boundedLbl=1;verticalAlign=top;align=left;spacingLeft=5;fillColor=#fff2cc;strokeColor=#d6b656;opacity=30;fontSize=11;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="30" y="500" width="1030" height="180" as="geometry"/></mxCell>
+        <mxCell id="alt1a" value="[no active stream found]" style="text;html=1;align=left;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=10;fontStyle=2;fontColor=#d32f2f;" vertex="1" parent="1"><mxGeometry x="35" y="518" width="140" height="20" as="geometry"/></mxCell>
+        <mxCell id="e1" value="404 Stream not found" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;rounded=0;strokeColor=#d32f2f;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="435" y="560" as="sourcePoint"/><mxPoint x="255" y="560" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="alt1sep" value="" style="line;strokeWidth=1;dashed=1;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="30" y="590" width="1030" height="1" as="geometry"/></mxCell>
+        <mxCell id="alt1b" value="[FFmpeg extraction fails]" style="text;html=1;align=left;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=10;fontStyle=2;fontColor=#d32f2f;" vertex="1" parent="1"><mxGeometry x="35" y="595" width="140" height="20" as="geometry"/></mxCell>
+        <mxCell id="e2" value="500 Frame extraction failed" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;rounded=0;strokeColor=#d32f2f;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="435" y="640" as="sourcePoint"/><mxPoint x="255" y="640" as="targetPoint"/></mxGeometry></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,0 +1,283 @@
+@startuml
+!theme plain
+title Figure 7.2: Class Diagram – Sprint 2 (Camera Management + Streaming + Storage)
+
+skinparam class {
+    BackgroundColor<<Domain>> #DCEEFB
+    BorderColor<<Domain>> #2196F3
+    BackgroundColor<<Application>> #FFF9C4
+    BorderColor<<Application>> #FBC02D
+    BackgroundColor<<Infrastructure>> #C8E6C9
+    BorderColor<<Infrastructure>> #4CAF50
+}
+
+' ─── Domain Layer ───
+package "<<Domain>>" {
+    ' --- Shared Camera Entity ---
+    class Camera <<Domain>> {
+        - id : UUID
+        - owner_user_id : UUID
+        - name : str
+        - stream_url : str
+        - protocol : str
+        - resolution : str
+        - fps : int
+        - encoding : str
+        - status : CameraStatus
+        - camera_type : CameraType
+        - is_active : bool
+        - location : CameraLocation
+        + create(...) : Camera
+        + mark_online() : void
+        + mark_offline() : void
+        + disable() : void
+        + enable() : void
+    }
+
+    class CameraAccess <<Domain>> {
+        - id : UUID
+        - camera_id : UUID
+        - user_id : UUID
+        - permission : CameraPermission
+    }
+
+    class Zone <<Domain>> {
+        - id : UUID
+        - camera_id : UUID
+        - name : str
+        - zone_type : ZoneType
+        - severity : ZoneSeverity
+        - points : List[ZonePoint]
+        - is_active : bool
+        + create(...) : Zone
+        + activate() : void
+        + deactivate() : void
+    }
+
+    class CameraHealth <<Domain>> {
+        - id : UUID
+        - camera_id : UUID
+        - latency_ms : int
+        - uptime_percentage : float
+    }
+
+    ' --- Streaming Entities ---
+    class StreamSession <<Domain>> {
+        - ID : string
+        - CameraID : string
+        - UserID : string
+        - Status : StreamStatus
+        - Config : StreamConfig
+        + Activate() : void
+        + Stop() : void
+    }
+
+    class ViewerSession <<Domain>> {
+        - ID : string
+        - CameraID : string
+        - UserID : string
+        - State : ViewerState
+        - SDP : string
+    }
+
+    ' --- Storage Entities ---
+    class Recording <<Domain>> {
+        - ID : string
+        - CameraID : string
+        - OwnerUserID : string
+        - FileName : string
+        - FileSize : int64
+        - DurationSecs : int
+        - Status : RecordingStatus
+        + Complete(size, duration) : void
+        + MarkFailed() : void
+    }
+
+    class CameraStorageConfig <<Domain>> {
+        - ID : string
+        - CameraID : string
+        - Enabled : bool
+        - StorageMode : StorageMode
+        - RetentionDays : int
+        - QuotaGB : float64
+        - Subscription : SubscriptionTier
+        + CanUseCloudStorage() : bool
+    }
+
+    class StorageMetrics <<Domain>> {
+        - TotalFiles : int
+        - TotalSizeGB : float64
+        - QuotaGB : float64
+        - UsagePercent : float64
+    }
+
+    enum CameraStatus <<Domain>> {
+        ONLINE
+        OFFLINE
+        DISABLED
+    }
+
+    enum StreamStatus <<Domain>> {
+        STARTING
+        ACTIVE
+        STOPPED
+        ERROR
+    }
+
+    enum RecordingStatus <<Domain>> {
+        RECORDING
+        COMPLETED
+        FAILED
+        DELETED
+    }
+
+    enum StorageMode <<Domain>> {
+        LOCAL
+        MINIO
+        AZURE
+    }
+}
+
+' ─── Application Layer ───
+package "<<Application>>" {
+    ' Camera management
+    class CreateCameraUseCase <<Application>> {
+        + execute(owner_id, name, url, ...) : Camera
+    }
+
+    class ListUserCamerasUseCase <<Application>> {
+        + execute(user_id) : List[Camera]
+    }
+
+    class CreateZoneUseCase <<Application>> {
+        + execute(camera_id, owner_id, name, ...) : Zone
+    }
+
+    class RecordHealthUseCase <<Application>> {
+        + execute(camera_id, latency, ...) : CameraHealth
+    }
+
+    ' Streaming
+    class StartStreamUseCase <<Application>> {
+        + Execute(camera_id, user_id) : StreamSessionResponse
+    }
+
+    class StopStreamUseCase <<Application>> {
+        + Execute(camera_id, user_id) : StreamSessionResponse
+    }
+
+    class NegotiateViewerUseCase <<Application>> {
+        + Execute(camera_id, sdp_offer) : WebRTCAnswerResponse
+    }
+
+    ' Storage
+    class StartRecordingUseCase <<Application>> {
+        + Execute(camera_id, owner_id, url) : Recording
+    }
+
+    class StopRecordingUseCase <<Application>> {
+        + Execute(camera_id) : Recording
+    }
+
+    class ListRecordingsUseCase <<Application>> {
+        + ByCamera(camera_id) : List[Recording]
+    }
+
+    class ManageStorageConfigUseCase <<Application>> {
+        + GetOrCreate(camera_id, owner_id) : Config
+        + Update(camera_id, updates) : Config
+    }
+}
+
+' ─── Infrastructure Layer ───
+package "<<Infrastructure>>" {
+    interface CameraRepositoryInterface <<Infrastructure>> {
+        + create(camera) : Camera
+        + get_by_id(id) : Camera
+        + get_by_owner(user_id) : List
+        + update(camera) : Camera
+        + delete(id) : void
+    }
+
+    interface ZoneRepositoryInterface <<Infrastructure>> {
+        + create(zone) : Zone
+        + get_by_camera(camera_id) : List
+        + delete(id) : void
+    }
+
+    interface StreamSessionRepository <<Infrastructure>> {
+        + Get(cameraID) : StreamSession
+        + Save(session) : void
+        + Remove(cameraID) : void
+    }
+
+    interface RecordingRepository <<Infrastructure>> {
+        + Create(recording) : void
+        + ListByCamera(cameraID) : List
+        + GetActiveByCamera(cameraID) : Recording
+    }
+
+    interface StorageBackend <<Infrastructure>> {
+        + Upload(key, reader, size) : string
+        + Download(key) : ReadCloser
+        + Delete(key) : void
+    }
+
+    class StreamManager <<Infrastructure>> {
+        + StartStream(session, camera) : void
+        + StopStream(cameraID) : void
+        + NegotiateWebRTC(cameraID, offer) : Answer
+    }
+
+    class MediaMTXClient <<Infrastructure>> {
+        + AddPath(name, source) : void
+        + RemovePath(name) : void
+        + WHEPOffer(path, sdp) : Answer
+    }
+
+    class RecordingManager <<Infrastructure>> {
+        + StartRecording(cameraID, url, config) : Recording
+        + StopRecording(cameraID) : Recording
+    }
+
+    class HTTPCameraService <<Infrastructure>> {
+        + GetCamera(cameraID, token) : Camera
+    }
+
+    class JWTHandler <<Infrastructure>> {
+        + decode_token(token) : dict
+    }
+}
+
+' ─── Relationships ───
+Camera --> CameraStatus : has
+Camera "1" *-- "0..*" CameraAccess : grants >
+Camera "1" *-- "0..*" Zone : contains >
+Camera "1" *-- "0..*" CameraHealth : monitored by >
+Camera "1" --> "0..*" StreamSession : streamed via >
+Camera "1" --> "0..*" Recording : recorded as >
+Camera "1" *-- "0..1" CameraStorageConfig : configured by >
+StreamSession --> StreamStatus : has
+StreamSession "1" --> "0..*" ViewerSession : watched by >
+Recording --> RecordingStatus : has
+CameraStorageConfig --> StorageMode : uses
+
+' Cross-service
+StartStreamUseCase ..> HTTPCameraService : fetches camera
+StartRecordingUseCase ..> HTTPCameraService : fetches camera
+
+CreateCameraUseCase ..> CameraRepositoryInterface : uses
+CreateZoneUseCase ..> ZoneRepositoryInterface : uses
+StartStreamUseCase ..> StreamManager : uses
+NegotiateViewerUseCase ..> StreamManager : uses
+StreamManager --> MediaMTXClient : delegates to
+StartRecordingUseCase ..> RecordingManager : uses
+RecordingManager --> StorageBackend : writes to
+
+note bottom of HTTPCameraService
+  Streaming & Storage services call
+  Camera Management via REST API
+  to fetch camera metadata
+end note
+
+@enduml

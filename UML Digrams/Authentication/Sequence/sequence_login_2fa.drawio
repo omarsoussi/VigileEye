@@ -1,0 +1,216 @@
+<mxfile host="app.diagrams.net" modified="2026-03-06T00:00:00.000Z" agent="5.0" version="22.1.2" type="device">
+  <diagram name="Figure 1.3b - Sequence - Login with 2FA" id="auth-seq-login">
+    <mxGraphModel dx="1422" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- Title -->
+        <mxCell id="title" value="Figure 1.3b: Sequence Diagram – Login with 2FA (OTP)" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="280" y="10" width="440" height="30" as="geometry"/>
+        </mxCell>
+
+        <!-- Lifelines -->
+        <mxCell id="ll_user" value="User" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;fillColor=#E8F4FD;strokeColor=#2196F3;" vertex="1" parent="1">
+          <mxGeometry x="40" y="50" width="80" height="900" as="geometry"/>
+        </mxCell>
+        <mxCell id="ll_fe" value="Frontend" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;fillColor=#E8F4FD;strokeColor=#2196F3;" vertex="1" parent="1">
+          <mxGeometry x="180" y="50" width="80" height="900" as="geometry"/>
+        </mxCell>
+        <mxCell id="ll_ac" value="AuthController" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;fillColor=#E8F4FD;strokeColor=#2196F3;" vertex="1" parent="1">
+          <mxGeometry x="340" y="50" width="100" height="900" as="geometry"/>
+        </mxCell>
+        <mxCell id="ll_as" value="AuthService" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;fillColor=#E8F4FD;strokeColor=#2196F3;" vertex="1" parent="1">
+          <mxGeometry x="510" y="50" width="100" height="900" as="geometry"/>
+        </mxCell>
+        <mxCell id="ll_ur" value="UserRepository" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;fillColor=#E8F4FD;strokeColor=#2196F3;" vertex="1" parent="1">
+          <mxGeometry x="680" y="50" width="100" height="900" as="geometry"/>
+        </mxCell>
+        <mxCell id="ll_or" value="OTPRepository" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;fillColor=#E8F4FD;strokeColor=#2196F3;" vertex="1" parent="1">
+          <mxGeometry x="850" y="50" width="100" height="900" as="geometry"/>
+        </mxCell>
+        <mxCell id="ll_es" value="EmailSender" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=40;fillColor=#E8F4FD;strokeColor=#2196F3;" vertex="1" parent="1">
+          <mxGeometry x="1020" y="50" width="80" height="900" as="geometry"/>
+        </mxCell>
+
+        <!-- Step 1: Submit credentials -->
+        <mxCell id="m1" value="1. Enter email &amp; password" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="80" y="120" as="sourcePoint"/>
+            <mxPoint x="220" y="120" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m2" value="POST /api/auth/login" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="220" y="150" as="sourcePoint"/>
+            <mxPoint x="390" y="150" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m3" value="login(email, password)" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="390" y="180" as="sourcePoint"/>
+            <mxPoint x="560" y="180" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m4" value="get_by_email(email)" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="560" y="210" as="sourcePoint"/>
+            <mxPoint x="730" y="210" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m5" value="user" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="730" y="235" as="sourcePoint"/>
+            <mxPoint x="560" y="235" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ALT: Account Locked -->
+        <mxCell id="alt_frame" value="alt" style="shape=umlFrame;whiteSpace=wrap;html=1;width=40;height=20;fillColor=none;strokeColor=#d32f2f;fontSize=11;fontStyle=1;fontColor=#d32f2f;" vertex="1" parent="1">
+          <mxGeometry x="170" y="260" width="960" height="640" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="alt_locked" value="[Account Locked]" style="text;html=1;align=left;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=10;fontStyle=2;fontColor=#d32f2f;" vertex="1" parent="1">
+          <mxGeometry x="180" y="278" width="110" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="m6a" value="403 Account locked until {time}" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;fontSize=10;strokeColor=#d32f2f;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="560" y="310" as="sourcePoint"/>
+            <mxPoint x="220" y="310" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m6b" value="Error: Account locked" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;fontSize=10;strokeColor=#d32f2f;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="220" y="335" as="sourcePoint"/>
+            <mxPoint x="80" y="335" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Separator line -->
+        <mxCell id="sep1" value="" style="line;strokeWidth=1;html=1;dashed=1;strokeColor=#999999;" vertex="1" parent="1">
+          <mxGeometry x="175" y="358" width="950" height="2" as="geometry"/>
+        </mxCell>
+        <mxCell id="alt_valid" value="[Valid Credentials]" style="text;html=1;align=left;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=10;fontStyle=2;fontColor=#2e7d32;" vertex="1" parent="1">
+          <mxGeometry x="180" y="360" width="120" height="25" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="m7" value="verify password hash ✓" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="560" y="395" as="sourcePoint"/>
+            <mxPoint x="610" y="395" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m8" value="create(otp{purpose=2fa})" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="560" y="420" as="sourcePoint"/>
+            <mxPoint x="900" y="420" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m9" value="send_otp_email(email, code, &quot;2fa&quot;)" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="560" y="450" as="sourcePoint"/>
+            <mxPoint x="1060" y="450" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m10" value="200 &quot;OTP sent to email&quot;" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="390" y="480" as="sourcePoint"/>
+            <mxPoint x="220" y="480" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m11" value="&quot;Enter OTP from email&quot;" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="220" y="500" as="sourcePoint"/>
+            <mxPoint x="80" y="500" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Step 2: Confirm OTP -->
+        <mxCell id="m12" value="2. Enter OTP code" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="80" y="540" as="sourcePoint"/>
+            <mxPoint x="220" y="540" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m13" value="POST /api/auth/login/confirm" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="220" y="565" as="sourcePoint"/>
+            <mxPoint x="390" y="565" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m14" value="confirm_login(email, otp_code)" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="390" y="590" as="sourcePoint"/>
+            <mxPoint x="560" y="590" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m15" value="get_latest(user_id, &quot;2fa&quot;)" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="560" y="620" as="sourcePoint"/>
+            <mxPoint x="900" y="620" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m16" value="otp" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="900" y="645" as="sourcePoint"/>
+            <mxPoint x="560" y="645" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m17" value="validate OTP + mark_used()" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="560" y="670" as="sourcePoint"/>
+            <mxPoint x="610" y="670" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m18" value="generate JWT (access + refresh tokens)" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="560" y="700" as="sourcePoint"/>
+            <mxPoint x="610" y="700" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m19" value="TokenResponse{access_token, refresh_token}" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="560" y="730" as="sourcePoint"/>
+            <mxPoint x="220" y="730" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m20" value="Logged in ✓" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="220" y="755" as="sourcePoint"/>
+            <mxPoint x="80" y="755" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Separator line 2 -->
+        <mxCell id="sep2" value="" style="line;strokeWidth=1;html=1;dashed=1;strokeColor=#999999;" vertex="1" parent="1">
+          <mxGeometry x="175" y="780" width="950" height="2" as="geometry"/>
+        </mxCell>
+        <mxCell id="alt_invalid" value="[Invalid Password]" style="text;html=1;align=left;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=10;fontStyle=2;fontColor=#d32f2f;" vertex="1" parent="1">
+          <mxGeometry x="180" y="782" width="120" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="m21" value="increment_failed_attempts()" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;fontSize=10;strokeColor=#d32f2f;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="560" y="815" as="sourcePoint"/>
+            <mxPoint x="730" y="815" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m22" value="opt [max attempts reached] → lock_account(60 min)" style="text;html=1;align=left;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=9;fontStyle=2;fontColor=#d32f2f;" vertex="1" parent="1">
+          <mxGeometry x="560" y="835" width="280" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="m23" value="401 Invalid credentials" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;fontSize=10;strokeColor=#d32f2f;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="560" y="870" as="sourcePoint"/>
+            <mxPoint x="220" y="870" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m24" value="&quot;Invalid credentials&quot;" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;curved=0;rounded=0;fontSize=10;strokeColor=#d32f2f;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="220" y="890" as="sourcePoint"/>
+            <mxPoint x="80" y="890" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

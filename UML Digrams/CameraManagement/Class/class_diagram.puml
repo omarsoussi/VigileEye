@@ -1,0 +1,271 @@
+@startuml
+!theme plain
+title Figure 3.2: Class Diagram – Camera Management Service
+
+skinparam class {
+    BackgroundColor<<Domain>> #DCEEFB
+    BorderColor<<Domain>> #2196F3
+    BackgroundColor<<Application>> #FFF9C4
+    BorderColor<<Application>> #FBC02D
+    BackgroundColor<<Infrastructure>> #C8E6C9
+    BorderColor<<Infrastructure>> #4CAF50
+}
+
+' ─── Domain Layer ───
+package "<<Domain>>" {
+    class Camera <<Domain>> {
+        - id : UUID
+        - owner_user_id : UUID
+        - name : str
+        - description : str
+        - stream_url : str
+        - protocol : str
+        - username : str
+        - password : str
+        - resolution : str
+        - fps : int
+        - encoding : str
+        - status : CameraStatus
+        - camera_type : CameraType
+        - is_active : bool
+        - location : CameraLocation
+        - last_heartbeat : datetime
+        - created_at : datetime
+        - updated_at : datetime
+        + create(owner_id, name, ...) : Camera
+        + disable() : void
+        + enable() : void
+        + mark_online() : void
+        + mark_offline() : void
+        + update_config(...) : void
+    }
+
+    class CameraLocation <<Domain>> {
+        - building : str
+        - floor : str
+        - zone : str
+        - room : str
+        - gps_lat : float
+        - gps_long : float
+    }
+
+    class CameraAccess <<Domain>> {
+        - id : UUID
+        - camera_id : UUID
+        - user_id : UUID
+        - permission : CameraPermission
+        - granted_at : datetime
+        + create(camera_id, user_id, permission) : CameraAccess
+    }
+
+    class CameraHealth <<Domain>> {
+        - id : UUID
+        - camera_id : UUID
+        - last_heartbeat : datetime
+        - latency_ms : int
+        - frame_drop_rate : float
+        - uptime_percentage : float
+        - recorded_at : datetime
+        + create(camera_id, latency, ...) : CameraHealth
+    }
+
+    class Zone <<Domain>> {
+        - id : UUID
+        - camera_id : UUID
+        - owner_user_id : UUID
+        - name : str
+        - zone_type : ZoneType
+        - severity : ZoneSeverity
+        - points : List[ZonePoint]
+        - color : str
+        - is_active : bool
+        - sensitivity : int
+        - min_trigger_duration : int
+        - alert_cooldown : int
+        - schedule_enabled : bool
+        + create(camera_id, ...) : Zone
+        + update(**kwargs) : void
+        + activate() : void
+        + deactivate() : void
+    }
+
+    class ZonePoint <<Domain>> {
+        - x : float
+        - y : float
+    }
+
+    enum CameraStatus <<Domain>> {
+        ONLINE
+        OFFLINE
+        DISABLED
+    }
+
+    enum CameraType <<Domain>> {
+        INDOOR
+        OUTDOOR
+        THERMAL
+        FISHEYE
+        PTZ
+    }
+
+    enum CameraPermission <<Domain>> {
+        VIEW
+        MANAGE
+    }
+
+    enum ZoneType <<Domain>> {
+        INTRUSION
+        MOTION
+        LOITERING
+        LINE_CROSS
+        CROWD
+        RESTRICTED
+        COUNTING
+    }
+
+    enum ZoneSeverity <<Domain>> {
+        LOW
+        MEDIUM
+        HIGH
+        CRITICAL
+    }
+}
+
+' ─── Application Layer ───
+package "<<Application>>" {
+    class CreateCameraUseCase <<Application>> {
+        + execute(owner_id, name, stream_url, ...) : Camera
+    }
+
+    class ListUserCamerasUseCase <<Application>> {
+        + execute(user_id, token?) : List[Camera]
+    }
+
+    class GetCameraUseCase <<Application>> {
+        + execute(camera_id, user_id, token?) : Camera
+    }
+
+    class UpdateCameraUseCase <<Application>> {
+        + execute(camera_id, user_id, ...) : Camera
+    }
+
+    class DeleteCameraUseCase <<Application>> {
+        + execute(camera_id, user_id) : void
+    }
+
+    class EnableCameraUseCase <<Application>> {
+        + execute(camera_id, user_id) : Camera
+    }
+
+    class DisableCameraUseCase <<Application>> {
+        + execute(camera_id, user_id) : Camera
+    }
+
+    class RecordHealthUseCase <<Application>> {
+        + execute(camera_id, latency, ...) : CameraHealth
+    }
+
+    class CreateZoneUseCase <<Application>> {
+        + execute(camera_id, owner_id, name, ...) : Zone
+    }
+
+    class UpdateZoneUseCase <<Application>> {
+        + execute(zone_id, user_id, ...) : Zone
+    }
+
+    class DeleteZoneUseCase <<Application>> {
+        + execute(zone_id, user_id) : void
+    }
+
+    class CreateCameraRequest <<Application>> {
+        + name : str
+        + stream_url : str
+        + protocol : str
+        + resolution : str
+        + fps : int
+        + encoding : str
+        + camera_type : CameraType
+    }
+
+    class CameraResponse <<Application>> {
+        + id : str
+        + name : str
+        + stream_url : str
+        + status : str
+        + is_active : bool
+    }
+}
+
+' ─── Infrastructure Layer ───
+package "<<Infrastructure>>" {
+    interface CameraRepositoryInterface <<Infrastructure>> {
+        + create(camera) : Camera
+        + get_by_id(id) : Camera
+        + get_by_owner(user_id) : List
+        + update(camera) : Camera
+        + delete(id) : void
+        + get_by_ids(ids) : List
+    }
+
+    interface CameraAccessRepositoryInterface <<Infrastructure>> {
+        + grant_access(access) : CameraAccess
+        + revoke_access(camera_id, user_id) : void
+        + get_access(camera_id, user_id) : CameraAccess
+        + list_camera_users(camera_id) : List
+    }
+
+    interface CameraHealthRepositoryInterface <<Infrastructure>> {
+        + record_health(health) : CameraHealth
+        + get_latest_health(camera_id) : CameraHealth
+        + get_health_history(camera_id, limit) : List
+    }
+
+    interface ZoneRepositoryInterface <<Infrastructure>> {
+        + create(zone) : Zone
+        + get_by_id(id) : Zone
+        + get_by_camera(camera_id) : List
+        + update(zone) : Zone
+        + delete(id) : void
+    }
+
+    class SQLAlchemyCameraRepository <<Infrastructure>> {
+    }
+
+    class SQLAlchemyZoneRepository <<Infrastructure>> {
+    }
+
+    class MembershipsClient <<Infrastructure>> {
+        + get_membership_permission(token, camera_id) : str
+        + fetch_my_memberships(token) : List
+    }
+
+    class JWTHandler <<Infrastructure>> {
+        + decode_token(token) : dict
+    }
+}
+
+' ─── Relationships ───
+Camera --> CameraStatus : has
+Camera --> CameraType : has
+Camera "1" *-- "0..1" CameraLocation : located at >
+Camera "1" *-- "0..*" CameraAccess : grants >
+Camera "1" *-- "0..*" CameraHealth : monitored by >
+Camera "1" *-- "0..*" Zone : contains >
+CameraAccess --> CameraPermission : has
+Zone "1" *-- "3..*" ZonePoint : defined by >
+Zone --> ZoneType : categorized as
+Zone --> ZoneSeverity : rated
+
+CreateCameraUseCase ..> CameraRepositoryInterface : uses
+ListUserCamerasUseCase ..> CameraRepositoryInterface : uses
+ListUserCamerasUseCase ..> MembershipsClient : uses
+GetCameraUseCase ..> CameraRepositoryInterface : uses
+RecordHealthUseCase ..> CameraRepositoryInterface : uses
+RecordHealthUseCase ..> CameraHealthRepositoryInterface : uses
+CreateZoneUseCase ..> ZoneRepositoryInterface : uses
+CreateZoneUseCase ..> CameraAccessRepositoryInterface : uses
+
+SQLAlchemyCameraRepository ..|> CameraRepositoryInterface : implements
+SQLAlchemyZoneRepository ..|> ZoneRepositoryInterface : implements
+
+@enduml

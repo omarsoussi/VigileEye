@@ -1,0 +1,253 @@
+@startuml
+!theme plain
+title Figure 5.2: Class Diagram – Storage Service
+
+skinparam class {
+    BackgroundColor<<Domain>> #DCEEFB
+    BorderColor<<Domain>> #2196F3
+    BackgroundColor<<Application>> #FFF9C4
+    BorderColor<<Application>> #FBC02D
+    BackgroundColor<<Infrastructure>> #C8E6C9
+    BorderColor<<Infrastructure>> #4CAF50
+}
+
+' ─── Domain Layer ───
+package "<<Domain>>" {
+    class Camera <<Domain>> {
+        - ID : string
+        - OwnerUserID : string
+        - Name : string
+        - StreamURL : string
+        - Protocol : string
+        - Resolution : string
+        - FPS : int
+        - Status : string
+        - IsActive : bool
+    }
+
+    class Recording <<Domain>> {
+        - ID : string
+        - CameraID : string
+        - OwnerUserID : string
+        - FileName : string
+        - FilePath : string
+        - FileSize : int64
+        - DurationSecs : int
+        - Resolution : string
+        - Bitrate : int
+        - Codec : string
+        - Format : string
+        - ThumbnailPath : string
+        - StorageMode : string
+        - Status : RecordingStatus
+        - StartedAt : time.Time
+        - EndedAt : time.Time
+        + NewRecording(cameraID, ownerID, mode) : Recording
+        + Complete(fileSize, duration) : void
+        + MarkFailed() : void
+        + MarkDeleted() : void
+        + IsActive() : bool
+    }
+
+    class CameraStorageConfig <<Domain>> {
+        - ID : string
+        - CameraID : string
+        - OwnerUserID : string
+        - Enabled : bool
+        - StorageMode : StorageMode
+        - RetentionDays : int
+        - QuotaGB : float64
+        - Bitrate : int
+        - Resolution : string
+        - SegmentMinutes : int
+        - Subscription : SubscriptionTier
+        + NewCameraStorageConfig(cameraID, ownerID) : Config
+        + CanUseCloudStorage() : bool
+        + Update(mode, retention, ...) : void
+    }
+
+    class StorageMetrics <<Domain>> {
+        - CameraID : string
+        - OwnerUserID : string
+        - TotalFiles : int
+        - TotalSizeBytes : int64
+        - TotalSizeGB : float64
+        - QuotaGB : float64
+        - UsagePercent : float64
+    }
+
+    class DownloadToken <<Domain>> {
+        - Token : string
+        - RecordID : string
+        - UserID : string
+        - ExpiresAt : time.Time
+    }
+
+    enum RecordingStatus <<Domain>> {
+        RECORDING
+        COMPLETED
+        UPLOADING
+        FAILED
+        DELETED
+    }
+
+    enum StorageMode <<Domain>> {
+        LOCAL
+        MINIO
+        AZURE
+    }
+
+    enum SubscriptionTier <<Domain>> {
+        FREE
+        PRO
+    }
+}
+
+' ─── Application Layer ───
+package "<<Application>>" {
+    class StartRecordingUseCase <<Application>> {
+        + Execute(input: StartRecordingInput) : Recording
+    }
+
+    class StopRecordingUseCase <<Application>> {
+        + Execute(cameraID, userID, token) : Recording
+    }
+
+    class ListRecordingsUseCase <<Application>> {
+        + ByCamera(cameraID, limit, offset) : List[Recording]
+        + ByUser(userID, limit, offset) : List[Recording]
+    }
+
+    class GetStorageMetricsUseCase <<Application>> {
+        + ForCamera(cameraID, userID) : StorageMetrics
+        + ForUser(userID) : StorageMetrics
+    }
+
+    class ManageStorageConfigUseCase <<Application>> {
+        + GetOrCreate(cameraID, ownerID) : Config
+        + Update(cameraID, ownerID, updates) : Config
+        + ListByUser(userID) : List[Config]
+        + UpdateSubscription(userID, tier) : void
+    }
+
+    class StartRecordingInput <<Application>> {
+        + CameraID : string
+        + OwnerUserID : string
+        + StreamURL : string
+        + Token : string
+    }
+
+    class RecordingResponse <<Application>> {
+        + ID : string
+        + CameraID : string
+        + FileName : string
+        + FileSize : int64
+        + DurationSecs : int
+        + Status : string
+    }
+
+    class StorageConfigResponse <<Application>> {
+        + CameraID : string
+        + Enabled : bool
+        + StorageMode : string
+        + RetentionDays : int
+        + QuotaGB : float64
+        + Subscription : string
+    }
+}
+
+' ─── Infrastructure Layer ───
+package "<<Infrastructure>>" {
+    interface RecordingRepository <<Infrastructure>> {
+        + Create(recording) : void
+        + GetByID(id) : Recording
+        + Update(recording) : void
+        + Delete(id) : void
+        + ListByCamera(cameraID, limit, offset) : List
+        + ListByUser(userID, limit, offset) : List
+        + GetActiveByCamera(cameraID) : Recording
+        + GetTotalSizeByCamera(cameraID) : int64
+        + DeleteOlderThan(cameraID, before) : int
+    }
+
+    interface StorageConfigRepository <<Infrastructure>> {
+        + Create(config) : void
+        + GetByCamera(cameraID) : Config
+        + Update(config) : void
+        + ListByUser(userID) : List
+        + ListEnabled() : List
+    }
+
+    interface StorageBackend <<Infrastructure>> {
+        + Upload(key, reader, size, contentType) : string
+        + Download(key) : ReadCloser
+        + Delete(key) : void
+        + GetSignedURL(key, duration) : string
+        + StreamRange(key, start, end) : ReadCloser
+        + Mode() : string
+    }
+
+    interface RecordingService <<Infrastructure>> {
+        + StartRecording(cameraID, ownerID, streamURL, config) : Recording
+        + StopRecording(cameraID) : Recording
+        + IsRecording(cameraID) : bool
+        + GetActiveRecordings() : List[Recording]
+    }
+
+    interface CameraService <<Infrastructure>> {
+        + GetCamera(cameraID, token) : Camera
+        + GetCamerasForUser(userID, token) : List[Camera]
+    }
+
+    class RecordingManager <<Infrastructure>> {
+        + StartRecording(ctx, cameraID, ownerID, url, config) : Recording
+        + StopRecording(ctx, cameraID) : Recording
+        + StopAll() : void
+        + IsRecording(cameraID) : bool
+    }
+
+    class RetentionEnforcer <<Infrastructure>> {
+        + EnforceRetention(ctx, config) : int
+        + RunScheduled(ctx, interval) : void
+    }
+
+    class LocalFSBackend <<Infrastructure>> {
+    }
+
+    class MinIOBackend <<Infrastructure>> {
+    }
+
+    class AzureBlobBackend <<Infrastructure>> {
+    }
+
+    class JWTAuthService <<Infrastructure>> {
+        + ValidateToken(token) : AuthPayload
+        + GenerateDownloadToken(recordID, userID, duration) : string
+    }
+}
+
+' ─── Relationships ───
+Recording --> RecordingStatus : has
+CameraStorageConfig --> StorageMode : uses
+CameraStorageConfig --> SubscriptionTier : has
+Camera "1" *-- "0..*" Recording : produces >
+Camera "1" *-- "0..1" CameraStorageConfig : configured by >
+
+StartRecordingUseCase ..> RecordingRepository : uses
+StartRecordingUseCase ..> StorageConfigRepository : uses
+StartRecordingUseCase ..> CameraService : uses
+StartRecordingUseCase ..> RecordingManager : uses
+StopRecordingUseCase ..> RecordingManager : uses
+ListRecordingsUseCase ..> RecordingRepository : uses
+GetStorageMetricsUseCase ..> RecordingRepository : uses
+ManageStorageConfigUseCase ..> StorageConfigRepository : uses
+
+RecordingManager ..|> RecordingService : implements
+RecordingManager --> StorageBackend : writes to
+RetentionEnforcer ..> RecordingRepository : uses
+RetentionEnforcer ..> StorageBackend : deletes from
+LocalFSBackend ..|> StorageBackend : implements
+MinIOBackend ..|> StorageBackend : implements
+AzureBlobBackend ..|> StorageBackend : implements
+
+@enduml

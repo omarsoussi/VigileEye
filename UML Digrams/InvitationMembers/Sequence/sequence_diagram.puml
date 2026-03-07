@@ -1,0 +1,84 @@
+@startuml
+!theme plain
+title Figure 2.3: Sequence Diagram – Members Invitation Service
+
+skinparam participant {
+    BackgroundColor #E8F4FD
+    BorderColor #2196F3
+}
+
+actor "Owner" as O
+actor "Invited Member" as M
+participant "Frontend" as FE
+participant "InvitationController" as IC
+participant "InvitationService" as IS
+participant "InvitationRepository" as IR
+participant "MembershipRepository" as MR
+participant "EmailSender" as ES
+database "PostgreSQL" as DB
+
+== Create Invitation ==
+O -> FE : Select cameras + enter invitee email
+FE -> IC : POST /api/invitations
+IC -> IS : create_invitation(inviter_id, email, permission, camera_ids)
+IS -> IR : get_by_email(email)
+IR -> DB : SELECT * FROM invitations WHERE email = ?
+DB --> IR : null (no duplicate)
+IS -> IS : generate approval code (OTP)
+IS -> IS : hash approval code
+IS -> IR : create(invitation)
+IR -> DB : INSERT INTO invitations
+DB --> IR : invitation
+IS -> ES : send_invitation_code(email, code)
+ES --> IS : sent
+IS --> IC : InvitationResponse
+IC --> FE : 201 Created
+FE --> O : "Invitation sent"
+
+== Accept Invitation ==
+M -> FE : Enter approval code
+FE -> IC : POST /api/invitations/{id}/accept
+IC -> IS : accept_invitation(invitation_id, approval_code)
+IS -> IR : get_by_id(invitation_id)
+IR -> DB : SELECT * FROM invitations WHERE id = ?
+DB --> IR : invitation
+alt Code Expired
+    IS --> IC : 400 Code expired
+    IC --> FE : Error
+else Invalid Code
+    IS -> IS : verify(code, hash)
+    IS --> IC : 400 Invalid code
+    IC --> FE : Error
+else Valid Code
+    IS -> IS : verify(code, hash) ✓
+    IS -> IR : update(invitation → ACCEPTED)
+    IR -> DB : UPDATE invitations SET status = 'ACCEPTED'
+    IS -> MR : create(membership)
+    MR -> DB : INSERT INTO memberships
+    DB --> MR : membership
+    IS --> IC : MembershipResponse
+    IC --> FE : 200 OK
+    FE --> M : "Invitation accepted"
+end
+
+== Create Group & Bulk Invite ==
+O -> FE : Create group with members
+FE -> IC : POST /api/groups
+IC -> IS : create_group(owner_id, name, camera_ids)
+IS -> DB : INSERT INTO groups
+DB --> IS : group
+IS --> IC : GroupResponse
+IC --> FE : 201 Created
+
+FE -> IC : POST /api/groups/{id}/members/bulk
+IC -> IS : bulk_invite(group_id, members[])
+loop For each member
+    IS -> IS : generate approval code
+    IS -> DB : INSERT INTO group_members
+    IS -> ES : send_group_invitation_code(email, group_name, code)
+end
+IS --> IC : BulkInviteResponse
+IC --> FE : 200 OK
+FE --> O : "Members invited"
+
+@enduml

@@ -1,0 +1,58 @@
+<mxfile host="app.diagrams.net" modified="2026-03-06T00:00:00.000Z" agent="5.0" version="22.1.2" type="device">
+  <diagram name="Sequence – Accept / Decline Invitation" id="inv-seq2">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <mxCell id="title" value="Sequence: Accept / Decline Invitation" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=16;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="400" y="10" width="360" height="30" as="geometry"/></mxCell>
+
+        <!-- Lifelines -->
+        <mxCell id="ll1" value="Invited Member" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=40;fillColor=#E6E6E6;strokeColor=#666666;" vertex="1" parent="1"><mxGeometry x="60" y="60" width="100" height="900" as="geometry"/></mxCell>
+        <mxCell id="ll2" value="Frontend" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=40;fillColor=#E6E6E6;strokeColor=#666666;" vertex="1" parent="1"><mxGeometry x="230" y="60" width="100" height="900" as="geometry"/></mxCell>
+        <mxCell id="ll3" value="InvitationController" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=40;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="400" y="60" width="120" height="900" as="geometry"/></mxCell>
+        <mxCell id="ll4" value="AcceptInvitation\nUseCase" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=40;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="590" y="60" width="120" height="900" as="geometry"/></mxCell>
+        <mxCell id="ll5" value="InvitationRepository" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=40;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="780" y="60" width="120" height="900" as="geometry"/></mxCell>
+        <mxCell id="ll6" value="PasswordHasher" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=40;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="960" y="60" width="110" height="900" as="geometry"/></mxCell>
+        <mxCell id="ll7" value="MembershipRepository" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=40;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="1130" y="60" width="130" height="900" as="geometry"/></mxCell>
+
+        <!-- FRAME: Accept -->
+        <mxCell id="f1" value="Accept Invitation" style="shape=umlFrame;whiteSpace=wrap;html=1;width=130;height=25;fillColor=none;strokeColor=#333333;" vertex="1" parent="1"><mxGeometry x="40" y="120" width="1240" height="460" as="geometry"/></mxCell>
+
+        <mxCell id="m1" value="1: Enter approval code" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="110" y="160" as="sourcePoint"/><mxPoint x="280" y="160" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m2" value="2: POST /invitations/{id}/accept {code}" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="280" y="190" as="sourcePoint"/><mxPoint x="460" y="190" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m3" value="3: execute(invitation_id, code)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="460" y="220" as="sourcePoint"/><mxPoint x="650" y="220" as="targetPoint"/></mxGeometry></mxCell>
+
+        <mxCell id="m4" value="4: get_by_id(invitation_id)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="650" y="250" as="sourcePoint"/><mxPoint x="840" y="250" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m4r" value="Invitation" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;strokeColor=#999999;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="840" y="275" as="sourcePoint"/><mxPoint x="650" y="275" as="targetPoint"/></mxGeometry></mxCell>
+
+        <!-- ALT: expired -->
+        <mxCell id="alt1" value="alt" style="shape=umlFrame;whiteSpace=wrap;html=1;width=40;height=20;fillColor=none;strokeColor=#d32f2f;fontColor=#d32f2f;" vertex="1" parent="1"><mxGeometry x="580" y="290" width="500" height="55" as="geometry"/></mxCell>
+        <mxCell id="alt1l" value="[Code expired or status != PENDING]" style="text;html=1;align=left;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=10;fontColor=#d32f2f;" vertex="1" parent="1"><mxGeometry x="630" y="290" width="200" height="25" as="geometry"/></mxCell>
+        <mxCell id="m5err" value="raise InvalidInvitationException" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;strokeColor=#d32f2f;fontColor=#d32f2f;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="650" y="325" as="sourcePoint"/><mxPoint x="460" y="325" as="targetPoint"/></mxGeometry></mxCell>
+
+        <mxCell id="m5" value="5: verify(code, approval_code_hash)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="650" y="370" as="sourcePoint"/><mxPoint x="1015" y="370" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m5r" value="true / false" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;strokeColor=#999999;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="1015" y="395" as="sourcePoint"/><mxPoint x="650" y="395" as="targetPoint"/></mxGeometry></mxCell>
+
+        <!-- ALT: bad code -->
+        <mxCell id="alt2" value="alt" style="shape=umlFrame;whiteSpace=wrap;html=1;width=40;height=20;fillColor=none;strokeColor=#d32f2f;fontColor=#d32f2f;" vertex="1" parent="1"><mxGeometry x="580" y="405" width="500" height="55" as="geometry"/></mxCell>
+        <mxCell id="alt2l" value="[Code does not match]" style="text;html=1;align=left;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=10;fontColor=#d32f2f;" vertex="1" parent="1"><mxGeometry x="630" y="405" width="140" height="25" as="geometry"/></mxCell>
+        <mxCell id="m6err" value="raise InvalidCodeException" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;strokeColor=#d32f2f;fontColor=#d32f2f;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="650" y="440" as="sourcePoint"/><mxPoint x="460" y="440" as="targetPoint"/></mxGeometry></mxCell>
+
+        <mxCell id="m6" value="6: invitation.accept() → status = ACCEPTED" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="650" y="480" as="sourcePoint"/><mxPoint x="840" y="480" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m6r1" value="update(invitation)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;strokeColor=#999999;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="840" y="505" as="sourcePoint"/><mxPoint x="650" y="505" as="targetPoint"/></mxGeometry></mxCell>
+
+        <mxCell id="m7" value="7: create(Membership entity)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="650" y="530" as="sourcePoint"/><mxPoint x="1195" y="530" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m7r" value="Membership" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;strokeColor=#999999;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="1195" y="555" as="sourcePoint"/><mxPoint x="650" y="555" as="targetPoint"/></mxGeometry></mxCell>
+
+        <!-- FRAME: Decline -->
+        <mxCell id="f2" value="Decline Invitation" style="shape=umlFrame;whiteSpace=wrap;html=1;width=130;height=25;fillColor=none;strokeColor=#333333;" vertex="1" parent="1"><mxGeometry x="40" y="610" width="1240" height="200" as="geometry"/></mxCell>
+        <mxCell id="m8" value="1: Click Decline" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="110" y="660" as="sourcePoint"/><mxPoint x="280" y="660" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m9" value="2: POST /invitations/{id}/decline" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="280" y="690" as="sourcePoint"/><mxPoint x="460" y="690" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m10" value="3: execute(invitation_id, user_id)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="460" y="720" as="sourcePoint"/><mxPoint x="650" y="720" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m11" value="4: invitation.decline() → update(invitation)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="650" y="750" as="sourcePoint"/><mxPoint x="840" y="750" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m11r" value="updated Invitation" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;strokeColor=#999999;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="840" y="775" as="sourcePoint"/><mxPoint x="650" y="775" as="targetPoint"/></mxGeometry></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

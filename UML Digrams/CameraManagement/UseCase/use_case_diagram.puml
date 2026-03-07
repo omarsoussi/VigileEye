@@ -1,0 +1,75 @@
+@startuml
+!theme plain
+title Figure 3.1: Use Case Diagram – Camera Management Service
+
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam usecase {
+    BackgroundColor #E8F4FD
+    BorderColor #2196F3
+}
+
+left to right direction
+
+actor "Camera Owner" as Owner
+actor "Shared Member" as Member
+
+rectangle "Camera Management Service" {
+    ' ─── Camera CRUD ───
+    usecase "Register Camera" as UC1
+    usecase "List My Cameras" as UC2
+    usecase "View Camera Details" as UC3
+    usecase "Update Camera Config" as UC4
+    usecase "Delete Camera" as UC5
+    usecase "Enable Camera" as UC6
+    usecase "Disable Camera" as UC7
+
+    ' ─── Health Monitoring ───
+    usecase "Record Camera Health" as UC8
+    usecase "View Camera Health" as UC9
+
+    ' ─── Access Control ───
+    usecase "Grant Camera Access" as UC10
+    usecase "Revoke Camera Access" as UC11
+
+    ' ─── Detection Zones ───
+    usecase "Create Detection Zone" as UC12
+    usecase "Update Detection Zone" as UC13
+    usecase "Delete Detection Zone" as UC14
+    usecase "List Camera Zones" as UC15
+    usecase "Toggle Zone Active" as UC16
+
+    ' ─── Internal ───
+    usecase "Auto-detect Protocol" as UC17
+    usecase "Verify Ownership" as UC18
+}
+
+Owner --> UC1
+Owner --> UC2
+Owner --> UC3
+Owner --> UC4
+Owner --> UC5
+Owner --> UC6
+Owner --> UC7
+Owner --> UC8
+Owner --> UC9
+Owner --> UC10
+Owner --> UC11
+Owner --> UC12
+Owner --> UC13
+Owner --> UC14
+Owner --> UC15
+Owner --> UC16
+
+Member --> UC2
+Member --> UC3
+Member --> UC15
+
+UC1 ..> UC17 : <<include>>
+UC4 ..> UC18 : <<include>>
+UC5 ..> UC18 : <<include>>
+UC12 ..> UC18 : <<include>>
+UC13 ..> UC18 : <<include>>
+UC14 ..> UC18 : <<include>>
+
+@enduml

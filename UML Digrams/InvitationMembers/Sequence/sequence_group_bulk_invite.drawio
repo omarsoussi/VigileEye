@@ -1,0 +1,61 @@
+<mxfile host="app.diagrams.net" modified="2026-03-06T00:00:00.000Z" agent="5.0" version="22.1.2" type="device">
+  <diagram name="Sequence – Group Creation &amp; Bulk Invite" id="inv-seq3">
+    <mxGraphModel dx="1500" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <mxCell id="title" value="Sequence: Group Creation &amp; Bulk Invite Members" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=16;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="400" y="10" width="430" height="30" as="geometry"/></mxCell>
+
+        <!-- Lifelines -->
+        <mxCell id="ll1" value="Owner" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=40;fillColor=#E6E6E6;strokeColor=#666666;" vertex="1" parent="1"><mxGeometry x="60" y="60" width="100" height="950" as="geometry"/></mxCell>
+        <mxCell id="ll2" value="Frontend" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=40;fillColor=#E6E6E6;strokeColor=#666666;" vertex="1" parent="1"><mxGeometry x="220" y="60" width="100" height="950" as="geometry"/></mxCell>
+        <mxCell id="ll3" value="GroupController" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=40;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="380" y="60" width="110" height="950" as="geometry"/></mxCell>
+        <mxCell id="ll4" value="CreateGroup\nUseCase" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=40;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="540" y="60" width="110" height="950" as="geometry"/></mxCell>
+        <mxCell id="ll5" value="GroupRepository" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=40;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="700" y="60" width="110" height="950" as="geometry"/></mxCell>
+        <mxCell id="ll6" value="BulkInviteGroup\nMembersUseCase" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=40;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="870" y="60" width="120" height="950" as="geometry"/></mxCell>
+        <mxCell id="ll7" value="GroupMember\nRepository" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=40;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="1050" y="60" width="110" height="950" as="geometry"/></mxCell>
+        <mxCell id="ll8" value="OTPGenerator" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=40;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="1210" y="60" width="100" height="950" as="geometry"/></mxCell>
+        <mxCell id="ll9" value="EmailSender" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=40;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="1360" y="60" width="100" height="950" as="geometry"/></mxCell>
+
+        <!-- FRAME: Create Group -->
+        <mxCell id="f1" value="Create Group" style="shape=umlFrame;whiteSpace=wrap;html=1;width=110;height=25;fillColor=none;strokeColor=#333333;" vertex="1" parent="1"><mxGeometry x="40" y="120" width="800" height="290" as="geometry"/></mxCell>
+
+        <mxCell id="m1" value="1: Fill group form (name, desc, cameras)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="110" y="160" as="sourcePoint"/><mxPoint x="270" y="160" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m2" value="2: POST /groups" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="270" y="190" as="sourcePoint"/><mxPoint x="435" y="190" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m3" value="3: execute(owner_id, name, desc, cameras)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="435" y="220" as="sourcePoint"/><mxPoint x="595" y="220" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m4" value="4: create(Group entity)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="595" y="250" as="sourcePoint"/><mxPoint x="755" y="250" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m4r" value="saved Group" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;strokeColor=#999999;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="755" y="275" as="sourcePoint"/><mxPoint x="595" y="275" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m5" value="Group" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;strokeColor=#999999;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="595" y="300" as="sourcePoint"/><mxPoint x="435" y="300" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m6" value="201 Created {group}" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;strokeColor=#999999;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="435" y="330" as="sourcePoint"/><mxPoint x="270" y="330" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m7" value="Show group created" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;strokeColor=#999999;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="270" y="360" as="sourcePoint"/><mxPoint x="110" y="360" as="targetPoint"/></mxGeometry></mxCell>
+
+        <!-- FRAME: Bulk Invite -->
+        <mxCell id="f2" value="Bulk Invite Members to Group" style="shape=umlFrame;whiteSpace=wrap;html=1;width=200;height=25;fillColor=none;strokeColor=#333333;" vertex="1" parent="1"><mxGeometry x="40" y="430" width="1440" height="540" as="geometry"/></mxCell>
+
+        <mxCell id="m8" value="1: Enter member list (emails + permissions)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="110" y="475" as="sourcePoint"/><mxPoint x="270" y="475" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m9" value="2: POST /groups/{id}/bulk-invite" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="270" y="505" as="sourcePoint"/><mxPoint x="435" y="505" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m10" value="3: execute(group_id, owner, members[])" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="435" y="535" as="sourcePoint"/><mxPoint x="930" y="535" as="targetPoint"/></mxGeometry></mxCell>
+
+        <mxCell id="m11" value="4: get_by_id(group_id) — verify ownership" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="930" y="565" as="sourcePoint"/><mxPoint x="755" y="565" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m11r" value="Group" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;strokeColor=#999999;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="755" y="590" as="sourcePoint"/><mxPoint x="930" y="590" as="targetPoint"/></mxGeometry></mxCell>
+
+        <!-- LOOP -->
+        <mxCell id="loop" value="loop" style="shape=umlFrame;whiteSpace=wrap;html=1;width=50;height=20;fillColor=none;strokeColor=#6c8ebf;fontColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="870" y="610" width="590" height="310" as="geometry"/></mxCell>
+        <mxCell id="loopl" value="[for each member in members[]]" style="text;html=1;align=left;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=10;fontColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="930" y="610" width="180" height="25" as="geometry"/></mxCell>
+
+        <mxCell id="m12" value="5: generate(6)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="930" y="655" as="sourcePoint"/><mxPoint x="1260" y="655" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m12r" value="approval_code" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;strokeColor=#999999;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="1260" y="680" as="sourcePoint"/><mxPoint x="930" y="680" as="targetPoint"/></mxGeometry></mxCell>
+
+        <mxCell id="m13" value="6: create(GroupMember entity)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="930" y="710" as="sourcePoint"/><mxPoint x="1105" y="710" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m13r" value="saved GroupMember" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;strokeColor=#999999;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="1105" y="735" as="sourcePoint"/><mxPoint x="930" y="735" as="targetPoint"/></mxGeometry></mxCell>
+
+        <mxCell id="m14" value="7: send_group_invitation_code(email, group.name, code)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;strokeColor=#333333;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="930" y="765" as="sourcePoint"/><mxPoint x="1410" y="765" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m14r" value="sent" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;strokeColor=#999999;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="1410" y="790" as="sourcePoint"/><mxPoint x="930" y="790" as="targetPoint"/></mxGeometry></mxCell>
+
+        <!-- end loop -->
+        <mxCell id="m15" value="List[GroupMember]" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;strokeColor=#999999;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="930" y="940" as="sourcePoint"/><mxPoint x="435" y="940" as="targetPoint"/></mxGeometry></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
